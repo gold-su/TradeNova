@@ -7,6 +7,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Getter
 @Setter
@@ -57,7 +58,9 @@ public class User {
     private OffsetDateTime lastLoginAt;
 
     /*
-     * 회원가입 시 기본 값들을 세팅하는 편의 메서드.
+     * 로컬 회원가입용 편의 메서드
+     * - created은 @CreationTimestamp에 맡김
+     * - 기본 role, signupType, language, timezone 세잍
      */
     public static User createLocalUser(String email,
                                        String encodedPassword,
@@ -68,14 +71,16 @@ public class User {
                 .nickname(nickname)
                 .role(UserRole.USER)
                 .signupType(SignupType.LOCAL)
-                .createdAt(LocalDateTime.now())
+                .language("ko")         //기본값: 한국어
+                .timezone("Asia/Seoul") //기본값 한국 시간대
                 .build();
     }
 
     /**
      * 로그인 성공 시 마지막 로그인 시간 갱신.
+     * - UTC 기준으로 저장 (나중에 글로벌 서비스 대비)
      */
     public void updateLocalUser(){
-        this.lastLoginAt = LocalDateTime.now();
+        this.lastLoginAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 }

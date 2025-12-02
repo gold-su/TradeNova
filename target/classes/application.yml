@@ -7,15 +7,20 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate   
+      ddl-auto: update #개발 단계: 엔티티 보고 테이블 자동 생성/수정
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: UTC #DB랑 주고바든 시간은 UTC 기준
     show-sql: true
 
   sql:
     init:
       mode: never
+
+  jackson:
+    time_zone: UTC #JSON 직렬화 기본 타임존
 
 server:
   port: 8080

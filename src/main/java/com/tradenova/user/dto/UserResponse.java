@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 /**
  * 클라이언트로 돌려줄 때 사용할 응답 DTO.
@@ -21,8 +22,8 @@ public class UserResponse {
     private String nickname;
     private UserRole role;
     private SignupType signupType;
-    private LocalDateTime createdAt;
-    private LocalDateTime lastLoginAt;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime lastLoginAt;
 
     public static UserResponse from(User user){
         return UserResponse.builder()
