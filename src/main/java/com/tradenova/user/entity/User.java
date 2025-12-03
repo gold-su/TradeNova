@@ -8,6 +8,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -46,6 +47,19 @@ public class User {
     @Column(name = "timezone", length = 50)
     private String timezone; // 예: "Asia/Seoul"
 
+    // 이메일 인증 관련 --------------------------
+
+        @Column(name = "email_verified", nullable = false)
+        private boolean emailVerified;  // 기본값 : false
+
+        @Column(name = "verification_token", length = 100)
+        private String verificationToken; // UUID 등
+
+        @Column(name = "verification_expires_at")
+        private OffsetDateTime verificationExpiresAt;
+
+    // -----------------------------------------
+
     @CreationTimestamp
     @Column(name = "created_at",nullable = false)
     private OffsetDateTime createdAt;
@@ -65,6 +79,9 @@ public class User {
     public static User createLocalUser(String email,
                                        String encodedPassword,
                                        String nickname){
+
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+
         return User.builder()
                 .email(email)
                 .passwordHash(encodedPassword)
@@ -73,6 +90,9 @@ public class User {
                 .signupType(SignupType.LOCAL)
                 .language("ko")         //기본값: 한국어
                 .timezone("Asia/Seoul") //기본값 한국 시간대
+                .emailVerified(false)
+                .verificationToken(UUID.randomUUID().toString())
+                .verificationExpiresAt(now.plusHours(24)) // 24시간 유효
                 .build();
     }
 

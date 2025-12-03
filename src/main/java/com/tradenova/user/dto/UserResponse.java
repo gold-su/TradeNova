@@ -22,6 +22,7 @@ public class UserResponse {
     private String nickname;
     private UserRole role;
     private SignupType signupType;
+    private boolean emailVerified;
     private OffsetDateTime createdAt;
     private OffsetDateTime lastLoginAt;
 
@@ -32,6 +33,7 @@ public class UserResponse {
                 .nickname(user.getNickname())
                 .role(user.getRole())
                 .signupType(user.getSignupType())
+                .emailVerified(user.isEmailVerified())
                 .createdAt(user.getCreatedAt())
                 .lastLoginAt(user.getLastLoginAt())
                 .build();

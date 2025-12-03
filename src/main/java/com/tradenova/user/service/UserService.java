@@ -1,5 +1,8 @@
 package com.tradenova.user.service;
 
+import com.tradenova.security.JwtTokenProvider;
+import com.tradenova.user.dto.LoginRequest;
+import com.tradenova.user.dto.LoginResponse;
 import com.tradenova.user.dto.UserResponse;
 import com.tradenova.user.dto.UserSignupRequest;
 import com.tradenova.user.entity.SignupType;
@@ -27,6 +30,36 @@ public class UserService {
 
     private final UserRepository userRepository; //JPA Repository 인터페이스. 유저 저장/조회, 이메일 중복 체크 등 DB 접근 역할.
     private final PasswordEncoder passwordEncoder; //스프링 시큐리티에서 제공. 비밀번호 암호화해서 저장할 때 사용.
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @Transactional
+    public LoginResponse login(LoginRequest request) {
+
+        // 1) 이메일로 유저 조회
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 2) 이메일 인증 확인
+        if(!user.isEmailVerified()) {
+            throw new CustomException(ErrorCode.EMATIL_NOT_VERIFIED);
+        }
+
+        // 3) 비밀번호 검증
+        if(!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())){
+            throw new CustomException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        // 4) 마지막 로그인 시간 갱신
+        String accessToken = jwtTokenProvider.generateAccessToken(user);
+
+        // 6) 응답 DTO로 변환
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .tokenType("Bearer")
+                .user(UserResponse.from(user))
+                .build();
+    }
+
 
     /*
      * 회원가입

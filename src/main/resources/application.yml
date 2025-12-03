@@ -22,5 +22,10 @@ spring:
   jackson:
     time_zone: UTC #JSON 직렬화 기본 타임존
 
+    tradenova:
+      jwt:
+        sercet: ""
+        acces-token-validity-in-seconds : 3600
+
 server:
   port: 8080
