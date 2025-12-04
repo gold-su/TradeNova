@@ -17,12 +17,12 @@ import java.io.IOException;
 import java.util.Optional;
 
 @Slf4j
-@Component
+@Component   //스프링 빈 등록
 @RequiredArgsConstructor
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtAuthenticationFilter extends OncePerRequestFilter { //OncePerRequestFilter 0-> 요청당 한 번만 실행되는 필터
 
-    private final JwtTokenProvider jwtTokenProvider;
-    private final UserRepository userRepository;
+    private final JwtTokenProvider jwtTokenProvider; // -> 토크 파싱/검증 담당
+    private final UserRepository userRepository; // -> 토큰 속 이메일로 유저 조회
 
     @Override
     protected void doFilterInternal(
@@ -31,19 +31,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String token = resolveToken(request);
+        String token = resolveToken(request); // resolveToken(request) -> 요청 헤더에서 Authorization : Bearer xxx 꺼냄
 
-        if(token != null && jwtTokenProvider.validateToken(token)) {
-            String email = jwtTokenProvider.getEmail(token);
+        if(token != null && jwtTokenProvider.validateToken(token)) { //token이 있고 validateToken 통과하면
+            String email = jwtTokenProvider.getEmail(token); //-> 토큰에서 이메일 꺼냄 (getEmail(token) = subject)
 
-            Optional<User> optionalUser = userRepository.findByEmail(email);
-            if(optionalUser.isPresent()){
+            Optional<User> optionalUser = userRepository.findByEmail(email); // email을 findByEmail로 실제 DB에 있는지 유저 조회 / optional은 null 일 수도 있고, 아닐 수도 있는 값을 감싸놓은 박스, 일반 객체로 만들었을 때 null이라면 다른 .getName() 형식 등의 코드가 있을 때 예외 터짐
+            if(optionalUser.isPresent()){ //isPresent는 Optional 클래스의 메서드, Optional 안에 값이 있으면 true, 없으면 false
                 User user = optionalUser.get();
 
                 //간단하게 ROLE 하나만 사용
                 var auth = new UsernamePasswordAuthenticationToken(
                         user, null, null
-                );
+                ); //
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
         }
