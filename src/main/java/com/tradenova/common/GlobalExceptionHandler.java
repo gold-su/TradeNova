@@ -1,5 +1,8 @@
 package com.tradenova.common;
 
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.common.exception.ErrorResponse;
 import com.tradenova.user.exception.DuplicateEmailException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.HashMap;
 import java.util.Map;
 
-@RestControllerAdvice  // 전역 예외 처리 + 전역 응답 커스터마이징을 할 수 있는 스프링의 기능
+@RestControllerAdvice  // 모든 RestController 에서 발생하는 예외를 가로채서 한 곳에서 처리하는 전역 예외 처리기. / 각 메서드에 ExceptionHandler 붙여서 예외 타입별로 응답을 직접 커스터마이징
 public class GlobalExceptionHandler {
 
     // DTO @Valid 검증 실패
@@ -35,5 +38,36 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new HashMap<>();
         body.put("message", "ex.getMessage(): " + ex.getMessage());     //DuplicateEmailException 메시지와 이메일 응답용
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);   //이메일 중복 오류 상태 전달
+    }
+
+
+    //커스텀 비즈니스 예외
+    @ExceptionHandler(CustomException.class)
+    public ResponseEntity<?> handleCustomException(CustomException ex) {
+
+        ErrorCode code = ex.getErrorCode();
+
+        com.tradenova.common.exception.ErrorResponse response = new com.tradenova.common.exception.ErrorResponse(
+                code.getStatus().value(),
+                code.name(),
+                code.getMessage()
+        );
+
+        return ResponseEntity.status(code.getStatus()).body(response);
+    }
+
+    //예상 못 한 일반 예외
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<?> handleGeneralException(Exception ex) {
+
+        ex.printStackTrace(); // 서버 로그 남김
+
+        ErrorResponse response = new com.tradenova.common.exception.ErrorResponse(
+                500,
+                "INTERNAL_SERVER_ERROR",
+                "서버 오류가 발생했습니다."
+        );
+
+        return ResponseEntity.status(500).body(response);
     }
 }

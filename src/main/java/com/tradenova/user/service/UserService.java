@@ -1,5 +1,7 @@
 package com.tradenova.user.service;
 
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.security.JwtTokenProvider;
 import com.tradenova.user.dto.LoginRequest;
 import com.tradenova.user.dto.LoginResponse;
@@ -41,7 +43,7 @@ public class UserService {
 
         // 2) 이메일 인증 확인
         if(!user.isEmailVerified()) {
-            throw new CustomException(ErrorCode.EMATIL_NOT_VERIFIED);
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         // 3) 비밀번호 검증
