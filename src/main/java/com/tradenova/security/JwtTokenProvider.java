@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.provisioning.UserDetailsManager;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -20,7 +19,6 @@ import java.util.Date;
 @Component //스프링에게 "이 클래스를 빈으로 등록해서 관리해줘"라고 알리는 어노테이션  //스프링 IoC 컨테이너에 빈으로 등록 (DI 가능)
 public class JwtTokenProvider {
 
-    private final UserDetailsManager userDetailsManager;
     @Value("${tradenova.jwt.secret}")
     private String secret;
 
@@ -28,10 +26,6 @@ public class JwtTokenProvider {
     private long accessTokenValiditySeconds;
 
     private Key key;
-
-    public JwtTokenProvider(UserDetailsManager userDetailsManager) {
-        this.userDetailsManager = userDetailsManager;
-    }
 
     @PostConstruct //스프링 빈이 생성되고 DI(의존성 주입)까지 모두 끝난 직후에 딱 한 번 실행되는 메서드에 붙이는 어노테이션이야.
     public void init(){

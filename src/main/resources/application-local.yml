@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    username: tradenova_app
+    password: novaLo048679@!#
+
+tradenova:
+  jwt:
+    secret: ThisIsASecretKeyForTradeNovaJwtToken1234
+    access-token-validity-in-seconds: 3600
