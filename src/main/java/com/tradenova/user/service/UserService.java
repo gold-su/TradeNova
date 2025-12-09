@@ -41,10 +41,10 @@ public class UserService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2) 이메일 인증 확인
-        if(!user.isEmailVerified()) {
-            throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
-        }
+//        // 2) 이메일 인증 확인
+//        if(!user.isEmailVerified()) {
+//            throw new CustomException(ErrorCode.EMAIL_NOT_VERIFIED);
+//        } //이메일 인증 로직 코딩 후 주석 해제
 
         // 3) 비밀번호 검증
         if(!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())){

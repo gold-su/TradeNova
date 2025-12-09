@@ -15,6 +15,7 @@ public enum ErrorCode {
     //401 UNAUTHORIZED
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED,"로그인이 필요합니다."),
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED,"비밀번호가 일치하지 않습니다."),
+    EMAIL_NOT_VERIFIED(HttpStatus.UNAUTHORIZED,"이메일 인증이 완료되지 않았습니다."),
 
     //404 NOT FOUND
     USER_NOT_FOUND(HttpStatus.NOT_FOUND,"사용자를 찾을 수 없습니다."),
