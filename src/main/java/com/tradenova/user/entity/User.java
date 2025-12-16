@@ -23,10 +23,10 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "email",unique = true,nullable = false,length = 255)
+    @Column(name = "email",unique = true,nullable = false)
     private String email;
 
-    @Column(name = "password_hash", nullable = true, length = 255)
+    @Column(name = "password_hash")
     private String passwordHash;
 
     @Column(name = "google_id", unique = true)
@@ -75,6 +75,12 @@ public class User {
     @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus status; // ACTIVE, SUSPENDED, DELETED 등
+
+
+
     /*
      * 로컬 회원가입용 편의 메서드
      * - created은 @CreationTimestamp에 맡김
@@ -95,6 +101,7 @@ public class User {
                 .language("ko")         //기본값: 한국어
                 .timezone("Asia/Seoul") //기본값 한국 시간대
                 .emailVerified(false)
+                .status(UserStatus.ACTIVE)
                 .verificationToken(UUID.randomUUID().toString())
                 .verificationExpiresAt(now.plusHours(24)) // 24시간 유효
                 .build();

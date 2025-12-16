@@ -80,16 +80,12 @@ public class UserService {
         // 2) 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(request.getPassword()); //평문 비밀번호 encode()로 암호화.
 
-        // 3) User 엔티티 생성
-        User user = User.builder() //User 엔티티를 빌더 패턴으로 생성.
-                .email(request.getEmail())
-                .passwordHash(encodedPassword)
-                .nickname(request.getNickname())
-                .role(UserRole.USER)
-                .signupType(SignupType.LOCAL)
-                .language("ko")         //기본값
-                .timezone("Asia/Seoul") //기본값
-                .build();
+        // 3) Entity 에서 팩토리 메서드 사용
+        User user = User.createLocalUser(
+                request.getEmail(),
+                encodedPassword,
+                request.getNickname()
+        );
 
         // 4) 저장
         User saved = userRepository.save(user); //JPA 가 이 텐티리를 DB에 INSERT 해줌. / saved 안에는 PK(id)까지 포함된 완성된 User 객체가 들어있음.
