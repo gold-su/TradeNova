@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="error fixed">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/entity/UserStatus.java" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="fixed a user entity">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/user/entity/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/entity/User.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/user/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/service/UserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -117,7 +115,9 @@
       <workItem from="1765180606426" duration="13513000" />
       <workItem from="1765275637986" duration="5161000" />
       <workItem from="1765735110103" duration="1815000" />
-      <workItem from="1765870782049" duration="2162000" />
+      <workItem from="1765870782049" duration="2801000" />
+      <workItem from="1765955902672" duration="1203000" />
+      <workItem from="1766057921145" duration="5344000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -199,7 +199,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765310698312</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="fixed a user entity">
+      <option name="closed" value="true" />
+      <created>1765906134927</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1765906134927</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -214,6 +222,7 @@
     <MESSAGE value="I worked on a userLogin" />
     <MESSAGE value="worked on the exception" />
     <MESSAGE value="error fixed" />
-    <option name="LAST_COMMIT_MESSAGE" value="error fixed" />
+    <MESSAGE value="fixed a user entity" />
+    <option name="LAST_COMMIT_MESSAGE" value="fixed a user entity" />
   </component>
 </project>
