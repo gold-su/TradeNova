@@ -4,9 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="fixed a user entity">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="cors and securityFilter setting">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/dto/EmailSendRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/dto/EmailSendResponse.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/dto/EmailVerifyRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/dto/SimpleMessageResponse.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/user/controller/UserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/controller/UserController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/user/entity/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/entity/User.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/user/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/service/UserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -17,8 +25,8 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Interface" />
-        <option value="Class" />
         <option value="Enum" />
+        <option value="Class" />
       </list>
     </option>
   </component>
@@ -117,7 +125,9 @@
       <workItem from="1765735110103" duration="1815000" />
       <workItem from="1765870782049" duration="2801000" />
       <workItem from="1765955902672" duration="1203000" />
-      <workItem from="1766057921145" duration="5344000" />
+      <workItem from="1766057921145" duration="6747000" />
+      <workItem from="1766145226426" duration="2889000" />
+      <workItem from="1766155836530" duration="12098000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -207,7 +217,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765906134927</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="cors and securityFilter setting">
+      <option name="closed" value="true" />
+      <created>1766075021217</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1766075021218</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -223,6 +241,7 @@
     <MESSAGE value="worked on the exception" />
     <MESSAGE value="error fixed" />
     <MESSAGE value="fixed a user entity" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixed a user entity" />
+    <MESSAGE value="cors and securityFilter setting" />
+    <option name="LAST_COMMIT_MESSAGE" value="cors and securityFilter setting" />
   </component>
 </project>

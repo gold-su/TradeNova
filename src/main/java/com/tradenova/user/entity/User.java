@@ -107,11 +107,25 @@ public class User {
                 .build();
     }
 
+    //이메일 인증 코드를 발급하는 메서드
+    //이 메서드가 호출되면 "이 유저는 지금 이메일 인증 대기 상태"가 된다.
+    public void issueVerificationCode(String code, OffsetDateTime expiresAt){
+        this.verificationToken = code; //이메일로 보낸 인증 코드
+        this.verificationExpiresAt = expiresAt; //인증 코드 만료 시간
+    }
+
+    //사용자가 이메일 인증을 성공했을 때 호출
+    public void verifyEmail(){
+        this.emailVerified = true;
+        this.verificationToken = null;
+        this.verificationExpiresAt = null;
+    }
+
     /**
      * 로그인 성공 시 마지막 로그인 시간 갱신.
      * - UTC 기준으로 저장 (나중에 글로벌 서비스 대비)
      */
-    public void updateLocalUser(){
+    public void touchLastLogin(){
         this.lastLoginAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 }

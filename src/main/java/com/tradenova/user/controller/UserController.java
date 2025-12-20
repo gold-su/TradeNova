@@ -1,10 +1,7 @@
 package com.tradenova.user.controller;
 
 
-import com.tradenova.user.dto.LoginRequest;
-import com.tradenova.user.dto.LoginResponse;
-import com.tradenova.user.dto.UserResponse;
-import com.tradenova.user.dto.UserSignupRequest;
+import com.tradenova.user.dto.*;
 import com.tradenova.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,5 +37,17 @@ public class UserController {
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) { //@Valid로 DTO 검증
         LoginResponse response = userService.login(request);  //받은 요청으로 userService에 로그인 메서드 실행 결과 response에 담기
         return ResponseEntity.ok(response); //응답
+    }
+
+    @PostMapping("/email/send")
+    public ResponseEntity<EmailSendResponse> sendEmail(@Valid @RequestBody EmailSendRequest req) {
+        EmailSendResponse res = userService.sendEmailVerification(req);
+        return ResponseEntity.ok(res);
+    }
+
+    @PostMapping("/email/verify")
+    public ResponseEntity<SimpleMessageResponse> verifyEmail(@Valid @RequestBody EmailVerifyRequest req) {
+        userService.verifyEmail(req);
+        return ResponseEntity.ok(new SimpleMessageResponse("이메일 인증 완료"));
     }
 }

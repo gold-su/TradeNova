@@ -3,20 +3,20 @@ package com.tradenova.user.service;
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.security.JwtTokenProvider;
-import com.tradenova.user.dto.LoginRequest;
-import com.tradenova.user.dto.LoginResponse;
-import com.tradenova.user.dto.UserResponse;
-import com.tradenova.user.dto.UserSignupRequest;
-import com.tradenova.user.entity.SignupType;
+import com.tradenova.user.dto.*;
 import com.tradenova.user.entity.User;
-import com.tradenova.user.entity.UserRole;
 import com.tradenova.user.exception.DuplicateEmailException;
 import com.tradenova.user.exception.UserNotFoundException;
 import com.tradenova.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.security.SecureRandom;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 /**
  * user 관련 비즈니스 로직
@@ -33,6 +33,13 @@ public class UserService {
     private final UserRepository userRepository; //JPA Repository 인터페이스. 유저 저장/조회, 이메일 중복 체크 등 DB 접근 역할.
     private final PasswordEncoder passwordEncoder; //스프링 시큐리티에서 제공. 비밀번호 암호화해서 저장할 때 사용.
     private final JwtTokenProvider jwtTokenProvider;
+
+    //개발용: 아무 코드나 통과시키기 위해 TRUE로
+    //나중에 false로 변경/삭제 or profile로 분기
+    @Value("${app.dev.allow-any-verify-code:true}")
+    private boolean allowAnyVerifyCode;
+
+    private static final SecureRandom RND = new SecureRandom();
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
@@ -51,6 +58,10 @@ public class UserService {
             throw new CustomException(ErrorCode.INVALID_PASSWORD);
         }
 
+        //로그인 성공 시 마지막 로그인 시간 갱신.
+        //User Entity에 있는 메서드 사용
+        user.touchLastLogin();
+
         // 4) 마지막 로그인 시간 갱신
         String accessToken = jwtTokenProvider.generateAccessToken(user);
 
@@ -61,7 +72,6 @@ public class UserService {
                 .user(UserResponse.from(user))
                 .build();
     }
-
 
     /*
      * 회원가입
@@ -115,11 +125,63 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException(email));
     }
 
-    /*
-     * 로그인 성공 시 마지막 로그인 시간 갱신
-     */
-    public void updateLastLogin(String email){
-        User user = findByEmail(email); //email로 user 가져옴
-        user.updateLocalUser(); //user 엔티티 안에 편의 메서드 사용, 변경감지 -> UPDATE 쿼리 날아감.
+
+    private String generate6DigitCode(){
+        int n = RND.nextInt(900000) + 100000;
+        return String.valueOf(n);
     }
+
+    @Transactional //하나의 트랜잭션으로 묶어줌, 회원가입 시에 이메일 인증 실패면 DB에 아무것도 안 남게 전부 롤백
+    //이메일 인증 코드를 생성하고 User 엔티티에 저장하는 유스케이스
+    public EmailSendResponse sendEmailVerification(EmailSendRequest req){
+
+        //이메일 기준으로 User 조회, 존재하지 않으면 즉시 종료
+        User user = userRepository.findByEmail(req.getEmail())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        //이미 인증된 경우에도 UX상 "보냈다"로 처리 가능
+        if(user.isEmailVerified()){
+            return new EmailSendResponse("이미 인증된 이메일입니다.", null);
+        }
+
+        //인증 코드 생성
+        String code = generate6DigitCode();
+        //UTC 기준으로 만료 시간 생성.
+        OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(10);
+
+        //도메인 메서드 호출
+        user.issueVerificationCode(code, expiresAt);
+
+        //TODO: 여기서 실제 이메일 발송 붙이면 됨
+        //mailService.send(req.getEmail(), code);
+
+        //지금은 개발 편의상 코드 내려줌(나중에 제거)
+
+        return new EmailSendResponse("인증 코드가 발급되었습니다.", code);
+    }
+
+    @Transactional
+    //사용자가 입력한 인증 코드를 검증하고 이메일 인증 상태로 전환
+    public void verifyEmail(EmailVerifyRequest req){
+        User user = userRepository.findByEmail(req.getEmail())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if(user.isEmailVerified()) return;
+
+        //만료 체크
+        if(user.getVerificationExpiresAt() == null || //인증 코드가 없음
+                user.getVerificationExpiresAt().isBefore(OffsetDateTime.now(ZoneOffset.UTC))){ // 인증 시간이 지남
+            throw new CustomException(ErrorCode.VERIFICATION_CODE_EXPIRED); //VERIFICATION_CODE_EXPIRED 예외
+        }
+
+        //개발용 : 아무 코드나 통과
+        if (!allowAnyVerifyCode) {
+            if (user.getVerificationToken() == null ||
+                    !user.getVerificationToken().equals(req.getCode())) {
+                throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE);
+            }
+        }
+        user.verifyEmail();
+    }
+
 }

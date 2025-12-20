@@ -9,8 +9,8 @@ public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "Invalid Request"),
     EMAIL_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "이미 사용 중인 이메일입니다."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.BAD_REQUEST,"이미 사용 중인 닉네임입니다."),
-    INVALID_VERIFICATION_TOKEN(HttpStatus.BAD_REQUEST,"유효하지 않은 인증 코드입니다."),
-    VERIFICATION_TOKEN_EXPIRED(HttpStatus.BAD_REQUEST,"인증 코드가 만료되었습니다."),
+    INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST,"유효하지 않은 인증 코드입니다."),
+    VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST,"인증 코드가 만료되었습니다."),
 
     //401 UNAUTHORIZED
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED,"로그인이 필요합니다."),
