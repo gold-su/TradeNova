@@ -82,25 +82,33 @@ public class UserService {
      */
     public UserResponse signup(UserSignupRequest request){
 
+        String email = request.getEmail().trim().toLowerCase();
+        String nickname = request.getNickname().trim();
+
         // 1) 이메일 중복 체크
-        if(userRepository.existsByEmail(request.getEmail())){  //이메일이 이미 존재하는지 true/false 리턴
-            throw new DuplicateEmailException(request.getEmail()); //이미 있으면 DuplicateEmailException 던져서 회원가입 실패 처리
+        if(userRepository.existsByEmail(email)){  //이메일이 이미 존재하는지 true/false 리턴
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL); //이미 있으면 CustomException(ErrorCode.DUPLICATE_EMAIL) 던져서 회원가입 실패 처리
         }
 
-        // 2) 비밀번호 암호화
+        // 2) 닉네임 중복 체크
+        if(userRepository.existsByNickname(nickname)){
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+
+        // 3) 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(request.getPassword()); //평문 비밀번호 encode()로 암호화.
 
-        // 3) Entity 에서 팩토리 메서드 사용
+        // 4) Entity 에서 팩토리 메서드 사용
         User user = User.createLocalUser(
                 request.getEmail(),
                 encodedPassword,
                 request.getNickname()
         );
 
-        // 4) 저장
+        // 5) 저장
         User saved = userRepository.save(user); //JPA 가 이 텐티리를 DB에 INSERT 해줌. / saved 안에는 PK(id)까지 포함된 완성된 User 객체가 들어있음.
 
-        // 5) 응답 DTO로 변환 후 리턴
+        // 6) 응답 DTO로 변환 후 리턴
         return UserResponse.from(saved); //엔티티(User)를 그대로 클라이언트에게 보내지 않고 DTO로 변환해서 리턴. (passwordHash 같은 민감 정보는 빼야 함, API 응답 형태를 엔티티 구조와 분리)
     }
 

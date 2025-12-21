@@ -1,13 +1,9 @@
-package com.tradenova.common;
+package com.tradenova.common.exception;
 
-import com.tradenova.common.exception.CustomException;
-import com.tradenova.common.exception.ErrorCode;
-import com.tradenova.common.exception.ErrorResponse;
 import com.tradenova.user.exception.DuplicateEmailException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -64,17 +60,15 @@ public class GlobalExceptionHandler  {
     }
 
     /**
-     * @Valid DTO 검증 실패 처리
-     * - Spring Validation이 잡아낸 필드 에러를 errors(Map<field, message>)로 내려준다.
-     * - 이때 message는 DTO의 @NotBlank(message="...")에 지정된 문자열이거나,
-     *   i18n을 하고 싶으면 message를 "message key"로 두고 여기에서 다시 resolve하는 방식도 가능하다.
+     * DTO Validation(@Valid) 실패 처리
+     * - field 별 에러를 errors로 묶어서 내려준다.
+     * - 프론트에서 입력창 아래에 메시지 표시하기 좋게 만든다.
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
 
         Map<String, String> fieldErrors = new HashMap<>();
         for (FieldError fe : ex.getBindingResult().getFieldErrors()) {
-            // fe.getDefaultMessage()는 DTO 검증 애노테이션의 message 값이 들어온다.
             fieldErrors.put(fe.getField(), fe.getDefaultMessage());
         }
 
@@ -85,30 +79,6 @@ public class GlobalExceptionHandler  {
                 code.name(),
                 resolveMessage(code),
                 fieldErrors
-        );
-
-        return ResponseEntity.status(code.getStatus()).body(body);
-    }
-
-    /**
-     * DuplicateEmailException 처리
-     * - 현재 프로젝트에서 DuplicateEmailException을 따로 쓰고 있다면,
-     *   여기에서도 응답 포맷을 ErrorResponse로 통일하는 것이 좋다.
-     *
-     * 추천:
-     * - 가능하면 DuplicateEmailException 자체를 CustomException(ErrorCode.DUPLICATE_EMAIL)로 통일하는게 가장 깔끔하다.
-     * - 그게 어렵다면 여기처럼 "DUPLICATE_EMAIL"로 맵핑해서 내려준다.
-     */
-    @ExceptionHandler(DuplicateEmailException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex) {
-
-        ErrorCode code = ErrorCode.DUPLICATE_EMAIL;
-
-        ErrorResponse body = new ErrorResponse(
-                code.getStatus().value(),
-                code.name(),
-                resolveMessage(code),
-                null
         );
 
         return ResponseEntity.status(code.getStatus()).body(body);
