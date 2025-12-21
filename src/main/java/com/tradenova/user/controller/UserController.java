@@ -1,7 +1,10 @@
 package com.tradenova.user.controller;
 
 
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.user.dto.*;
+import com.tradenova.user.repository.UserRepository;
 import com.tradenova.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
-
+    private final UserRepository userRepository;
     /*
      * 회원가입
      * POST /api/auth/signup
@@ -49,5 +52,23 @@ public class UserController {
     public ResponseEntity<SimpleMessageResponse> verifyEmail(@Valid @RequestBody EmailVerifyRequest req) {
         userService.verifyEmail(req);
         return ResponseEntity.ok(new SimpleMessageResponse("이메일 인증 완료"));
+    }
+
+    //이메일 중복체크
+    @PostMapping("/email/check")
+    public ResponseEntity<Void> checkEmail(@RequestBody EmailSendRequest req) {
+        if (userRepository.existsByEmail(req.getEmail())) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    //닉네임 중복체크
+    @PostMapping("/nickname/check")
+    public ResponseEntity<Void> checkNickname(@RequestBody NicknameCheckRequest req) {
+        if (userRepository.existsByNickname(req.getNickname())) {
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+        return ResponseEntity.ok().build();
     }
 }

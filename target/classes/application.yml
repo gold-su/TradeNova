@@ -22,6 +22,10 @@ spring:
     init:
       mode: never
 
+  app:
+    dev:
+      allow_any_verify-code: true
+
   jackson:
     time_zone: UTC #JSON 직렬화 기본 타임존
 

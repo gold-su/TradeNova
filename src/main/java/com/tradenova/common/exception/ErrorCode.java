@@ -6,29 +6,33 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorCode {
     //400 BAD REQUEST
-    INVALID_REQUEST(HttpStatus.BAD_REQUEST, "Invalid Request"),
-    EMAIL_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "이미 사용 중인 이메일입니다."),
-    NICKNAME_ALREADY_EXISTS(HttpStatus.BAD_REQUEST,"이미 사용 중인 닉네임입니다."),
-    INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST,"유효하지 않은 인증 코드입니다."),
-    VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST,"인증 코드가 만료되었습니다."),
+    INVALID_REQUEST(HttpStatus.BAD_REQUEST, "error.INVALID_REQUEST"),
+    EMAIL_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "error.EMAIL_ALREADY_EXISTS"),
+    NICKNAME_ALREADY_EXISTS(HttpStatus.BAD_REQUEST,"error.NICKNAME_ALREADY_EXISTS"),
+    INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST,"error.INVALID_VERIFICATION_CODE"),
+    VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST,"error.VERIFICATION_CODE_EXPIRED"),
 
     //401 UNAUTHORIZED
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED,"로그인이 필요합니다."),
-    INVALID_PASSWORD(HttpStatus.UNAUTHORIZED,"비밀번호가 일치하지 않습니다."),
-    EMAIL_NOT_VERIFIED(HttpStatus.UNAUTHORIZED,"이메일 인증이 완료되지 않았습니다."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED,"error.UNAUTHORIZED"),
+    INVALID_PASSWORD(HttpStatus.UNAUTHORIZED,"error.INVALID_PASSWORD"),
+    EMAIL_NOT_VERIFIED(HttpStatus.UNAUTHORIZED,"error.EMAIL_NOT_VERIFIED"),
 
     //404 NOT FOUND
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND,"사용자를 찾을 수 없습니다."),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND,"error.USER_NOT_FOUND"),
 
     //409 CONFLICT
-    DUPLICATE_EMAIL(HttpStatus.CONFLICT,"이미 존재하는 이메일입니다."),
-    DUPLICATE_NICKNAME(HttpStatus.CONFLICT,"이미 존재하는 닉네임입니다.");
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT,"error.DUPLICATE_EMAIL"),
+    DUPLICATE_NICKNAME(HttpStatus.CONFLICT,"error.DUPLICATE_NICKNAME");
 
-    private final HttpStatus status;
-    private final String message;
+    //에러 코드 하나가 가지는 정보
+    private final HttpStatus status; //HTTP 응답 상태 코드 (400, 404, 409 등)
+    private final String messageKey; //i18n 메시지 키 (error.user.notfound 같은 값)
 
-    ErrorCode(HttpStatus status, String message){
+    //enum 생성자
+    //각 ErrorCode 상수가 생성될 때
+    //상태 코드 + 메시지 키를 함께 고정
+    ErrorCode(HttpStatus status, String messageKey){
         this.status = status;
-        this.message = message;
+        this.messageKey = messageKey;
     }
 }
