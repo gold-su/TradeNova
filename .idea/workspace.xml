@@ -4,16 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="error setting">
-      <change afterPath="$PROJECT_DIR$/src/main/resources/ValidationMessages_en.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/ValidationMessages_ja.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/ValidationMessages_ko.properties" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="DTO valid global coding">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/config/I18nConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/config/I18nConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/GlobalExceptionHandler.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/user/dto/LoginRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/dto/LoginRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/user/dto/UserSignupRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/dto/UserSignupRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/user/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/service/UserService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -129,7 +121,10 @@
       <workItem from="1766155836530" duration="13314000" />
       <workItem from="1766257684201" duration="7015000" />
       <workItem from="1766316055216" duration="596000" />
-      <workItem from="1766335270524" duration="7039000" />
+      <workItem from="1766335270524" duration="7299000" />
+      <workItem from="1766366870850" duration="596000" />
+      <workItem from="1766378564461" duration="597000" />
+      <workItem from="1766497090103" duration="1348000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -251,7 +246,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766348687281</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="DTO valid global coding">
+      <option name="closed" value="true" />
+      <created>1766351708716</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1766351708716</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -271,6 +274,7 @@
     <MESSAGE value="late commit from yesterday" />
     <MESSAGE value="commit for a bit" />
     <MESSAGE value="error setting" />
-    <option name="LAST_COMMIT_MESSAGE" value="error setting" />
+    <MESSAGE value="DTO valid global coding" />
+    <option name="LAST_COMMIT_MESSAGE" value="DTO valid global coding" />
   </component>
 </project>
