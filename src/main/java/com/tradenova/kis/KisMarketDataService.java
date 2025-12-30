@@ -93,6 +93,7 @@ public class KisMarketDataService  {
                         parseDoubleSafe(row.close()),
                         parseLongSafe(row.volume())
                 ))
+                .sorted(java.util.Comparator.comparingLong(CandleDto::t)) // t 오름차순(과거->최신)
                 // 보통 date 오름차순이지만, 혹시 모르니 정렬하고 싶으면 Comparator 추가
                 .toList();
     }
