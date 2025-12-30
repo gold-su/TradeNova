@@ -12,5 +12,6 @@ public record KisTokenResponse( //토큰 요청 → “토큰 그 자체 + 토�
         @JsonProperty("expires_in") long expiresIn, // 토큰 유효 기간 (초 단위가 많음)
         @JsonProperty("access_token_token_expired")
         Optional<String> expiredAt // 언제 토큰 유효 기간이 죽는지 알려줄 수도 있음 / 문서/응답마다 다를 수 있어서 Optional(값이 있을수도, 없을수도 있다)
+
 ) {
 }
