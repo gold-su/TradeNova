@@ -34,5 +34,11 @@ tradenova:
     secret: ${JWT_SECRET}
     access-token-validity-in-seconds : ${JWT_EXPIRE_SECONDS:3600}
 
+kis:
+  base-url: https://openapi.koreainvestment.com:9443
+  appkey: ${KIS_APPKEY}
+  appsecret: ${KIS_APPSECRET}
+  custtype: P  # 개인: P, 법인: B
+
 server:
   port: 8080

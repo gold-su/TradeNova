@@ -36,6 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { //OncePerReq
         if(token != null && jwtTokenProvider.validateToken(token)) { //token이 있고 validateToken 통과하면
             String email = jwtTokenProvider.getEmail(token); //-> 토큰에서 이메일 꺼냄 (getEmail(token) = subject)
 
+
             Optional<User> optionalUser = userRepository.findByEmail(email); // email을 findByEmail로 실제 DB에 있는지 유저 조회 / optional은 null 일 수도 있고, 아닐 수도 있는 값을 감싸놓은 박스, 일반 객체로 만들었을 때 null이라면 다른 .getName() 형식 등의 코드가 있을 때 예외 터짐
             if(optionalUser.isPresent()){ //isPresent는 Optional 클래스의 메서드, Optional 안에 값이 있으면 true, 없으면 false
                 User user = optionalUser.get(); //값이 있으니까 get 으로 실제 User 엔티티 꺼내오기

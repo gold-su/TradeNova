@@ -3,12 +3,15 @@ package com.tradenova.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -41,11 +44,14 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/auth/login",
                                 "/api/auth/signup",
-                                "/health"
+                                "/health",
+                                "/error"
                         ).permitAll() // 회원가입/로그인은 허용
                         .anyRequest().authenticated() // 일단 전부 허용
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class); //모든 요청 앞단에서 JWT를 검사하겠다. 기본 인증 필터보다 먼저 실행해야 하므로 Before() 사용.
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class) //모든 요청 앞단에서 JWT를 검사하겠다. 기본 인증 필터보다 먼저 실행해야 하므로 Before() 사용.
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));
 
         return http.build(); //SecurityFitterChain 객체를 생성하여 스프링에 전달. 이 체인을 가지고 모든 요청에 대한 보안 적용을 시작함.
     }
