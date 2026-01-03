@@ -32,9 +32,12 @@ public class User {
     @Column(name = "google_id", unique = true)
     private String googleId;
 
-
     @Column(name = "nickname",length = 50, nullable = false)
     private String nickname;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subscription_tier", nullable = false, length = 20)
+    private SubscriptionTier subscriptionTier;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -96,6 +99,7 @@ public class User {
                 .email(email)
                 .passwordHash(encodedPassword)
                 .nickname(nickname)
+                .subscriptionTier(SubscriptionTier.FREE)
                 .role(UserRole.USER)
                 .signupType(SignupType.LOCAL)
                 .language("ko")         //기본값: 한국어

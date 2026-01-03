@@ -4,21 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="testing done">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/controller/PaperAccountController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/dto/BaseCurrency.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/dto/PaperAccountCreateRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/dto/PaperAccountResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/dto/PaperAccountUpdateRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperAccount.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperPosition.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperAccountRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperPositionRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/service/PaperAccountService.java" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="PaperAccount coding">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/entity/SubscriptionTier.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/security/JwtAuthenticationFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/security/JwtAuthenticationFilter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/service/PaperAccountService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/service/PaperAccountService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/user/entity/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/user/entity/User.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,9 +18,9 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Enum" />
         <option value="Interface" />
         <option value="Class" />
+        <option value="Enum" />
       </list>
     </option>
   </component>
@@ -142,7 +132,7 @@
       <workItem from="1766936834114" duration="4361000" />
       <workItem from="1767033655364" duration="8227000" />
       <workItem from="1767073325417" duration="24168000" />
-      <workItem from="1767291776137" duration="19033000" />
+      <workItem from="1767291776137" duration="19680000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -328,7 +318,15 @@
       <option name="project" value="LOCAL" />
       <updated>1767123572732</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="PaperAccount coding">
+      <option name="closed" value="true" />
+      <created>1767410443837</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1767410443837</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -355,6 +353,7 @@
     <MESSAGE value="한국투자증권 KIS API TOKEN 발급 API DTO codding" />
     <MESSAGE value="한국투자증권 KIS API CODING DONE AND TEST API" />
     <MESSAGE value="testing done" />
-    <option name="LAST_COMMIT_MESSAGE" value="testing done" />
+    <MESSAGE value="PaperAccount coding" />
+    <option name="LAST_COMMIT_MESSAGE" value="PaperAccount coding" />
   </component>
 </project>

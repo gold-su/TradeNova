@@ -3,6 +3,7 @@ package com.tradenova.paper.service;
 import com.tradenova.paper.dto.BaseCurrency;
 import com.tradenova.paper.dto.PaperAccountCreateRequest;
 import com.tradenova.paper.dto.PaperAccountResponse;
+import com.tradenova.paper.dto.PaperAccountUpdateRequest;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperAccountRepository;
 import com.tradenova.paper.repository.PaperPositionRepository;
@@ -87,6 +88,26 @@ public class PaperAccountService {
         // 2) 포지션 전부 삭제
         paperPositionRepository.deleteAllByAccountId(accountId);
     }
+
+    @Transactional
+    public PaperAccountResponse update(Long userId, Long accountId, PaperAccountUpdateRequest req) {
+        //본인 계좌가 맞는지 조회
+        PaperAccount acc = paperAccountRepository.findByIdAndUserId(accountId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("PAPER_ACCOUNT_NOT_FOUND"));
+
+        //값이 있을 때만 업데이트
+        if (req.name() != null && !req.name().isBlank()) {
+            acc.setName(req.name().trim());
+        }
+        //null만 아니면 업데이트
+        if (req.description() != null) {
+            acc.setDescription(req.description().trim());
+        }
+
+        // JPA dirty checking으로 자동 반영됨 (save 안 해도 됨)
+        return toResponse(acc);
+    }
+
 
     //Entity → DTO 변환, “외부로 노출할 계좌 정보만 골라서 전달”
     private PaperAccountResponse toResponse(PaperAccount a) {
