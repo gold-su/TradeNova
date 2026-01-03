@@ -7,6 +7,7 @@ import com.tradenova.paper.dto.PaperAccountUpdateRequest;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperAccountRepository;
 import com.tradenova.paper.repository.PaperPositionRepository;
+import com.tradenova.user.entity.SubscriptionTier;
 import com.tradenova.user.entity.User;
 import com.tradenova.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,15 @@ public class PaperAccountService {
         //유저 존재 검증 없으면 예외
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found!"));
+
+        //계좌 개수 제한 체크 (구독 티어 기준)
+        long currentCount = paperAccountRepository.countByUserId(userId);
+        int limit = accountLimitByTier(user.getSubscriptionTier());
+
+        if (currentCount >= limit) {
+            throw new IllegalArgumentException("ACCOUNT_LIMIT_EXCEEDED");
+            // 나중에 CustomException(ErrorCode.ACCOUNT_LIMIT_EXCEEDED)로 바꾸면 더 깔끔함
+        }
 
         //초기 자본금 처리, 초기 자본 미입력 -> 0원
         BigDecimal initial = (req.initialBalance() == null) ? BigDecimal.ZERO : req.initialBalance();
@@ -106,6 +116,20 @@ public class PaperAccountService {
 
         // JPA dirty checking으로 자동 반영됨 (save 안 해도 됨)
         return toResponse(acc);
+    }
+
+
+    //tier에 따른 갯수
+    private int accountLimitByTier(SubscriptionTier tier) {
+        //기존 유저 row가 null일 수 있으니 FREE 취급
+        if (tier == null) return 1;
+        
+        //티어에 따라 갯수 차이
+        return switch (tier) {
+            case FREE -> 1;
+            case PRO -> 3;
+            case PREMIUM -> 10;
+        };
     }
 
 

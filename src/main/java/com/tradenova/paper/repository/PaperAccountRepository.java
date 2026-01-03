@@ -16,4 +16,8 @@ public interface PaperAccountRepository extends JpaRepository<PaperAccount, Long
 
     //이 유저의 기본 계좌를 하나 가져오기
     Optional<PaperAccount> findByUserIdAndIsDefaultTrue(Long userId);
+    
+    //계좌 갯수 세는 리포
+    long countByUserId(Long userId);
+
 }
