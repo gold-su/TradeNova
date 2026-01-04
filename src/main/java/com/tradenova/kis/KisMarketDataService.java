@@ -1,5 +1,7 @@
 package com.tradenova.kis;
 
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.kis.dto.CandleDto;
 import com.tradenova.kis.dto.KisItemChartPriceResponse;
 import lombok.RequiredArgsConstructor;
@@ -44,32 +46,39 @@ public class KisMarketDataService  {
         //KIS에서 API 호출을 구분하는 트랜잭션 ID
         String trId = "FHKST03010100";
 
-        KisItemChartPriceResponse res = kisRestClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice")
-                        .queryParam("FID_COND_MRKT_DIV_CODE", marketCode) //시장 구분 (J/NX/UN)
-                        .queryParam("FID_INPUT_ISCD", symbol) //종목코드
-                        .queryParam("FID_INPUT_DATE_1", from) //시작일(from)
-                        .queryParam("FID_INPUT_DATE_2", to) //종료일(to)
-                        .queryParam("FID_PERIOD_DIV_CODE", period) //D/W/M/Y
-                        .queryParam("FID_ORG_ADJ_PRC", adjPrice) //수정주가 여부(문서 기준)
-                        .build())
-                .header(HttpHeaders.CONTENT_TYPE, "application/json; charset=utf-8")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken) //Authorization : 토큰 없으면 호출 불가
-                .header("appkey", props.appkey()) // KIS가 앱 식별
-                .header("appsecret", props.appsecret()) // KIS가 앱 식별
-                .header("tr_id", trId) // 어떤 거래/조회인지 식별
-                .header("custtype", props.custtype()) // 개인: P
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(KisItemChartPriceResponse.class);
+        KisItemChartPriceResponse res;
+
+        try {
+            res = kisRestClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice")
+                            .queryParam("FID_COND_MRKT_DIV_CODE", marketCode) //시장 구분 (J/NX/UN)
+                            .queryParam("FID_INPUT_ISCD", symbol) //종목코드
+                            .queryParam("FID_INPUT_DATE_1", from) //시작일(from)
+                            .queryParam("FID_INPUT_DATE_2", to) //종료일(to)
+                            .queryParam("FID_PERIOD_DIV_CODE", period) //D/W/M/Y
+                            .queryParam("FID_ORG_ADJ_PRC", adjPrice) //수정주가 여부(문서 기준)
+                            .build())
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json; charset=utf-8")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken) //Authorization : 토큰 없으면 호출 불가
+                    .header("appkey", props.appkey()) // KIS가 앱 식별
+                    .header("appsecret", props.appsecret()) // KIS가 앱 식별
+                    .header("tr_id", trId) // 어떤 거래/조회인지 식별
+                    .header("custtype", props.custtype()) // 개인: P
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(KisItemChartPriceResponse.class);
+        } catch (Exception e) {
+            //네트워크, 타임아웃, 4xx/5xx 등 통합 처리
+            throw new CustomException(ErrorCode.KIS_API_CALL_FAILED);
+        }
 
         if(res == null || res.output2() == null){
-            throw new IllegalStateException("KIS market data response is null or missing output2");
+            throw new CustomException(ErrorCode.KIS_RESPONSE_EMPTY);
         }
         //rtCd가 "0"이 아니면(= 성공이 아니면) 참 (true)
         if (!"0".equals(res.rtCd())){ // KIS 응답은 "HTTP 200이어도" 내부적으로 실패를 rt_cd로 줄 때가 많아서 이 체크가 매우 종요함.
-            throw new IllegalStateException("KIS error: " + res.msgCd() + " / " + res.msg1());
+            throw new CustomException(ErrorCode.KIS_API_ERROR);
         }
 
         //output2 -> CandleDto 변환

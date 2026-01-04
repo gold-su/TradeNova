@@ -1,5 +1,7 @@
 package com.tradenova.kis;
 
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.kis.dto.KisTokenResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -56,7 +58,7 @@ public class kisTokenProvider {
 
             //응답이 null 이라면 예외 던지기
             if (res == null || res.accessToken() == null){
-                throw new IllegalStateException("KIS token response is null or missing access_token");
+                throw new CustomException(ErrorCode.KIS_TOKEN_RESPONSE_EMPTY);
             }
 
             cachedToken = res.accessToken();

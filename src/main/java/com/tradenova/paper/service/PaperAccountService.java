@@ -1,5 +1,7 @@
 package com.tradenova.paper.service;
 
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.paper.dto.BaseCurrency;
 import com.tradenova.paper.dto.PaperAccountCreateRequest;
 import com.tradenova.paper.dto.PaperAccountResponse;
@@ -32,14 +34,14 @@ public class PaperAccountService {
     public PaperAccountResponse create(Long userId, PaperAccountCreateRequest req){
         //유저 존재 검증 없으면 예외
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found!"));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         //계좌 개수 제한 체크 (구독 티어 기준)
         long currentCount = paperAccountRepository.countByUserId(userId);
         int limit = accountLimitByTier(user.getSubscriptionTier());
 
         if (currentCount >= limit) {
-            throw new IllegalArgumentException("ACCOUNT_LIMIT_EXCEEDED");
+            throw new CustomException(ErrorCode.ACCOUNT_LIMIT_EXCEEDED);
             // 나중에 CustomException(ErrorCode.ACCOUNT_LIMIT_EXCEEDED)로 바꾸면 더 깔끔함
         }
 
@@ -77,7 +79,7 @@ public class PaperAccountService {
     public void setDefault(Long userId, Long accountId) {
         //다른 유저 계좌 접근 방지
         PaperAccount target = paperAccountRepository.findByIdAndUserId(accountId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("PAPER_ACCOUNT_NOT_FOUND"));
+                .orElseThrow(() -> new CustomException(ErrorCode.PAPER_ACCOUNT_NOT_FOUND));
         //기존 기본 계좌 해제
         paperAccountRepository.findByUserIdAndIsDefaultTrue(userId)
                 .ifPresent(acc -> acc.setDefault(false));
@@ -90,7 +92,7 @@ public class PaperAccountService {
     public void reset(Long userId, Long accountId) {
         //계좌 소유권 검증
         PaperAccount acc = paperAccountRepository.findByIdAndUserId(accountId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("PAPER_ACCOUNT_NOT_FOUND"));
+                .orElseThrow(() -> new CustomException(ErrorCode.PAPER_ACCOUNT_NOT_FOUND));
 
         // 1) 현금 리셋
         acc.resetCash();
@@ -103,7 +105,7 @@ public class PaperAccountService {
     public PaperAccountResponse update(Long userId, Long accountId, PaperAccountUpdateRequest req) {
         //본인 계좌가 맞는지 조회
         PaperAccount acc = paperAccountRepository.findByIdAndUserId(accountId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("PAPER_ACCOUNT_NOT_FOUND"));
+                .orElseThrow(() -> new CustomException(ErrorCode.PAPER_ACCOUNT_NOT_FOUND));
 
         //값이 있을 때만 업데이트
         if (req.name() != null && !req.name().isBlank()) {

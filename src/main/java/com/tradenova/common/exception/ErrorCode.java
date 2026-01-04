@@ -17,12 +17,26 @@ public enum ErrorCode {
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED,"error.INVALID_PASSWORD"),
     EMAIL_NOT_VERIFIED(HttpStatus.UNAUTHORIZED,"error.EMAIL_NOT_VERIFIED"),
 
+    // 403 FORBIDDEN
+    ACCOUNT_LIMIT_EXCEEDED(HttpStatus.FORBIDDEN, "error.ACCOUNT_LIMIT_EXCEEDED"),
+
+    // 404 NOT FOUND
+    PAPER_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "error.PAPER_ACCOUNT_NOT_FOUND"),
+
     //404 NOT FOUND
     USER_NOT_FOUND(HttpStatus.NOT_FOUND,"error.USER_NOT_FOUND"),
 
     //409 CONFLICT
     DUPLICATE_EMAIL(HttpStatus.CONFLICT,"error.DUPLICATE_EMAIL"),
-    DUPLICATE_NICKNAME(HttpStatus.CONFLICT,"error.DUPLICATE_NICKNAME");
+    DUPLICATE_NICKNAME(HttpStatus.CONFLICT,"error.DUPLICATE_NICKNAME"),
+
+    // =====================
+    // 502 BAD GATEWAY (외부 API - KIS)
+    // =====================
+    KIS_TOKEN_RESPONSE_EMPTY(HttpStatus.BAD_GATEWAY, "error.KIS_TOKEN_RESPONSE_EMPTY"),
+    KIS_RESPONSE_EMPTY(HttpStatus.BAD_GATEWAY, "error.KIS_RESPONSE_EMPTY"),
+    KIS_API_ERROR(HttpStatus.BAD_GATEWAY, "error.KIS_API_ERROR"),
+    KIS_API_CALL_FAILED(HttpStatus.BAD_GATEWAY, "error.KIS_API_CALL_FAILED");
 
     //에러 코드 하나가 가지는 정보
     private final HttpStatus status; //HTTP 응답 상태 코드 (400, 404, 409 등)
