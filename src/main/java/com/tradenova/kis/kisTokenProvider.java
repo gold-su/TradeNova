@@ -58,7 +58,7 @@ public class kisTokenProvider {
 
             //응답이 null 이라면 예외 던지기
             if (res == null || res.accessToken() == null){
-                throw new CustomException(ErrorCode.KIS_TOKEN_RESPONSE_EMPTY);
+                throw new CustomException(ErrorCode.KIS_TOKEN_RESPONSE_INVALID);
             }
 
             cachedToken = res.accessToken();
