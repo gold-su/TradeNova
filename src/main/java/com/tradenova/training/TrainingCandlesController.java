@@ -1,6 +1,6 @@
 package com.tradenova.training;
 
-import com.tradenova.kis.KisMarketDataService;
+import com.tradenova.kis.service.KisMarketDataService;
 import com.tradenova.kis.dto.CandleDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;

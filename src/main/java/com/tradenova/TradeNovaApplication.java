@@ -1,6 +1,6 @@
 package com.tradenova;
 
-import com.tradenova.kis.kisProperties;
+import com.tradenova.kis.config.kisProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

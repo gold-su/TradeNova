@@ -1,4 +1,4 @@
-package com.tradenova.kis;
+package com.tradenova.kis.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

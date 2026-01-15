@@ -4,10 +4,21 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="ErrorCode &amp; RiskRule coding">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingRiskRuleController.java" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="RiskRule coding">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/TradeNovaApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/TradeNovaApplication.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/KisMarketDataService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/service/KisMarketDataService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/KisRestClientConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/config/KisRestClientConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/kisProperties.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/config/kisProperties.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/kisTokenProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/kisTokenProvider.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/TrainingCandlesController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/TrainingCandlesController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingSession.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingSession.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingRiskRuleService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingRiskRuleService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_en.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_en.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -141,7 +152,9 @@
       <workItem from="1768025932881" duration="6538000" />
       <workItem from="1768103008391" duration="1319000" />
       <workItem from="1768156819222" duration="9430000" />
-      <workItem from="1768397470098" duration="4520000" />
+      <workItem from="1768397470098" duration="5353000" />
+      <workItem from="1768456486460" duration="599000" />
+      <workItem from="1768457735618" duration="4521000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -399,14 +412,21 @@
       <option name="project" value="LOCAL" />
       <updated>1768166007816</updated>
     </task>
-    <option name="localTasksCounter" value="33" />
+    <task id="LOCAL-00033" summary="RiskRule coding">
+      <option name="closed" value="true" />
+      <created>1768426561293</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1768426561293</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="I`m worked on a userService." />
     <MESSAGE value="Today worked on a user login coding." />
     <MESSAGE value="I worked on a userLogin" />
     <MESSAGE value="worked on the exception" />
@@ -431,6 +451,7 @@
     <MESSAGE value="symbol entity coding" />
     <MESSAGE value="symbol coding" />
     <MESSAGE value="ErrorCode &amp; RiskRule coding" />
-    <option name="LAST_COMMIT_MESSAGE" value="ErrorCode &amp; RiskRule coding" />
+    <MESSAGE value="RiskRule coding" />
+    <option name="LAST_COMMIT_MESSAGE" value="RiskRule coding" />
   </component>
 </project>

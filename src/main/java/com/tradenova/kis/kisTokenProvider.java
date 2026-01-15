@@ -2,6 +2,7 @@ package com.tradenova.kis;
 
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.kis.config.kisProperties;
 import com.tradenova.kis.dto.KisTokenResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;

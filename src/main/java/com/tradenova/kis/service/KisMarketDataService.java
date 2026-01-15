@@ -1,9 +1,11 @@
-package com.tradenova.kis;
+package com.tradenova.kis.service;
 
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.kis.config.kisProperties;
 import com.tradenova.kis.dto.CandleDto;
 import com.tradenova.kis.dto.KisItemChartPriceResponse;
+import com.tradenova.kis.kisTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;

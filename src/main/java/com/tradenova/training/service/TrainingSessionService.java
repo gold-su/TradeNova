@@ -2,7 +2,7 @@ package com.tradenova.training.service;
 
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
-import com.tradenova.kis.KisMarketDataService;
+import com.tradenova.kis.service.KisMarketDataService;
 import com.tradenova.kis.dto.CandleDto;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperAccountRepository;
@@ -62,7 +62,7 @@ public class TrainingSessionService {
         List<Symbol> candidates = symbolRepository.findAllByActiveTrueOrderByIdAsc();
         if(candidates.isEmpty()){
             //종목이 0개면 랜덤 뽑기 자체가 불가능
-            throw new CustomException(ErrorCode.PAPER_ACCOUNT_NOT_FOUND);
+            throw new CustomException(ErrorCode.SYMBOL_NOT_FOUND);
         }
 
         // 4) 랜덤으로 뽑되, "bars 만큼 캔들이 충분한 종목/기간"을 찾을 때까지 반복

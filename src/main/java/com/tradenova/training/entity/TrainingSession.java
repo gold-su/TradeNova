@@ -55,6 +55,10 @@ public class TrainingSession {
     @JoinColumn(name = "symbol_id", nullable = false)
     private Symbol symbol;
 
+    // 현재가 계산용
+    @Column(name = "progress_index", nullable = false)
+    private Integer progressIndex;
+
     // 훈련 모드
     @Enumerated(EnumType.STRING)
     @Column(name = "mode", length = 20, nullable = false)
