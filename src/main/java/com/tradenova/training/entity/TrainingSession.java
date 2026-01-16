@@ -55,7 +55,7 @@ public class TrainingSession {
     @JoinColumn(name = "symbol_id", nullable = false)
     private Symbol symbol;
 
-    // 현재가 계산용
+    // 지금까지 공개된 캔들의 마지막 인덱스 / 현재가 계산용
     @Column(name = "progress_index", nullable = false)
     private Integer progressIndex;
 

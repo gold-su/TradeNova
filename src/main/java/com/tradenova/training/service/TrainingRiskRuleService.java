@@ -4,6 +4,7 @@ import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.kis.service.KisMarketDataService;
 import com.tradenova.kis.dto.CandleDto;
+import com.tradenova.kis.util.KisMarketCodeMapper;
 import com.tradenova.training.dto.RiskRuleResponse;
 import com.tradenova.training.dto.RiskRuleUpsertRequest;
 import com.tradenova.training.entity.TrainingRiskRule;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -73,8 +75,9 @@ public class TrainingRiskRuleService {
         BigDecimal currentPrice = getCurrentPrice(s);
 
         // enabled가 true 인데 둘 다 null 이면 의미 없으니 막을지 여부
-        Boolean auto = req.autoExitEnabled();
-        if(Boolean.TRUE.equals(auto) && req.stopLossPrice() == null && req.takeProfitPrice() == null){
+        if (Boolean.TRUE.equals(req.autoExitEnabled())
+                && req.stopLossPrice() == null
+                && req.takeProfitPrice() == null) {
             throw new CustomException(ErrorCode.RISK_RULE_EMPTY_WHEN_ENABLED);
         }
 
@@ -86,18 +89,12 @@ public class TrainingRiskRuleService {
             throw new CustomException(ErrorCode.INVALID_TAKE_PROFIT_PRICE); //오류 구체적으로 쪼개기
         }
 
-        // 자동매도 켰지만 아무 룰도 없을 때
-        if (Boolean.TRUE.equals(req.autoExitEnabled())
-                && req.stopLossPrice() == null
-                && req.takeProfitPrice() == null) {
-            throw new CustomException(ErrorCode.RISK_RULE_EMPTY_WHEN_ENABLED);
-        }
-
         // 3) 기준 룰 있으면 가져오고, 없으면 새로 만든다.
         TrainingRiskRule rule = riskRepo.findBySessionIdAndAccountId(sessionId, s.getAccount().getId())
                 .orElseGet(() -> TrainingRiskRule.builder()
                         .sessionId(sessionId)
                         .accountId(s.getAccount().getId()) //기본은 비활성
+                        .enabled(false) // 어차피 false지만 의도 명확화를 위해 포함
                         .build());
 
         // 값 반영 (null 이면 null로 저장 = “미설정”)
@@ -117,31 +114,41 @@ public class TrainingRiskRuleService {
     }
 
     private BigDecimal getCurrentPrice(TrainingSession s) {
-        // 세션 정보로 캔들 불러오기
-        String symbol = s.getSymbol().getTicker();
-        // 어디부터 어디까지
-        String from = s.getStartDate().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-        String to = s.getEndDate().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
 
-        /**
-         *  public List<CandleDto> getCandles(
-         *             String marketCode,
-         *             String symbol,
-         *             String from,
-         *             String to,
-         *             String period,
-         *             String adjPrice
-         *     )
-         */
-        List<CandleDto> candles = kisMarketDataService.getCandles("J", symbol, from, to, "D", "0");
+        // 종목 코드 불러서 저장
+        String ticker = s.getSymbol().getTicker();
+        // KisMarketCodeMapper로 마켓 코드 저장
+        String marketCode = KisMarketCodeMapper.toMarketCode(s.getSymbol().getMarket());
+        //언제부터 언제까지
+        String from = s.getStartDate().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String to = s.getEndDate().format(DateTimeFormatter.BASIC_ISO_DATE);
 
-        // 캔들 정보가 비어있으면 예외
+        List<CandleDto> candles = kisMarketDataService.getCandles(
+                marketCode,
+                ticker,
+                from,
+                to,
+                "D",
+                "0"
+        );
+
         if(candles.isEmpty()) throw new CustomException(ErrorCode.CANDLES_EMPTY);
 
-        // null 이면 0 아니면 getProgressIndex 그대로 사용
-        int idx = s.getProgressIndex() == null ? 0 : s.getProgressIndex();
-        idx =  Math.max(0, Math.min(idx, candles.size() - 1));
+        // bars 기준으로 "훈련 데이터 길이" 확정
+        int limit = Math.min(s.getBars(), candles.size());
+        if(limit <= 0) throw new CustomException(ErrorCode.CANDLES_EMPTY);
 
+        candles = candles.subList(0, limit);
+
+        // 아직 훈련이 시작되지 않았으면(null) 0으로 간주 -> 첫 봉 그게 아니라면 그 값 그대로 사용
+        int idx = (s.getProgressIndex() == null) ? 0 : s.getProgressIndex();
+        /*
+            Math.min(idx, candles.size() - 1) -> idx가 너무 크면 마지막 인덱스로 자름
+            Math.max(0, ...) -> idx가 음수면 0으로 올림
+         */
+        idx = Math.max(0, Math.min(idx, candles.size() - 1));
+
+        // 현재 시점(idx)에 해당하는 캔들의 종가(close)를 BigDecimal 타입으로 변환해서 반환한다.
         return BigDecimal.valueOf(candles.get(idx).c());
     }
 
