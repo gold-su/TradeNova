@@ -1,4 +1,4 @@
-package com.tradenova.training;
+package com.tradenova.training.controller;
 
 import com.tradenova.kis.service.KisMarketDataService;
 import com.tradenova.kis.dto.CandleDto;

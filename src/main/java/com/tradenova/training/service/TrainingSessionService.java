@@ -100,7 +100,7 @@ public class TrainingSessionService {
             );
 
             //봉이 부족하면 이 조합은 실패 -> 다음 시도
-            if(candles.size() >= req.bars()){
+            if(candles.size() < req.bars()){
                 continue;
             }
 
@@ -115,6 +115,9 @@ public class TrainingSessionService {
             LocalDate finalStart = millisToSeoulDate(startMillis);
             LocalDate finalEnd = millisToSeoulDate(endMillis);
 
+            int initialVisibleBars = Math.min(60, req.bars());
+            int progressIndex = Math.max(0, initialVisibleBars - 1);
+
             // 4-5) 훈련 세션 저장
             // - user/account/symbol + 구간(start/end) + 상태(status) 등을 DB에 기록
             TrainingSession saved = trainingSessionRepository.save(
@@ -122,11 +125,12 @@ public class TrainingSessionService {
                             .user(user)         //세션 소유자
                             .account(account)   //어떤 연습 계좌로 하는지
                             .symbol(picked)     //어떤 종목인지
+                            .progressIndex(progressIndex) //현재까지 공개된 봉 중 마지막 봉의 인덱스 ( 0 부터 시작 봉 60개 = index -> 59 )
                             .mode(req.mode())   //훈련 모드(랜덤 등)
                             .bars(req.bars())   //노출/사용할 봉 개수
                             .hiddenFutureBars(0)//(있다면) 미래봉 숨김 초기값
                             .startDate(finalStart)//봉 기준으로 확정한 시작일
-                            .endDate(finalEnd)    //벙 기준으로 확정한 종료일
+                            .endDate(finalEnd)    //봉 기준으로 확정한 종료일
                             .status(TrainingStatus.IN_PROGRESS) //생성 즉시 진행중 처리(정책에 따라 READY도 가능)
                             .build()
             );
@@ -168,8 +172,8 @@ public class TrainingSessionService {
         String from = session.getStartDate().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
         String to = session.getEndDate().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
 
-        // 3) 세션의 종목 티커로 KIS에서 캔들 조회
-        return kisMarketDataService.getCandles(
+        // 3) KIS에서 캔들 조회
+        List<CandleDto> candles = kisMarketDataService.getCandles(
                 "J",
                 session.getSymbol().getTicker(),
                 from,
@@ -177,6 +181,15 @@ public class TrainingSessionService {
                 "D",
                 "0"
         );
+
+        // 4) 방어: 캔들 없음
+        if(candles.isEmpty()){
+            throw new CustomException(ErrorCode.CANDLES_EMPTY);
+        }
+
+        // 5) bars 만큼만 반환 (훈련 데이터 길이 고정)
+        int limit = Math.min(session.getBars(), candles.size());
+        return candles.subList(0, limit);
     }
 
     // ===== helpers =====
