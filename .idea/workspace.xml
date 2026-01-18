@@ -5,9 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="RiskRule PUT">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingSessionCandle.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingSessionCandleRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingSessionCandleRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingSessionCandleRepository.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -19,6 +18,7 @@
       <list>
         <option value="Enum" />
         <option value="Record" />
+        <option value="Interface" />
         <option value="Class" />
         <option value="Interface" />
       </list>
@@ -146,7 +146,8 @@
       <workItem from="1768457735618" duration="5264000" />
       <workItem from="1768576169647" duration="7493000" />
       <workItem from="1768663014941" duration="26000" />
-      <workItem from="1768667168043" duration="4972000" />
+      <workItem from="1768667168043" duration="5606000" />
+      <workItem from="1768738478737" duration="1572000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -428,7 +429,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768589914244</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="미흡한 부분과 하드 코딩 제거">
+      <option name="closed" value="true" />
+      <created>1768674163128</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1768674163128</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -460,6 +469,7 @@
     <MESSAGE value="ErrorCode &amp; RiskRule coding" />
     <MESSAGE value="RiskRule coding" />
     <MESSAGE value="RiskRule PUT" />
-    <option name="LAST_COMMIT_MESSAGE" value="RiskRule PUT" />
+    <MESSAGE value="미흡한 부분과 하드 코딩 제거" />
+    <option name="LAST_COMMIT_MESSAGE" value="미흡한 부분과 하드 코딩 제거" />
   </component>
 </project>
