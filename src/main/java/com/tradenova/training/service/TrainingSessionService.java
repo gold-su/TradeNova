@@ -12,7 +12,9 @@ import com.tradenova.symbol.repository.SymbolRepository;
 import com.tradenova.training.dto.TrainingSessionCreateRequest;
 import com.tradenova.training.dto.TrainingSessionCreateResponse;
 import com.tradenova.training.entity.TrainingSession;
+import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.entity.TrainingStatus;
+import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionRepository;
 import com.tradenova.user.entity.User;
 import com.tradenova.user.repository.UserRepository;
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -39,6 +42,9 @@ public class TrainingSessionService {
     //KIS 시세/캔들 조회 서비스
     private final KisMarketDataService kisMarketDataService;
     private final PaperAccountRepository paperAccountRepository;
+
+    // 캔들 저장/조회용 Repository
+    private final TrainingSessionCandleRepository candleRepository;
 
     /**
      * 세션 생성 (RANDOM)
@@ -99,7 +105,7 @@ public class TrainingSessionService {
                     "0" //수정주가/조정여부(문서 기준)
             );
 
-            //봉이 부족하면 이 조합은 실패 -> 다음 시도
+            // 봉이 부족하면 이 조합은 실패 -> 다음 시도
             if(candles.size() < req.bars()){
                 continue;
             }
@@ -108,9 +114,10 @@ public class TrainingSessionService {
             // - startDate/endDate를 달력으로 잡으면 휴장으로 인해 실제 봉 수가 달라짐
             // - 그래서 실제 캔들 배열에서 마지막 bars개를 기준으로 최종 구간을 확정
             int fromIndex = Math.max(0, candles.size() - req.bars());
+            List<CandleDto> sessionCandles = candles.subList(fromIndex, fromIndex + req.bars());
 
-            long startMillis = candles.get(fromIndex).t();   //bars 구간의 첫 봉 시간
-            long endMillis = candles.get(candles.size() -1).t(); //마지막 봉 시간
+            long startMillis = sessionCandles.get(0).t();   //bars 구간의 첫 봉 시간
+            long endMillis =  sessionCandles.get(sessionCandles.size() - 1).t(); //마지막 봉 시간
 
             LocalDate finalStart = millisToSeoulDate(startMillis);
             LocalDate finalEnd = millisToSeoulDate(endMillis);
@@ -135,8 +142,29 @@ public class TrainingSessionService {
                             .build()
             );
 
-            // 4-6) 프론트가 즉시 차트 화면을 구성할 수 있도록
-//      훈련 세션 생성 결과를 응답 DTO로 반환
+            // 4-6) 캔들 DB 저장 (session_id + idx=0..bars-1)
+            List<TrainingSessionCandle> candleEntities  = new ArrayList<>(sessionCandles.size());
+            for(int i = 0; i < sessionCandles.size(); i++){
+                CandleDto candle = sessionCandles.get(i);
+
+                candleEntities .add(
+                        TrainingSessionCandle.builder()
+                                .sessionId(saved.getId()) // 핵심: 세션 PK를 그대로 저장
+                                .idx(i)
+                                // 아래 필드명은 네 엔티티에 맞게 조정 필요할 수 있음
+                                .t(candle.t())
+                                .o(candle.o())
+                                .h(candle.h())
+                                .l(candle.l())
+                                .c(candle.c())
+                                .v(candle.v())
+                                .build()
+                );
+            }
+            candleRepository.saveAll(candleEntities);
+
+            //   5) 프론트가 즉시 차트 화면을 구성할 수 있도록
+            //      훈련 세션 생성 결과를 응답 DTO로 반환
             return new TrainingSessionCreateResponse(
                     saved.getId(),          // sessionId: 생성된 훈련 세션의 PK
                     account.getId(),        // accountId: 사용 중인 가상 계좌 ID
@@ -168,28 +196,32 @@ public class TrainingSessionService {
         TrainingSession session = trainingSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
+        /**
         // 2) 세션에 저장된 날짜 범위를 KIS 요청 형식(YYYYMMDD)로 변환
         String from = session.getStartDate().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
         String to = session.getEndDate().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+            DB 조회로 변경
+         */
 
-        // 3) KIS에서 캔들 조회
-        List<CandleDto> candles = kisMarketDataService.getCandles(
-                "J",
-                session.getSymbol().getTicker(),
-                from,
-                to,
-                "D",
-                "0"
-        );
+        // 2) DB에서 캔들 조회
+        List<TrainingSessionCandle> rows = candleRepository.findAllBySessionIdOrderByIdxAsc(session.getId());
 
-        // 4) 방어: 캔들 없음
-        if(candles.isEmpty()){
+        // 비어있으면 예외
+        if (rows.isEmpty()) {
             throw new CustomException(ErrorCode.CANDLES_EMPTY);
         }
 
-        // 5) bars 만큼만 반환 (훈련 데이터 길이 고정)
-        int limit = Math.min(session.getBars(), candles.size());
-        return candles.subList(0, limit);
+        // 3) 엔티티 -> CandleDto 변환
+        return rows.stream()
+                .map(r -> new CandleDto(
+                        r.getT(),
+                        r.getO(),
+                        r.getH(),
+                        r.getL(),
+                        r.getC(),
+                        r.getV()
+                ))
+                .toList();
     }
 
     // ===== helpers =====

@@ -4,9 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="RiskRule PUT">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="Repository create">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingSessionCandleRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingSessionCandleRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,8 +98,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.25410.129" />
-        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-IU-251.25410.129" />
+        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.26094.121" />
+        <option value="bundled-js-predefined-d6986cc7102b-b26f3e71634d-JavaScript-IU-251.26094.121" />
       </set>
     </attachedChunks>
   </component>
@@ -147,7 +148,8 @@
       <workItem from="1768576169647" duration="7493000" />
       <workItem from="1768663014941" duration="26000" />
       <workItem from="1768667168043" duration="5606000" />
-      <workItem from="1768738478737" duration="1572000" />
+      <workItem from="1768738478737" duration="2280000" />
+      <workItem from="1768851454723" duration="2442000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -437,14 +439,21 @@
       <option name="project" value="LOCAL" />
       <updated>1768674163128</updated>
     </task>
-    <option name="localTasksCounter" value="37" />
+    <task id="LOCAL-00037" summary="Repository create">
+      <option name="closed" value="true" />
+      <created>1768766745850</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1768766745850</updated>
+    </task>
+    <option name="localTasksCounter" value="38" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="I worked on a userLogin" />
     <MESSAGE value="worked on the exception" />
     <MESSAGE value="error fixed" />
     <MESSAGE value="fixed a user entity" />
@@ -470,6 +479,7 @@
     <MESSAGE value="RiskRule coding" />
     <MESSAGE value="RiskRule PUT" />
     <MESSAGE value="미흡한 부분과 하드 코딩 제거" />
-    <option name="LAST_COMMIT_MESSAGE" value="미흡한 부분과 하드 코딩 제거" />
+    <MESSAGE value="Repository create" />
+    <option name="LAST_COMMIT_MESSAGE" value="Repository create" />
   </component>
 </project>

@@ -16,7 +16,7 @@ public interface TrainingSessionCandleRepository extends JpaRepository<TrainingS
     Optional<TrainingSessionCandle> findBySessionIdAndIdx(Long sessionId, Integer idx);
 
     /** visibleOnly 옵션 (치팅 방지 강화용) */
-    List<TrainingSessionCandle> findAllBySessionIdAndIdxLessThanEqualOrderByIdxAsc(
+    List<TrainingSessionCandle> findAllBySessionIdAndIdxLessThanEqualOrderByIdxAsc( //LessThen = 비교연산
             Long sessionId,
             Integer idx
     );
