@@ -9,7 +9,9 @@ import com.tradenova.training.dto.RiskRuleResponse;
 import com.tradenova.training.dto.RiskRuleUpsertRequest;
 import com.tradenova.training.entity.TrainingRiskRule;
 import com.tradenova.training.entity.TrainingSession;
+import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.repository.TrainingRiskRuleRepository;
+import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,7 +29,7 @@ public class TrainingRiskRuleService {
     private final TrainingSessionRepository sessionRepo;
     //리스크 룰 조회/저장
     private final TrainingRiskRuleRepository riskRepo;
-    private final KisMarketDataService kisMarketDataService;
+    private final TrainingSessionCandleRepository candleRepo;
 
     /**
      * 리스크 룰 조회
@@ -113,43 +115,18 @@ public class TrainingRiskRuleService {
         return toResponse(saved);
     }
 
+    //이 훈련 세션에서, 현재 progressIndex 기준으로 `안전한 현재가(close)`를 하나 구해준다. 라는 메서드
     private BigDecimal getCurrentPrice(TrainingSession s) {
-
-        // 종목 코드 불러서 저장
-        String ticker = s.getSymbol().getTicker();
-        // KisMarketCodeMapper로 마켓 코드 저장
-        String marketCode = KisMarketCodeMapper.toMarketCode(s.getSymbol().getMarket());
-        //언제부터 언제까지
-        String from = s.getStartDate().format(DateTimeFormatter.BASIC_ISO_DATE);
-        String to = s.getEndDate().format(DateTimeFormatter.BASIC_ISO_DATE);
-
-        List<CandleDto> candles = kisMarketDataService.getCandles(
-                marketCode,
-                ticker,
-                from,
-                to,
-                "D",
-                "0"
-        );
-
-        if(candles.isEmpty()) throw new CustomException(ErrorCode.CANDLES_EMPTY);
-
-        // bars 기준으로 "훈련 데이터 길이" 확정
-        int limit = Math.min(s.getBars(), candles.size());
-        if(limit <= 0) throw new CustomException(ErrorCode.CANDLES_EMPTY);
-
-        candles = candles.subList(0, limit);
-
-        // 아직 훈련이 시작되지 않았으면(null) 0으로 간주 -> 첫 봉 그게 아니라면 그 값 그대로 사용
+        //progressIndex null 처리
         int idx = (s.getProgressIndex() == null) ? 0 : s.getProgressIndex();
-        /*
-            Math.min(idx, candles.size() - 1) -> idx가 너무 크면 마지막 인덱스로 자름
-            Math.max(0, ...) -> idx가 음수면 0으로 올림
-         */
-        idx = Math.max(0, Math.min(idx, candles.size() - 1));
+        //progressIndex 범위 강제 보정(range-safe)
+        idx = Math.max(0, Math.min(idx, s.getBars() - 1)); // bars 기준으로 clamp
+        //세션 기준으로 캔들 조회 (치팅 방지 핵심)
+        TrainingSessionCandle candle = candleRepo.findBySessionIdAndIdx(s.getId(), idx)
+                .orElseThrow(() -> new CustomException(ErrorCode.CANDLES_EMPTY));
+        // 더 정확히 하려면 CANDLE_NOT_FOUND 같은 에러코드 추가해도 됨
 
-        // 현재 시점(idx)에 해당하는 캔들의 종가(close)를 BigDecimal 타입으로 변환해서 반환한다.
-        return BigDecimal.valueOf(candles.get(idx).c());
+        return BigDecimal.valueOf(candle.getC()); // 네 엔티티가 double c 라는 전제
     }
 
     /**
