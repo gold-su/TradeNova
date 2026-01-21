@@ -5,8 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="Repository create">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionProgressController.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionAdvanceRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionFinishResponse.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionProgressResponse.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingAutoExitService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingRiskRuleService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingRiskRuleService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -17,10 +22,10 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Enum" />
-        <option value="Record" />
+        <option value="Interface" />
         <option value="Interface" />
         <option value="Class" />
-        <option value="Interface" />
+        <option value="Record" />
       </list>
     </option>
   </component>
@@ -148,7 +153,9 @@
       <workItem from="1768663014941" duration="26000" />
       <workItem from="1768667168043" duration="5606000" />
       <workItem from="1768738478737" duration="2280000" />
-      <workItem from="1768851454723" duration="6915000" />
+      <workItem from="1768851454723" duration="12122000" />
+      <workItem from="1769004082659" duration="971000" />
+      <workItem from="1769017788644" duration="2442000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -454,7 +461,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768857642436</updated>
     </task>
-    <option name="localTasksCounter" value="39" />
+    <task id="LOCAL-00039" summary="Repository create">
+      <option name="closed" value="true" />
+      <created>1768945600481</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1768945600481</updated>
+    </task>
+    <option name="localTasksCounter" value="40" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
