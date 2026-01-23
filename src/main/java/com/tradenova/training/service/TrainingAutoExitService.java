@@ -2,7 +2,7 @@ package com.tradenova.training.service;
 
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
-import com.tradenova.training.dto.AutoExitResult;
+import com.tradenova.training.dto.AutoExitReason;
 import com.tradenova.training.entity.TrainingRiskRule;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.entity.TrainingSessionCandle;
@@ -21,10 +21,10 @@ public class TrainingAutoExitService {
     private final TrainingRiskRuleRepository riskRepo;
     private final TrainingSessionCandleRepository candleRepo;
 
-    //한 번의 progress 진행에 대한 record
+    //한 번의 progress 진행에 대한 record / 서비스 내부 전용 반환 타입이라서 클래스 안에 코딩
     public record AutoExitResult(
             boolean autoExited, // 자동청산
-            String reason,      // "STOP_LOSS" | "TAKE_PROFIT" | null
+            AutoExitReason reason,      // "STOP_LOSS" | "TAKE_PROFIT" | null
             BigDecimal currentPrice // 현재 봉 close 가격
     ){}
 
@@ -52,20 +52,20 @@ public class TrainingAutoExitService {
         // 우선순위: STOP_LOSS 먼저 (보수적)
         if (rule.getStopLossPrice() != null &&
                 currentPrice.compareTo(rule.getStopLossPrice()) <= 0) {
-            return new AutoExitResult(true, "STOP_LOSS", currentPrice);
+            return new AutoExitResult(true, AutoExitReason.STOP_LOSS, currentPrice);
         }
 
         // TakeProfit 판정
         if (rule.getTakeProfitPrice() != null &&
                 currentPrice.compareTo(rule.getTakeProfitPrice()) >= 0) {
-            return new AutoExitResult(true, "TAKE_PROFIT", currentPrice);
+            return new AutoExitResult(true, AutoExitReason.TAKE_PROFIT, currentPrice);
         }
 
         // 아무것도 아니면 false
         return new AutoExitResult(false, null, currentPrice);
     }
 
-    // 세션의 progressIndex에 해당하는 캔들(close)을 DB에서 찾아 현재가로 사용한다.
+    // 세션의 progressIndex에 해당하는 종가(close)을 DB에서 찾아 현재가로 사용한다.
     private BigDecimal getCurrentPriceFromDb(TrainingSession s) {
 
         int idx = (s.getProgressIndex() == null) ? 0 : s.getProgressIndex();
