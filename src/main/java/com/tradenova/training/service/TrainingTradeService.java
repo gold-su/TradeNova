@@ -47,7 +47,6 @@ public class TrainingTradeService {
     @Transactional // 아래 작업들을 한 트랜잭션으로 묶음 (중간 실패 시 롤백)
     public TradeResponse buy(Long userId, Long sessionId, BigDecimal qty){
 
-
         // 1) 세션 조회 + 소유권 검증 (남의 세션이면 조회 자체가 안 됨)
         TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
