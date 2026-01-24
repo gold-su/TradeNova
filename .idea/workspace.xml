@@ -5,12 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="자동 매도 구현 중">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/AutoExitReason.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TradeRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TradeResponse.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingAutoExitService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingAutoExitService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,9 +18,11 @@
       <list>
         <option value="Interface" />
         <option value="Interface" />
-        <option value="Class" />
         <option value="Enum" />
         <option value="Record" />
+        <option value="Class" />
+        <option value="Interface" />
+        <option value="Class" />
       </list>
     </option>
   </component>
@@ -35,6 +33,7 @@
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="UPDATE_TYPE" value="REBASE" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -101,8 +100,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.26094.121" />
-        <option value="bundled-js-predefined-d6986cc7102b-b26f3e71634d-JavaScript-IU-251.26094.121" />
+        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.25410.129" />
+        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-IU-251.25410.129" />
       </set>
     </attachedChunks>
   </component>
@@ -156,6 +155,7 @@
       <workItem from="1769004082659" duration="971000" />
       <workItem from="1769017788644" duration="4350000" />
       <workItem from="1769195184786" duration="3778000" />
+      <workItem from="1769227197774" duration="1987000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -495,6 +495,9 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
+    <MESSAGE value="I worked on a userLogin" />
+    <MESSAGE value="worked on the exception" />
+    <MESSAGE value="error fixed" />
     <MESSAGE value="fixed a user entity" />
     <MESSAGE value="cors and securityFilter setting" />
     <MESSAGE value="late commit from yesterday" />
