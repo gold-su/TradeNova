@@ -129,4 +129,12 @@ public class TrainingTradeService {
         );
     }
 
+    @Transactional
+    public TradeResponse sell(Long userId, Long sessionId, Long tradeId, BigDecimal qty){
+        TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
+
+        PaperAccount acc = s.getAccount();
+        Long symbolId = s.getSymbol().getId();
+    }
 }

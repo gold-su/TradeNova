@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="매수/매도 구현 중">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="매수/매도 구현 중 2">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" afterDir="false" />
     </list>
@@ -157,7 +157,10 @@
       <workItem from="1769017788644" duration="4350000" />
       <workItem from="1769195184786" duration="3778000" />
       <workItem from="1769227197774" duration="2171000" />
-      <workItem from="1769263157483" duration="1943000" />
+      <workItem from="1769263157483" duration="2575000" />
+      <workItem from="1769339321656" duration="2125000" />
+      <workItem from="1769420289061" duration="601000" />
+      <workItem from="1769433248005" duration="2031000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -487,7 +490,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769242864475</updated>
     </task>
-    <option name="localTasksCounter" value="42" />
+    <task id="LOCAL-00042" summary="매수/매도 구현 중 2">
+      <option name="closed" value="true" />
+      <created>1769273420895</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1769273420895</updated>
+    </task>
+    <option name="localTasksCounter" value="43" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -505,7 +516,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="worked on the exception" />
     <MESSAGE value="error fixed" />
     <MESSAGE value="fixed a user entity" />
     <MESSAGE value="cors and securityFilter setting" />
@@ -533,6 +543,7 @@
     <MESSAGE value="Repository create" />
     <MESSAGE value="자동 매도 구현 중" />
     <MESSAGE value="TrainingTradeService commit" />
-    <option name="LAST_COMMIT_MESSAGE" value="TrainingTradeService commit" />
+    <MESSAGE value="매수/매도 구현 중 2" />
+    <option name="LAST_COMMIT_MESSAGE" value="매수/매도 구현 중 2" />
   </component>
 </project>
