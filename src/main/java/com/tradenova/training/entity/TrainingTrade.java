@@ -45,6 +45,12 @@ public class TrainingTrade {
     private Long accountId;
 
     /**
+     * 종목 ID( (나중에 계좌 단위 로그/통계/AI 리포트에 필수)
+     */
+    @Column(name="symbol_id", nullable=false)
+    private Long symbolId;
+
+    /**
      * 매수(BUY)인지 매도(SELL)인지 구분
      */
     @Enumerated(EnumType.STRING)

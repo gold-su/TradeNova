@@ -1,9 +1,11 @@
 package com.tradenova.common.exception;
 
 import com.tradenova.user.exception.DuplicateEmailException;
+import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -104,4 +106,30 @@ public class GlobalExceptionHandler  {
 
         return ResponseEntity.status(500).body(body);
     }
+
+    /**
+     * 낙관락(동시성 충돌) 처리
+     * - @Version 기반 업데이트 충돌 시 발생
+     * - 사용자에게 409 + i18n 메시지로 "재시도" 안내
+     */
+    @ExceptionHandler({ //이 메서드가 어떤 예외를 처리할지 지정하는 어노테이션, 여기서는 낙관락 관련 예외 2가지를 모두 잡음
+            OptimisticLockingFailureException.class, //spring
+            OptimisticLockException.class   //jpa
+    })
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(Exception ex) {
+
+        // 에러코드 담기
+        ErrorCode code = ErrorCode.CONCURRENT_REQUEST;
+
+        // 에러 응답 생성
+        ErrorResponse body = new ErrorResponse(
+                code.getStatus().value(),
+                code.name(),
+                resolveMessage(code),
+                null
+        );
+
+        return ResponseEntity.status(code.getStatus()).body(body);
+    }
+
 }

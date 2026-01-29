@@ -32,6 +32,9 @@ public class PaperPosition {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    private Long version;
+
     // 어떤 계좌의 포지션인지 (계좌 1 : 포지션 N)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false)

@@ -42,6 +42,7 @@ public enum ErrorCode {
     //409 CONFLICT
     DUPLICATE_EMAIL(HttpStatus.CONFLICT,"error.DUPLICATE_EMAIL"),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT,"error.DUPLICATE_NICKNAME"),
+    CONCURRENT_REQUEST(HttpStatus.CONFLICT, "error.CONCURRENT_REQUEST"),
 
     // =====================
     // 502 BAD GATEWAY (외부 API - KIS)
@@ -57,6 +58,7 @@ public enum ErrorCode {
     INVALID_RISK_RULE(HttpStatus.BAD_REQUEST, "error.INVALID_RISK_RULE"),
     KIS_TOKEN_RESPONSE_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "error.KIS_TOKEN_RESPONSE_INVALID"),
     KIS_MARKET_DATA_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "error.KIS_MARKET_DATA_INVALID");
+
 
     //에러 코드 하나가 가지는 정보
     private final HttpStatus status; //HTTP 응답 상태 코드 (400, 404, 409 등)

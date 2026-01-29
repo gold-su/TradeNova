@@ -30,6 +30,9 @@ public class PaperAccount {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    private Long version;
+
     // 이 계좌의 주인 (한 유저가 여러 계좌 가질 수 있음)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
