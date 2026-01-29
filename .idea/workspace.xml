@@ -4,17 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="매수/매도 구현 중 3">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="매수/매도 구현 완료">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/GlobalExceptionHandler.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperAccount.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperAccount.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperPosition.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperPosition.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingTrade.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingTrade.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_en.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_en.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -169,7 +161,7 @@
       <workItem from="1769339321656" duration="2125000" />
       <workItem from="1769420289061" duration="601000" />
       <workItem from="1769433248005" duration="2637000" />
-      <workItem from="1769518278812" duration="12493000" />
+      <workItem from="1769518278812" duration="13069000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -515,7 +507,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769451935552</updated>
     </task>
-    <option name="localTasksCounter" value="44" />
+    <task id="LOCAL-00044" summary="매수/매도 구현 완료">
+      <option name="closed" value="true" />
+      <created>1769655337528</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1769655337528</updated>
+    </task>
+    <option name="localTasksCounter" value="45" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -533,7 +533,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fixed a user entity" />
     <MESSAGE value="cors and securityFilter setting" />
     <MESSAGE value="late commit from yesterday" />
     <MESSAGE value="commit for a bit" />
@@ -561,6 +560,7 @@
     <MESSAGE value="TrainingTradeService commit" />
     <MESSAGE value="매수/매도 구현 중 2" />
     <MESSAGE value="매수/매도 구현 중 3" />
-    <option name="LAST_COMMIT_MESSAGE" value="매수/매도 구현 중 3" />
+    <MESSAGE value="매수/매도 구현 완료" />
+    <option name="LAST_COMMIT_MESSAGE" value="매수/매도 구현 완료" />
   </component>
 </project>

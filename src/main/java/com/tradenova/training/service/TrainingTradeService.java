@@ -31,7 +31,6 @@ public class TrainingTradeService {
     // 페이퍼 계좌/포지션 관련 (현금/보유수량 갱신)
     private final PaperAccountRepository accountRepo;  // 지금 코드에서는 직접 사용 안 함 (acc가 영속 상태라 dirty checking 기대)
     private final PaperPositionRepository positionRepo;
-    private TrainingStatus status;
 
     /**
      * 매수(BUY)
@@ -56,12 +55,17 @@ public class TrainingTradeService {
         }
         //  qty 스케일 정책 (MVP 기본)
         qty = qty.setScale(6, RoundingMode.DOWN);
+        // 0 되면 차단
         if (qty.compareTo(BigDecimal.ZERO) <= 0) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
+        // 주식 UX: 소수점 허용 안 함
+        if (qty.stripTrailingZeros().scale() > 0) { // 소수점 존재
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
         // 1-2) COMPLETED 세션이면 거래 금지
-        if (s.getStatus() == TrainingStatus.COMPLETED) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST); // 나중에 SESSION_FINISHED 에러코드 분리 추천
+        if (s.getStatus() != TrainingStatus.IN_PROGRESS) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
         // 2) 세션에 연결된 페이퍼 계좌 (JPA 영속 상태일 가능성 높음)
@@ -160,9 +164,15 @@ public class TrainingTradeService {
         }
         //  qty 스케일 정책 (MVP 기본)
         qty = qty.setScale(6, RoundingMode.DOWN);
+        // 0 되면 차단
         if (qty.compareTo(BigDecimal.ZERO) <= 0) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
+        // 주식 UX: 소수점 허용 안 함
+        if (qty.stripTrailingZeros().scale() > 0) { // 소수점 존재
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
         if (s.getStatus() != TrainingStatus.IN_PROGRESS) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
