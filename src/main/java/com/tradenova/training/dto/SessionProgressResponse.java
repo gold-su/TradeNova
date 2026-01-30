@@ -9,5 +9,5 @@ public record SessionProgressResponse(
         BigDecimal currentPrice,
         String status,
         boolean autoExited,              // 이번 진행에서 자동청산 발생 여부
-        String autoExitReason            // "STOP_LOSS" / "TAKE_PROFIT" / null
+        AutoExitReason reason            // "STOP_LOSS" / "TAKE_PROFIT" / null
 ) {}

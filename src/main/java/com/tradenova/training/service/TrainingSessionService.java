@@ -109,6 +109,9 @@ public class TrainingSessionService {
             if(candles.size() < req.bars()){
                 continue;
             }
+            if (req.bars() < 1 || req.bars() > 100) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST);
+            }
 
             // 4-4) 날짜를 "봉 기준으로 정확히" 다시 맞춘다 (가장 중요)
             // - startDate/endDate를 달력으로 잡으면 휴장으로 인해 실제 봉 수가 달라짐
