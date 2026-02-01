@@ -33,8 +33,6 @@ public class TrainingSessionService {
 
     // 세션 저장/조회
     private final TrainingSessionRepository trainingSessionRepository;
-    // 계좌 소유권 검증 및 조회
-    private final PaperAccountService paperAccountService;
     //중목 후보군 조회(활성 종목)
     private final SymbolRepository symbolRepository;
     //userId -> User 엔티티 조회(안전하게 영속 상태 확보)
@@ -51,6 +49,12 @@ public class TrainingSessionService {
      */
     @Transactional
     public TrainingSessionCreateResponse createSession(Long userId, TrainingSessionCreateRequest req){
+
+        // 0) bars 검증 (가장 먼저)
+        int bars = req.bars();
+        if (bars < 1 || bars > 100) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
 
         // 1) 유저 조회(혹시나 principal user가 detached인 경우 대비)
         // - auth principal 에서 받은 user가 dateched일 수도 있고(영속성 컨텍스트 밖)
@@ -87,8 +91,8 @@ public class TrainingSessionService {
             //     - 예: 2018~현재-30일 범위에서 랜덤 endDate
             LocalDate endDate = randomDate(LocalDate.of(2018, 1, 1), LocalDate.now().minusDays(30));
             // - bars 봉을 얻기 위해 달력 day를 넉넉히 잡는다(주말/휴장 보정)
-            LocalDate startDate = endDate.minusDays(req.bars() * 2L);
-            // 위처럼 *2를 하는 이유:
+            LocalDate startDate = endDate.minusDays(bars * 3L);
+            // 위처럼 *3를 하는 이유:
             // - ‘bars=180’이라도 실제로는 주말/공휴일이 빠져서
             //   캘린더 days를 그대로 쓰면 캔들이 부족할 수 있음
             // - 넉넉히 뽑고, 실제로는 KIS 조회 결과로 검증
@@ -106,18 +110,18 @@ public class TrainingSessionService {
             );
 
             // 봉이 부족하면 이 조합은 실패 -> 다음 시도
-            if(candles.size() < req.bars()){
+            if(candles.size() < bars){
                 continue;
             }
-            if (req.bars() < 1 || req.bars() > 100) {
-                throw new CustomException(ErrorCode.INVALID_REQUEST);
-            }
+
+            // 정렬 한 번 더
+            candles.sort(java.util.Comparator.comparingLong(CandleDto::t));
 
             // 4-4) 날짜를 "봉 기준으로 정확히" 다시 맞춘다 (가장 중요)
             // - startDate/endDate를 달력으로 잡으면 휴장으로 인해 실제 봉 수가 달라짐
             // - 그래서 실제 캔들 배열에서 마지막 bars개를 기준으로 최종 구간을 확정
-            int fromIndex = Math.max(0, candles.size() - req.bars());
-            List<CandleDto> sessionCandles = candles.subList(fromIndex, fromIndex + req.bars());
+            int fromIndex = candles.size() - bars; // 여기선 size >= bars 이니까 음수 아님
+            List<CandleDto> sessionCandles = candles.subList(fromIndex, candles.size());
 
             long startMillis = sessionCandles.get(0).t();   //bars 구간의 첫 봉 시간
             long endMillis =  sessionCandles.get(sessionCandles.size() - 1).t(); //마지막 봉 시간
@@ -125,7 +129,7 @@ public class TrainingSessionService {
             LocalDate finalStart = millisToSeoulDate(startMillis);
             LocalDate finalEnd = millisToSeoulDate(endMillis);
 
-            int initialVisibleBars = Math.min(60, req.bars());
+            int initialVisibleBars = Math.min(60, bars);
             int progressIndex = Math.max(0, initialVisibleBars - 1);
 
             // 4-5) 훈련 세션 저장
@@ -137,7 +141,7 @@ public class TrainingSessionService {
                             .symbol(picked)     //어떤 종목인지
                             .progressIndex(progressIndex) //현재까지 공개된 봉 중 마지막 봉의 인덱스 ( 0 부터 시작 봉 60개 = index -> 59 )
                             .mode(req.mode())   //훈련 모드(랜덤 등)
-                            .bars(req.bars())   //노출/사용할 봉 개수
+                            .bars(bars)   //노출/사용할 봉 개수
                             .hiddenFutureBars(0)//(있다면) 미래봉 숨김 초기값
                             .startDate(finalStart)//봉 기준으로 확정한 시작일
                             .endDate(finalEnd)    //봉 기준으로 확정한 종료일
