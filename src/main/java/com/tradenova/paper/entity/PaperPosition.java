@@ -33,6 +33,7 @@ public class PaperPosition {
     private Long id;
 
     @Version
+    @Column(name = "version", nullable = false, columnDefinition = "bigint default 0")
     private Long version;
 
     // 어떤 계좌의 포지션인지 (계좌 1 : 포지션 N)

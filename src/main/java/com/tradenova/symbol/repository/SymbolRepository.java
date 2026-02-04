@@ -1,5 +1,6 @@
 package com.tradenova.symbol.repository;
 
+import com.tradenova.symbol.dto.SymbolSector;
 import com.tradenova.symbol.entity.Symbol;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -22,4 +23,15 @@ public interface SymbolRepository extends JpaRepository<Symbol, Long> {
 
     //활성 종목 중, 티커에 keyword가 포함된 것, 티커 기준 정렬, 최대 50개
     List<Symbol> findTop50ByActiveTrueAndTickerContainingOrderByTickerAsc(String keyword);
+
+
+    List<Symbol> findAllByActiveTrueAndSectorOrderByIdAsc(SymbolSector sector);
+
+    List<Symbol> findTop50ByActiveTrueAndSectorAndNameContainingIgnoreCaseOrderByNameAsc(
+            SymbolSector sector, String keyword
+    );
+
+    List<Symbol> findTop50ByActiveTrueAndSectorAndTickerContainingOrderByTickerAsc(
+            SymbolSector sector, String keyword
+    );
 }

@@ -5,8 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="오류 및 버그 수정">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/dto/SymbolSector.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperAccount.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperAccount.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperPosition.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperPosition.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/service/PaperAccountService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/service/PaperAccountService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/SymbolSeed.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/SymbolSeed.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/dto/SymbolResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/dto/SymbolResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/entity/Symbol.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/entity/Symbol.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/repository/SymbolRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/repository/SymbolRepository.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -19,11 +26,11 @@
         <option value="Interface" />
         <option value="Interface" />
         <option value="Class" />
-        <option value="Enum" />
         <option value="Record" />
         <option value="Class" />
         <option value="Interface" />
         <option value="Class" />
+        <option value="Enum" />
       </list>
     </option>
   </component>
@@ -163,7 +170,13 @@
       <workItem from="1769433248005" duration="2637000" />
       <workItem from="1769518278812" duration="13103000" />
       <workItem from="1769777737040" duration="3307000" />
-      <workItem from="1769950733094" duration="3903000" />
+      <workItem from="1769950733094" duration="6188000" />
+      <workItem from="1770013751117" duration="2426000" />
+      <workItem from="1770037865835" duration="1327000" />
+      <workItem from="1770046931718" duration="2394000" />
+      <workItem from="1770169212518" duration="1364000" />
+      <workItem from="1770191019601" duration="6005000" />
+      <workItem from="1770211205781" duration="4746000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -533,7 +546,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769786899272</updated>
     </task>
-    <option name="localTasksCounter" value="47" />
+    <task id="LOCAL-00047" summary="오류 및 버그 수정">
+      <option name="closed" value="true" />
+      <created>1769957163065</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1769957163065</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -551,7 +572,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="commit for a bit" />
     <MESSAGE value="error setting" />
     <MESSAGE value="DTO valid global coding" />
     <MESSAGE value="error &amp; global response done" />

@@ -32,6 +32,7 @@ public class PaperAccountService {
 
     @Transactional //트랜잭션 등록
     public PaperAccountResponse create(Long userId, PaperAccountCreateRequest req){
+
         //유저 존재 검증 없으면 예외
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));

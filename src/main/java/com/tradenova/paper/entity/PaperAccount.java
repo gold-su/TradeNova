@@ -31,6 +31,7 @@ public class PaperAccount {
     private Long id;
 
     @Version
+    @Column(name = "version", nullable = false, columnDefinition = "bigint default 0")
     private Long version;
 
     // 이 계좌의 주인 (한 유저가 여러 계좌 가질 수 있음)

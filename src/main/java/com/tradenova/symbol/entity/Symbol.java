@@ -1,5 +1,6 @@
 package com.tradenova.symbol.entity;
 
+import com.tradenova.symbol.dto.SymbolSector;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -34,6 +35,12 @@ public class Symbol {
     // 나중엔 enum 으로 변경해도 됨
     @Column(name = "market", length = 20, nullable = false)
     private String market;
+
+    // 업종/섹터 (훈련 필터/세트 생성용)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sector", length = 50, nullable = false)
+    @Builder.Default
+    private SymbolSector sector = SymbolSector.ETC;
 
     // 예: "005930", KIS에서 쓰는 식별자
     @Column(name = "ticker", length = 50, nullable = false)

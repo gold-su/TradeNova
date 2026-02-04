@@ -1,5 +1,6 @@
 package com.tradenova.symbol;
 
+import com.tradenova.symbol.dto.SymbolSector;
 import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.symbol.repository.SymbolRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,16 +16,17 @@ public class SymbolSeed implements CommandLineRunner {
     @Override
     public void run(String... args){
         // 이미 있으면 skip
-        seed("KOSPI", "005930", "삼성전자", "KRW");
-        seed("KOSPI", "000660", "SK하이닉스", "KRW");
-        seed("KOSDAQ", "035720", "카카오", "KRW");
+        seed("KOSPI", SymbolSector.SEMICONDUCTOR ,"005930", "삼성전자", "KRW");
+        seed("KOSPI", SymbolSector.SEMICONDUCTOR,"000660", "SK하이닉스", "KRW");
+        seed("KOSDAQ", SymbolSector.SEMICONDUCTOR,"035720", "카카오", "KRW");
     }
 
-    private void seed(String market, String ticker, String name, String currency) {
+        private void seed(String market, SymbolSector sector,String ticker, String name, String currency) {
         if (symbolRepository.existsByMarketAndTicker(market, ticker)) return;
 
         symbolRepository.save(Symbol.builder()
                 .market(market)
+                .sector(sector)
                 .ticker(ticker)
                 .name(name)
                 .currency(currency)

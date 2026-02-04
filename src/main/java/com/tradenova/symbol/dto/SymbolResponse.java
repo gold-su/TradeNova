@@ -5,6 +5,7 @@ import com.tradenova.symbol.entity.Symbol;
 public record SymbolResponse(
         Long id, //내부 식별자
         String market, //마켓 구분
+        String sector, //업종
         String ticker, //주식 등의 코드
         String name, //종목명
         String currency, //통화
@@ -15,6 +16,7 @@ public record SymbolResponse(
         return new SymbolResponse(
                 s.getId(),
                 s.getMarket(),
+                (s.getSector() == null ? null : s.getSector().name()),
                 s.getTicker(),
                 s.getName(),
                 s.getCurrency(),
