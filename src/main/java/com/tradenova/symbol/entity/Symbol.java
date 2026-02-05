@@ -36,12 +36,6 @@ public class Symbol {
     @Column(name = "market", length = 20, nullable = false)
     private String market;
 
-    // 업종/섹터 (훈련 필터/세트 생성용)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "sector", length = 50, nullable = false)
-    @Builder.Default
-    private SymbolSector sector = SymbolSector.ETC;
-
     // 예: "005930", KIS에서 쓰는 식별자
     @Column(name = "ticker", length = 50, nullable = false)
     private String ticker;
@@ -73,5 +67,15 @@ public class Symbol {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    // 공식 업종(거래소/코스피 탭 기준). MVP에서는 수동 입력/빈 값 허용
+    @Column(name = "exchange_sector", length = 50)
+    private String exchangeSector;
+
+    // 훈련 섹터(TradeNova 내부 분류). 업종 기반 랜덤/세트 생성에 사용
+    @Enumerated(EnumType.STRING)
+    @Column(name = "training_sector", length = 50, nullable = false)
+    @Builder.Default
+    private SymbolSector trainingSector = SymbolSector.ETC;
 
 }

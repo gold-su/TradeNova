@@ -4,12 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="오류 및 버그 수정">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/dto/SymbolSector.java" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="symbol code modify">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperAccount.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperAccount.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperPosition.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/entity/PaperPosition.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/service/PaperAccountService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/service/PaperAccountService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/SymbolSeed.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/SymbolSeed.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/dto/SymbolResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/dto/SymbolResponse.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/entity/Symbol.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/entity/Symbol.java" afterDir="false" />
@@ -176,7 +172,7 @@
       <workItem from="1770046931718" duration="2394000" />
       <workItem from="1770169212518" duration="1364000" />
       <workItem from="1770191019601" duration="6005000" />
-      <workItem from="1770211205781" duration="4746000" />
+      <workItem from="1770211205781" duration="8339000" />
     </task>
     <task id="LOCAL-00001" summary="first push">
       <option name="closed" value="true" />
@@ -554,7 +550,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769957163065</updated>
     </task>
-    <option name="localTasksCounter" value="48" />
+    <task id="LOCAL-00048" summary="symbol code modify">
+      <option name="closed" value="true" />
+      <created>1770219357086</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1770219357086</updated>
+    </task>
+    <option name="localTasksCounter" value="49" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -572,7 +576,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="error setting" />
     <MESSAGE value="DTO valid global coding" />
     <MESSAGE value="error &amp; global response done" />
     <MESSAGE value="Finish commit" />
@@ -598,6 +601,7 @@
     <MESSAGE value="매수/매도 구현 중 3" />
     <MESSAGE value="매수/매도 구현 완료" />
     <MESSAGE value="오류 및 버그 수정" />
-    <option name="LAST_COMMIT_MESSAGE" value="오류 및 버그 수정" />
+    <MESSAGE value="symbol code modify" />
+    <option name="LAST_COMMIT_MESSAGE" value="symbol code modify" />
   </component>
 </project>
