@@ -49,8 +49,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { //OncePerReq
                  */
                 // “이 User를 주체(principal)로 하는 인증 객체(auth)를 하나 만들자.
                 var auth = new UsernamePasswordAuthenticationToken(
-                        user, null, null
+                        user.getId(),           // principal = userId (Long)
+                        null,
+                        java.util.List.of()     // 권한 안 쓸 거면 빈 리스트
                 );
+                // 이미 인증된 요청이면 스킵
+                if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+                
                 //이제부터 이 요청은 이 사용자(auth) 로 인증된 상태라고 스프링 시큐리티에게 알려줘라
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }

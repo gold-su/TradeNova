@@ -4,9 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="symbol code modify">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="modify">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingTradeController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/SymbolSeed.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/symbol/SymbolSeed.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/security/JwtAuthenticationFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/security/JwtAuthenticationFilter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application-local.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application-local.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -18,12 +21,12 @@
       <list>
         <option value="Interface" />
         <option value="Interface" />
-        <option value="Class" />
         <option value="Record" />
         <option value="Class" />
         <option value="Interface" />
         <option value="Class" />
         <option value="Enum" />
+        <option value="Class" />
       </list>
     </option>
   </component>
@@ -169,15 +172,8 @@
       <workItem from="1770046931718" duration="2394000" />
       <workItem from="1770169212518" duration="1364000" />
       <workItem from="1770191019601" duration="6005000" />
-      <workItem from="1770211205781" duration="10306000" />
-    </task>
-    <task id="LOCAL-00001" summary="first push">
-      <option name="closed" value="true" />
-      <created>1764644347196</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1764644347196</updated>
+      <workItem from="1770211205781" duration="10545000" />
+      <workItem from="1770359871997" duration="13084000" />
     </task>
     <task id="LOCAL-00002" summary="first push">
       <option name="closed" value="true" />
@@ -563,7 +559,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770300348382</updated>
     </task>
-    <option name="localTasksCounter" value="50" />
+    <task id="LOCAL-00050" summary="modify">
+      <option name="closed" value="true" />
+      <created>1770302176765</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1770302176766</updated>
+    </task>
+    <option name="localTasksCounter" value="51" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -581,7 +585,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="error &amp; global response done" />
     <MESSAGE value="Finish commit" />
     <MESSAGE value="한국투자증권 KIS API codding" />
     <MESSAGE value="한국투자증권 KIS API TOKEN 발급 API DTO codding" />
@@ -606,6 +609,7 @@
     <MESSAGE value="매수/매도 구현 완료" />
     <MESSAGE value="오류 및 버그 수정" />
     <MESSAGE value="symbol code modify" />
-    <option name="LAST_COMMIT_MESSAGE" value="symbol code modify" />
+    <MESSAGE value="modify" />
+    <option name="LAST_COMMIT_MESSAGE" value="modify" />
   </component>
 </project>

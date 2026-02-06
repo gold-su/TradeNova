@@ -6,7 +6,7 @@ spring:
 tradenova:
   jwt:
     secret: ThisIsASecretKeyForTradeNovaJwtToken1234
-    access-token-validity-in-seconds: 3600
+    access-token-validity-in-seconds: 3600000
 
 kis:
   appkey: PSnBVk1TkpF1adgiBltS39y3R3tYojFjIapj

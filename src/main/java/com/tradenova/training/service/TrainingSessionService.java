@@ -52,7 +52,7 @@ public class TrainingSessionService {
 
         // 0) bars 검증 (가장 먼저)
         int bars = req.bars();
-        if (bars < 1 || bars > 100) {
+        if (bars < 1 || bars > 500) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
@@ -100,28 +100,28 @@ public class TrainingSessionService {
             // 4-3) KIS로 캔들 조회해서 bars 이상인지 확인
             // - KIS 조회는 YYYYMMDD 문자열을 요구하는 경우가 많아서 BASIC_ISO_DATE 사용
             // (B) KIS로 캔들 조회해서 bars 이상인지 확인
-            List<CandleDto> candles = kisMarketDataService.getCandles(
+            List<CandleDto> candles = new ArrayList<>(kisMarketDataService.getCandles(
                     "J", //시장코드(예: 국내 KRX)
                     picked.getTicker(), //종목코드(005930 등)
                     startDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE), //from
                     endDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE), //to
                     "D", //일봉
                     "0" //수정주가/조정여부(문서 기준)
-            );
+            ));
 
             // 봉이 부족하면 이 조합은 실패 -> 다음 시도
             if(candles.size() < bars){
                 continue;
             }
 
-            // 정렬 한 번 더
+            // 정렬
             candles.sort(java.util.Comparator.comparingLong(CandleDto::t));
 
             // 4-4) 날짜를 "봉 기준으로 정확히" 다시 맞춘다 (가장 중요)
             // - startDate/endDate를 달력으로 잡으면 휴장으로 인해 실제 봉 수가 달라짐
             // - 그래서 실제 캔들 배열에서 마지막 bars개를 기준으로 최종 구간을 확정
             int fromIndex = candles.size() - bars; // 여기선 size >= bars 이니까 음수 아님
-            List<CandleDto> sessionCandles = candles.subList(fromIndex, candles.size());
+            List<CandleDto> sessionCandles = new ArrayList<>(candles.subList(fromIndex, candles.size()));
 
             long startMillis = sessionCandles.get(0).t();   //bars 구간의 첫 봉 시간
             long endMillis =  sessionCandles.get(sessionCandles.size() - 1).t(); //마지막 봉 시간
