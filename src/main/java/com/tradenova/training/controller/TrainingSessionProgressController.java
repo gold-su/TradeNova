@@ -7,6 +7,7 @@ import com.tradenova.user.entity.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,19 +21,21 @@ public class TrainingSessionProgressController {
     // 한 봉 진행
     @PostMapping("/next")
     public ResponseEntity<SessionProgressResponse> next(
-            @AuthenticationPrincipal User user,
+            Authentication authentication,
             @PathVariable Long sessionId
     ) {
-        return ResponseEntity.ok(progressService.next(user.getId(), sessionId));
+        Long userId = (Long) authentication.getPrincipal();
+        return ResponseEntity.ok(progressService.next(userId, sessionId));
     }
 
     // N 봉 진행
     @PostMapping("/advance")
     public ResponseEntity<SessionProgressResponse> advance(
-            @AuthenticationPrincipal User user,
+            Authentication authentication,
             @PathVariable Long sessionId,
             @Valid @RequestBody SessionAdvanceRequest req
     ) {
-        return ResponseEntity.ok(progressService.advance(user.getId(), sessionId, req.steps()));
+        Long userId = (Long) authentication.getPrincipal();
+        return ResponseEntity.ok(progressService.advance(userId, sessionId, req.steps()));
     }
 }

@@ -47,11 +47,11 @@ public class TrainingSessionController {
      */
     @PostMapping
     public ResponseEntity<TrainingSessionCreateResponse> create(
-            @AuthenticationPrincipal User user,                   //로그인 사용자 정보(인증 객체)
+            Authentication authentication,                   //로그인 사용자 정보(인증 객체)
             @Valid @RequestBody TrainingSessionCreateRequest req  //요청 DTO (Validation 적용)
     ){
         //로그인된 사용자(Principal)에서 userId 추출
-        Long userId = user.getId();
+        Long userId = (Long) authentication.getPrincipal();
 
         //서비스 호출 -> 세션 생성 -> 응답 DTO 반환
         return ResponseEntity.ok(trainingSessionService.createSession(userId, req));

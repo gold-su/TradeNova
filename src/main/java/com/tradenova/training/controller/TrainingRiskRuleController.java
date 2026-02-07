@@ -7,6 +7,7 @@ import com.tradenova.user.entity.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,10 +28,10 @@ public class TrainingRiskRuleController {
      */
     @GetMapping
     public ResponseEntity<RiskRuleResponse> get(
-            @AuthenticationPrincipal User user,   // 로그인 사용자(Principal)
+            Authentication authentication,   // 로그인 사용자(Principal)
             @PathVariable Long sessionId          // 조회할 훈련 세션 ID
     ) {
-        Long userId = user.getId();
+        Long userId = (Long) authentication.getPrincipal();
         return ResponseEntity.ok(service.get(userId, sessionId));
     }
 
@@ -43,11 +44,11 @@ public class TrainingRiskRuleController {
      */
     @PutMapping
     public ResponseEntity<RiskRuleResponse> upsert(
-            @AuthenticationPrincipal User user,       // 로그인 사용자(Principal)
+            Authentication authentication,       // 로그인 사용자(Principal)
             @PathVariable Long sessionId,             // 대상 훈련 세션 ID
             @Valid @RequestBody RiskRuleUpsertRequest req // 요청 DTO (검증 적용)
     ) {
-        Long userId = user.getId();
+        Long userId = (Long) authentication.getPrincipal();
         return ResponseEntity.ok(service.upsert(userId, sessionId, req));
     }
 }
