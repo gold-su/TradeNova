@@ -1,15 +1,19 @@
 package com.tradenova.training.controller;
 
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.kis.dto.CandleDto;
+import com.tradenova.training.dto.TradeResponse;
 import com.tradenova.training.dto.TrainingSessionCreateRequest;
 import com.tradenova.training.dto.TrainingSessionCreateResponse;
+import com.tradenova.training.entity.TrainingSession;
+import com.tradenova.training.repository.TrainingSessionRepository;
 import com.tradenova.training.service.TrainingSessionService;
-import com.tradenova.user.entity.User;
+import com.tradenova.training.service.TrainingTradeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,7 +36,8 @@ public class TrainingSessionController {
 
     // 훈련 세션 생성/조회 비즈니스 로직 서비스
     private final TrainingSessionService trainingSessionService;
-
+    private final TrainingTradeService tradeService;
+    private final TrainingSessionRepository sessionRepo;
     /**
      * 훈련 세션 생성
      * POST /api/training/sessions
@@ -68,13 +73,32 @@ public class TrainingSessionController {
      */
     @GetMapping("/{sessionId}/candles")
     public ResponseEntity<List<CandleDto>> candles(
-            @AuthenticationPrincipal User user,        //로그인 사용자 정보 (인증 객체)
+            Authentication authentication,        //로그인 사용자 정보 (인증 객체)
             @PathVariable Long sessionId               //조회할 세션 ID
     ) {
         //로그인된 사용자 ID 추출
-        Long userId = user.getId();
+        Long userId = (Long) authentication.getPrincipal();
         //세션 소유권 검증(findByIdAndUserId) 포함해서 캔들 조회
         return ResponseEntity.ok(trainingSessionService.getSessionCandles(userId, sessionId));
     }
 
+    /**
+     * 전량 매도 (SELL ALL)
+     * POST /api/training/sessions/{sessionId}/sell-all
+     */
+    @PostMapping("/{sessionId}/sell-all")
+    public ResponseEntity<TradeResponse> sellAll(
+            Authentication authentication,
+            @PathVariable Long sessionId
+    ) {
+        //JWT 인증 정보에서 사용자 ID 추출
+        // (Security 설정에서 principal을 Long userId로 넣어둔 전체)
+        Long userId = (Long) authentication.getPrincipal();
+
+        // 세션 조회 + 소유권 검증(남의 세션이면 못 찾게)
+        TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
+
+        return ResponseEntity.ok(tradeService.sellAll(userId, s));
+    }
 }

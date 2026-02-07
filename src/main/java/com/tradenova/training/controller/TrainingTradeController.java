@@ -85,4 +85,6 @@ public class TrainingTradeController {
                 tradeService.sell(userId, sessionId, req.qty())
         );
     }
+
+
 }
