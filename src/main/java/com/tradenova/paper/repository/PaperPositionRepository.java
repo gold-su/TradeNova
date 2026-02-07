@@ -1,5 +1,6 @@
 package com.tradenova.paper.repository;
 
+import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.entity.PaperPosition;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -16,4 +17,7 @@ public interface PaperPositionRepository extends JpaRepository<PaperPosition, Lo
 
     //이 계좌의 모든 포지션을 전부 삭제해라
     void deleteAllByAccountId(Long accountId);
+
+    //Id 심볼ID 조회
+    Optional<PaperPosition> findByAccount_IdAndSymbolId(Long accountId, Long symbolId);
 }

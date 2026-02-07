@@ -1,6 +1,7 @@
 package com.tradenova.paper.repository;
 
 import com.tradenova.paper.entity.PaperAccount;
+import com.tradenova.paper.entity.PaperPosition;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

@@ -6,8 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="buy, sell flow done">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingTradeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingTradeController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperAccountRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperAccountRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperPositionRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperPositionRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionProgressResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionProgressResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -171,15 +173,7 @@
       <workItem from="1770169212518" duration="1364000" />
       <workItem from="1770191019601" duration="6005000" />
       <workItem from="1770211205781" duration="10545000" />
-      <workItem from="1770359871997" duration="17561000" />
-    </task>
-    <task id="LOCAL-00004" summary="Next so I work on the service package in the user package">
-      <option name="closed" value="true" />
-      <created>1764688614682</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1764688614682</updated>
+      <workItem from="1770359871997" duration="21397000" />
     </task>
     <task id="LOCAL-00005" summary="I`m worked on a userService.">
       <option name="closed" value="true" />
@@ -565,7 +559,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770472354979</updated>
     </task>
-    <option name="localTasksCounter" value="53" />
+    <task id="LOCAL-00053" summary="buy, sell flow done">
+      <option name="closed" value="true" />
+      <created>1770477952805</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1770477952805</updated>
+    </task>
+    <option name="localTasksCounter" value="54" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

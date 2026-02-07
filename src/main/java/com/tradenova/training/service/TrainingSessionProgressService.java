@@ -2,6 +2,9 @@ package com.tradenova.training.service;
 
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.paper.entity.PaperPosition;
+import com.tradenova.paper.repository.PaperAccountRepository;
+import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.training.dto.SessionProgressResponse;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.entity.TrainingStatus;
@@ -20,6 +23,8 @@ public class TrainingSessionProgressService {
     private final TrainingSessionRepository sessionRepo;
     // 자동청산(리스크 룰) 판단 로직을 담당하는 서비스
     private final TrainingAutoExitService autoExitService;
+
+    private final PaperPositionRepository positionRepo;
 
     /**
      * 한 봉(candle)만 진행시키는 API
@@ -82,12 +87,29 @@ public class TrainingSessionProgressService {
         // 10) 현재가 (progressIndex 기준 close 가격)
         BigDecimal currentPrice = r.currentPrice();
 
+        // 트레이드/자동청산 이후의 “최종 스냅샷”을 내려줌
+        Long accountId = s.getAccount().getId();
+        Long symbolId = s.getSymbol().getId();
+
+        // 현금 (PaperAccount에 맞는 getter로 바꾸기)
+        BigDecimal cashBalance = s.getAccount().getCashBalance();
+
+        PaperPosition pos = positionRepo.findByAccount_IdAndSymbolId(accountId, symbolId)
+                .orElse(null);
+
+        BigDecimal positionQty = (pos == null) ? BigDecimal.ZERO : pos.getQuantity();
+        BigDecimal avgPrice = (pos == null) ? BigDecimal.ZERO : pos.getAvgPrice();
+
+
         // 11) 프론트로 내려줄 진행 결과 응답 DTO 생성
         return new SessionProgressResponse(
                 s.getId(),              // 세션 ID
                 s.getProgressIndex(),   // 현재 진행 인덱스
                 currentPrice,           // 현재가
                 s.getStatus().name(),   // 세션 상태(IN_PROGRESS / COMPLETED)
+                cashBalance,
+                positionQty,
+                avgPrice,
                 r.autoExited(),         // 이번 진행에서 자동청산 발생 여부
                 r.reason()              // 자동청산 사유(STOP_LOSS / TAKE_PROFIT / null)
         );

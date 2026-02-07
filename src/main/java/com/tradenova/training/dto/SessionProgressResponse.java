@@ -8,6 +8,12 @@ public record SessionProgressResponse(
         Integer progressIndex,
         BigDecimal currentPrice,
         String status,
+
+        // 프론트 즉시 반영용 스냅샷
+        BigDecimal cashBalance,
+        BigDecimal positionQty,
+        BigDecimal avgPrice,
+
         boolean autoExited,              // 이번 진행에서 자동청산 발생 여부
         AutoExitReason reason            // "STOP_LOSS" / "TAKE_PROFIT" / null
 ) {}
