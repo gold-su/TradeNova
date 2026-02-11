@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="buy, sell flow done">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="paper, TrainingSessionProgressService modify">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperAccountRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperAccountRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperPositionRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperPositionRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionProgressResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionProgressResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -173,15 +170,7 @@
       <workItem from="1770169212518" duration="1364000" />
       <workItem from="1770191019601" duration="6005000" />
       <workItem from="1770211205781" duration="10545000" />
-      <workItem from="1770359871997" duration="21397000" />
-    </task>
-    <task id="LOCAL-00005" summary="I`m worked on a userService.">
-      <option name="closed" value="true" />
-      <created>1764695875081</created>
-      <option name="number" value="00005" />
-      <option name="presentableId" value="LOCAL-00005" />
-      <option name="project" value="LOCAL" />
-      <updated>1764695875081</updated>
+      <workItem from="1770359871997" duration="30888000" />
     </task>
     <task id="LOCAL-00006" summary="Today worked on a user login coding.">
       <option name="closed" value="true" />
@@ -567,7 +556,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770477952805</updated>
     </task>
-    <option name="localTasksCounter" value="54" />
+    <task id="LOCAL-00054" summary="paper, TrainingSessionProgressService modify">
+      <option name="closed" value="true" />
+      <created>1770482350117</created>
+      <option name="number" value="00054" />
+      <option name="presentableId" value="LOCAL-00054" />
+      <option name="project" value="LOCAL" />
+      <updated>1770482350117</updated>
+    </task>
+    <option name="localTasksCounter" value="55" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -585,7 +582,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="한국투자증권 KIS API TOKEN 발급 API DTO codding" />
     <MESSAGE value="한국투자증권 KIS API CODING DONE AND TEST API" />
     <MESSAGE value="testing done" />
     <MESSAGE value="PaperAccount coding" />
@@ -610,6 +606,7 @@
     <MESSAGE value="modify" />
     <MESSAGE value="fixed" />
     <MESSAGE value="buy, sell flow done" />
-    <option name="LAST_COMMIT_MESSAGE" value="buy, sell flow done" />
+    <MESSAGE value="paper, TrainingSessionProgressService modify" />
+    <option name="LAST_COMMIT_MESSAGE" value="paper, TrainingSessionProgressService modify" />
   </component>
 </project>

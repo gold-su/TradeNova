@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable()) // 폼 로그인 안 씀
                 .httpBasic(basic -> basic.disable()) //브라우저 팝업으로 뜨는 Basic 인증 안 씀
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll() //OPTIONS permitAll
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/auth/login",
