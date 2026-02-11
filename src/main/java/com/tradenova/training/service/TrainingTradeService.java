@@ -51,21 +51,21 @@ public class TrainingTradeService {
         
         // 1-1) qty 검증 (null / 0 / 음수 금지)
         if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+            throw new CustomException(ErrorCode.INVALID_TRADE_QTY);
         }
         //  qty 스케일 정책 (MVP 기본)
         qty = qty.setScale(6, RoundingMode.DOWN);
         // 0 되면 차단
         if (qty.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+            throw new CustomException(ErrorCode.INVALID_TRADE_QTY);
         }
         // 주식 UX: 소수점 허용 안 함
-        if (qty.stripTrailingZeros().scale() > 0) { // 소수점 존재
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        if (qty.stripTrailingZeros().scale() > 0) {
+            throw new CustomException(ErrorCode.INVALID_TRADE_QTY);
         }
         // 1-2) COMPLETED 세션이면 거래 금지
         if (s.getStatus() != TrainingStatus.IN_PROGRESS) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+            throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
         }
 
         // 2) 세션에 연결된 페이퍼 계좌 (JPA 영속 상태일 가능성 높음)
@@ -83,7 +83,7 @@ public class TrainingTradeService {
         // 6) 현금 부족 체크: cashBalance < cost 이면 매수 불가
         if (acc.getCashBalance().compareTo(cost) < 0) {
             // 지금은 INVALID_REQUEST 사용 중 (나중에 CASH_NOT_ENOUGH 같은 에러 코드 분리하면 UX 좋아짐)
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+            throw new CustomException(ErrorCode.INSUFFICIENT_CASH);
         }
 
         // 7) 포지션 조회: (accountId + symbolId)로 단일 포지션을 유지하는 구조
@@ -160,21 +160,21 @@ public class TrainingTradeService {
 
         // qty 검증
         if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+            throw new CustomException(ErrorCode.INVALID_TRADE_QTY);
         }
         //  qty 스케일 정책 (MVP 기본)
         qty = qty.setScale(6, RoundingMode.DOWN);
         // 0 되면 차단
         if (qty.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+            throw new CustomException(ErrorCode.INVALID_TRADE_QTY);
         }
         // 주식 UX: 소수점 허용 안 함
         if (qty.stripTrailingZeros().scale() > 0) { // 소수점 존재
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+            throw new CustomException(ErrorCode.INVALID_TRADE_QTY);
         }
 
         if (s.getStatus() != TrainingStatus.IN_PROGRESS) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+            throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
         }
 
         // 2) 이 세션이 사용하는 페이퍼 계좌(현금이 여기서 늘어남)
@@ -186,11 +186,11 @@ public class TrainingTradeService {
         // 4) 계좌 + 종목으로 현재 포지션 조회
         // - 너의 정책(실전 느낌)에서는 "포지션은 계좌 소유"라서 이게 핵심 구조임.
         PaperPosition pos = positionRepo.findByAccountIdAndSymbolId(acc.getId(), symbolId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_REQUEST)); // 보유 없음
+                .orElseThrow(() -> new CustomException(ErrorCode.INSUFFICIENT_POSITION_QTY)); // 보유 없음
 
         // 5) 보유 수량 체크: 보유량 < 매도요청량이면 불가능
         if (pos.getQuantity().compareTo(qty) < 0) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST); // 보유수량 부족
+            throw new CustomException(ErrorCode.INSUFFICIENT_POSITION_QTY); // 보유수량 부족
         }
 
         // 6) 현재가 계산(체결가): progressIndex 기준 candle.close

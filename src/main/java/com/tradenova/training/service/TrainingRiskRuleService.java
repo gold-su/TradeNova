@@ -73,6 +73,11 @@ public class TrainingRiskRuleService {
         TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
+        // COMPLETED면 수정 금지
+        if (s.getStatus() != com.tradenova.training.entity.TrainingStatus.IN_PROGRESS) {
+            throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
+        }
+
         // 현재가 계산 (세션의 현재 진행 봉 close)
         BigDecimal currentPrice = getCurrentPrice(s);
 

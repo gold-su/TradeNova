@@ -50,9 +50,8 @@ public class TrainingSessionProgressService {
         TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
         // 2) 이미 종료된(COMPLETED) 세션이면 더 이상 진행 불가
-        if(s.getStatus() == TrainingStatus.COMPLETED){
-            // 이미 종료된 세션 진행 불가 (원하면 에러코드 추가)
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        if (s.getStatus() != TrainingStatus.IN_PROGRESS) {
+            throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
         }
 
         // 3) 세션의 마지막 캔들 인덱스
@@ -63,7 +62,10 @@ public class TrainingSessionProgressService {
         int cur = (s.getProgressIndex() == null) ? 0 : s.getProgressIndex();
         // 5) 요청된 steps 검증
         //    - 0 이하로 넘기는 건 의미 없으므로 거부
-        if (steps <= 0) throw new CustomException(ErrorCode.INVALID_REQUEST);
+        // 스펙: 1 ~ 500
+        if (steps < 1 || steps > 500) {
+            throw new CustomException(ErrorCode.INVALID_ADVANCE_STEPS);
+        }
         // 6) 다음 progressIndex 계산
         //    - cur + steps 만큼 앞으로 가되
         //    - 마지막 캔들(maxIdx)을 넘지 않도록 보정

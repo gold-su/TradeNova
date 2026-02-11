@@ -52,8 +52,13 @@ public class TrainingSessionService {
 
         // 0) bars 검증 (가장 먼저)
         int bars = req.bars();
-        if (bars < 1 || bars > 500) {
+        if (bars < 30 || bars > 120) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // 0-1) mode 검증 (명확한 에러코드)
+        if (req.mode() == null) {
+            throw new CustomException(ErrorCode.INVALID_TRAINING_MODE);
         }
 
         // 1) 유저 조회(혹시나 principal user가 detached인 경우 대비)
