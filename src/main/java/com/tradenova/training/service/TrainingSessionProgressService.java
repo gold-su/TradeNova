@@ -6,8 +6,11 @@ import com.tradenova.paper.entity.PaperPosition;
 import com.tradenova.paper.repository.PaperAccountRepository;
 import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.training.dto.SessionProgressResponse;
+import com.tradenova.training.dto.TradeResponse;
 import com.tradenova.training.entity.TrainingSession;
+import com.tradenova.training.entity.TrainingSessionChart;
 import com.tradenova.training.entity.TrainingStatus;
+import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,20 +23,24 @@ import java.math.BigDecimal;
 public class TrainingSessionProgressService {
 
     // 훈련 세션 DB 접근용 레포지토리
-    private final TrainingSessionRepository sessionRepo;
+    private final TrainingSessionChartRepository chartRepo;
     // 자동청산(리스크 룰) 판단 로직을 담당하는 서비스
     private final TrainingAutoExitService autoExitService;
 
     private final PaperPositionRepository positionRepo;
+
+    // 자동청산 발생 시 실제 전량매도 처리용
+    private final TrainingTradeService tradeService;
 
     /**
      * 한 봉(candle)만 진행시키는 API
      * - 내부적으로 advance(..., 1)을 호출
      */
     @Transactional //트랜잭션
-    public SessionProgressResponse next(Long userId, Long sessionId) {
-        return advance(userId, sessionId, 1);
+    public SessionProgressResponse next(Long userId, Long chartId) {
+        return advance(userId, chartId, 1);
     }
+
 
     /**
      * N 봉을 한 번에 진행시키는 메서드
@@ -43,77 +50,99 @@ public class TrainingSessionProgressService {
      * - 자동청산(리스크 룰) 검사
      */
     @Transactional
-    public SessionProgressResponse advance(Long userId, Long sessionId, int steps){
+    public SessionProgressResponse advance(Long userId, Long chartId, int steps){
 
         // 1) 세션 조회 + 소유권 검증
         //      - 남의 세션 접근 방지
-        TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
-        // 2) 이미 종료된(COMPLETED) 세션이면 더 이상 진행 불가
-        if (s.getStatus() != TrainingStatus.IN_PROGRESS) {
+        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND)); // 없으면 새 에러코드 추천
+
+        // 2) 세션 상태 검사 (정책: 세션이 완료면 차트 진행 금지)
+        if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
             throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
         }
 
-        // 3) 세션의 마지막 캔들 인덱스
-        //    예: bars = 100 -> maxIdx = 99
-        int maxIdx = Math.max(0, s.getBars() - 1);
-        // 4) 현재 progressIndex
-        //    - 아직 한 번도 진행 안 했으면 null -> 0으로 처리
-        int cur = (s.getProgressIndex() == null) ? 0 : s.getProgressIndex();
-        // 5) 요청된 steps 검증
+        // 3) steps 검증
         //    - 0 이하로 넘기는 건 의미 없으므로 거부
         // 스펙: 1 ~ 500
         if (steps < 1 || steps > 500) {
             throw new CustomException(ErrorCode.INVALID_ADVANCE_STEPS);
         }
-        // 6) 다음 progressIndex 계산
+
+        // 4) idx 범위 계산
+        //    예: bars = 100 -> maxIdx = 99
+        int maxIdx = Math.max(0, chart.getBars() - 1);
+        //    - 아직 한 번도 진행 안 했으면 null -> 0으로 처리
+        int cur = (chart.getProgressIndex() == null) ? 0 : chart.getProgressIndex();
+        //    다음 progressIndex 계산
         //    - cur + steps 만큼 앞으로 가되
         //    - 마지막 캔들(maxIdx)을 넘지 않도록 보정
         int nextIdx = Math.min(cur + steps, maxIdx);
 
-        // 7) 세션에 새로운 진행 인덱스 반영
-        s.setProgressIndex(nextIdx);
+        // 5) 진행 반영
+        chart.setProgressIndex(nextIdx);
 
-        // 8) 마지막 캔들(maxIdx)에 도달했으면 세션 자동 종료
-        //    - 훈련은 "모든 봉을 다 본 시점"에 끝난다
-        if(nextIdx >= maxIdx){
-            s.setStatus(TrainingStatus.COMPLETED);
+        // 6) chart가 마지막 봉까지 가면(옵션) 세션까지 종료할지?
+        //    MVP에서는 "세션 종료는 세션 정책으로 따로" 가도 되는데,
+        //    지금은 단순하게 chart가 끝까지 가면 세션도 끝내는 걸로 처리해도 됨.
+        if (nextIdx >= maxIdx) {
+            // chart 자체만 종료 상태 필드 추가하는게 이상적이지만
+            // 지금은 세션 종료는 건드리지 않는게 안정적
         }
 
-        // 9) 진행 직후 자동청산(리스크 룰) 체크
+        // 7) 자동청산 체크 (반환: autoExited 여부 + reason + currentPrice)
         //    - stop loss / take profit 조건 충족 여부 판단
         //    - 지금 단계에서는 "실제 매도"가 아니라
         //    - autoExited 여부와 사유만 계산
-        TrainingAutoExitService.AutoExitResult r = autoExitService.checkAndAutoExit(userId, s);
+        TrainingAutoExitService.AutoExitResult r =
+                autoExitService.checkAndAutoExit(chart.getId(), chart);
 
-        // 10) 현재가 (progressIndex 기준 close 가격)
+        // 8) 현재가 (progressIndex 기준 close 가격)
         BigDecimal currentPrice = r.currentPrice();
 
-        // 트레이드/자동청산 이후의 “최종 스냅샷”을 내려줌
-        Long accountId = s.getAccount().getId();
-        Long symbolId = s.getSymbol().getId();
-
-        // 현금 (PaperAccount에 맞는 getter로 바꾸기)
-        BigDecimal cashBalance = s.getAccount().getCashBalance();
+        // 9) 스냅샷 구성
+        Long accountId = chart.getSession().getAccount().getId();
+        Long symbolId = chart.getSymbol().getId();
 
         PaperPosition pos = positionRepo.findByAccount_IdAndSymbolId(accountId, symbolId)
                 .orElse(null);
 
         BigDecimal positionQty = (pos == null) ? BigDecimal.ZERO : pos.getQuantity();
         BigDecimal avgPrice = (pos == null) ? BigDecimal.ZERO : pos.getAvgPrice();
+        // 현금 (PaperAccount에 맞는 getter로 바꾸기)
+        BigDecimal cashBalance = chart.getSession().getAccount().getCashBalance();
 
+        // 10) 자동청산
+        //     - 룰은 발동했는데 포지션이 0이면, 팔 게 없으니 자동청산 실행은 스킵(UX 깔끔)
+        boolean executedAutoExit = false;
+        var autoExitReason = r.reason();
+
+        if (r.autoExited() && positionQty.compareTo(BigDecimal.ZERO) > 0) {
+            TradeResponse sellAllResult = tradeService.sellAll(userId, chart.getId());
+
+            // sellAll 결과로 스냅샷 갱신
+            cashBalance = sellAllResult.cashBalance();
+            positionQty = sellAllResult.positionQty();
+            avgPrice = sellAllResult.avgPrice();
+
+            // 체결가도 sellAllResult.executedPrice()를 써도 되지만,
+            // 여기선 progress에서 계산한 currentPrice와 동일하게 맞춰도 OK
+            currentPrice = sellAllResult.executedPrice();
+
+            executedAutoExit = true;
+        }
 
         // 11) 프론트로 내려줄 진행 결과 응답 DTO 생성
         return new SessionProgressResponse(
-                s.getId(),              // 세션 ID
-                s.getProgressIndex(),   // 현재 진행 인덱스
+                chart.getId(),              // 세션 ID
+                chart.getProgressIndex(),   // 현재 진행 인덱스
                 currentPrice,           // 현재가
-                s.getStatus().name(),   // 세션 상태(IN_PROGRESS / COMPLETED)
+                chart.getSession().getStatus().name(),   // 세션 상태(IN_PROGRESS / COMPLETED)
                 cashBalance,
                 positionQty,
                 avgPrice,
-                r.autoExited(),         // 이번 진행에서 자동청산 발생 여부
-                r.reason()              // 자동청산 사유(STOP_LOSS / TAKE_PROFIT / null)
+                executedAutoExit,         // 이번 진행에서 자동청산 발생 여부
+                autoExitReason            // 자동청산 사유(STOP_LOSS / TAKE_PROFIT / null)
         );
     }
 }

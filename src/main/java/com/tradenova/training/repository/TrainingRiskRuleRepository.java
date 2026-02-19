@@ -9,7 +9,8 @@ import java.util.Optional;
 public interface TrainingRiskRuleRepository extends JpaRepository<TrainingRiskRule, Long> {
 
     //특정 훈련 세션에 설정된 리스크 규칙 조회
-    Optional<TrainingRiskRule> findBySessionId(Long sessionId);
+    Optional<TrainingRiskRule> findByChartId(Long ChartId);
     //특정 세션 + 특정 계좌 기준 리스크 규칙 조회
-    Optional<TrainingRiskRule> findBySessionIdAndAccountId(Long sessionId, Long accountId);
+    Optional<TrainingRiskRule> findByChartIdAndAccountId(Long ChartId, Long accountId);
+
 }

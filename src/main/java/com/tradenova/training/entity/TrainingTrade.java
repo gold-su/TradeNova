@@ -16,7 +16,7 @@ import java.time.OffsetDateTime;
 @Entity
 @Table(name = "training_trade",
         indexes = {
-                @Index(name="idx_trade_session", columnList="session_id"),
+                @Index(name="idx_trade_chart", columnList="chart_id"),
                 @Index(name="idx_trade_account", columnList="account_id")
         }
 )
@@ -34,8 +34,8 @@ public class TrainingTrade {
      * 어떤 훈련 세션에서 발생한 매매인지
      * TrainingSession.id 와 연결되는 값
      */
-    @Column(name="session_id", nullable=false)
-    private Long sessionId;
+    @Column(name="chart_id", nullable=false)
+    private Long chartId;
 
     /**
      * 어떤 모의투자 계좌에서 발생한 매매인지

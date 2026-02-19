@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 //이번 진행 이후 세션의 현재 상태 요약본
 public record SessionProgressResponse(
-        Long sessionId,
+        Long chartId,
         Integer progressIndex,
         BigDecimal currentPrice,
         String status,

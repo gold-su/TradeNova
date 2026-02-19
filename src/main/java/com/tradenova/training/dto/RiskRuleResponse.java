@@ -5,7 +5,7 @@ import java.time.OffsetDateTime;
 
 public record RiskRuleResponse(
         Long id,
-        Long sessionId,
+        Long chartId,
         Long accountId,
         BigDecimal stopLossPrice,
         BigDecimal takeProfitPrice,

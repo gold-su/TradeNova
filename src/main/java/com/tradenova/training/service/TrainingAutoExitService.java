@@ -6,6 +6,7 @@ import com.tradenova.training.dto.AutoExitReason;
 import com.tradenova.training.entity.TrainingRiskRule;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.entity.TrainingSessionCandle;
+import com.tradenova.training.entity.TrainingSessionChart;
 import com.tradenova.training.repository.TrainingRiskRuleRepository;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,13 +36,13 @@ public class TrainingAutoExitService {
      * - 지금 단계에선 "자동청산 발생 여부"만 반환 (다음 단계에서 실제 SELL 처리 붙임)
      */
     @Transactional(readOnly = true)
-    public AutoExitResult checkAndAutoExit(Long userId, TrainingSession s) {
+    public AutoExitResult checkAndAutoExit(Long chartId, TrainingSessionChart chart) {
 
         // 현재가 계산
-        BigDecimal currentPrice = getCurrentPriceFromDb(s);
+        BigDecimal currentPrice = getCurrentPriceFromDb(chart);
 
         // 리스크 룰 조회
-        TrainingRiskRule rule = riskRepo.findBySessionIdAndAccountId(s.getId(), s.getAccount().getId())
+        TrainingRiskRule rule = riskRepo.findByChartId(chartId)
                 .orElse(null);
 
         // 룰 없거나 비활성화면 종료
@@ -66,13 +67,13 @@ public class TrainingAutoExitService {
     }
 
     // 세션의 progressIndex에 해당하는 종가(close)을 DB에서 찾아 현재가로 사용한다.
-    private BigDecimal getCurrentPriceFromDb(TrainingSession s) {
+    private BigDecimal getCurrentPriceFromDb(TrainingSessionChart chart) {
         // 1) progressIndex가 null이면 아직 진행값이 없다는 의미로 보고 0번 봉을 기본값으로 사용
-        int idx = (s.getProgressIndex() == null) ? 0 : s.getProgressIndex();
+        int idx = (chart.getProgressIndex() == null) ? 0 : chart.getProgressIndex();
         // 2) 세션 bars 기준으로 "마지막 유효 인덱스"를 계산
         //    - bars = 120이면 idx는 0~119가 유효
         //    - bars가 0이거나 이상값이어도 최소 0으로 방어
-        int maxIdx = Math.max(0, s.getBars() - 1);
+        int maxIdx = Math.max(0, chart.getBars() - 1);
 
         // 3) idx를 유효 범위로 강제 보정(clamp)
         //    - 음수면 0으로 올리고
@@ -83,7 +84,7 @@ public class TrainingAutoExitService {
         // 4) (sessionId, idx)로 세션 캔들 1개를 조회
         //    - 치팅 방지 핵심: "프론트가 보내는 가격"이 아니라 "세션에 저장된 캔들"로 현재가를 계산
         //    - 없으면 CANDLES_EMPTY 에러로 처리(세션 캔들이 비정상적으로 비어있거나 idx가 꼬인 케이스)
-        TrainingSessionCandle candle = candleRepo.findBySessionIdAndIdx(s.getId(), idx)
+        TrainingSessionCandle candle = candleRepo.findByChartIdAndIdx(chart.getId(), idx)
                 .orElseThrow(() -> new CustomException(ErrorCode.CANDLES_EMPTY));
 
         // 5) close 가격(candle.getC())을 BigDecimal로 변환해서 반환

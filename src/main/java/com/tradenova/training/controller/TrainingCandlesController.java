@@ -15,7 +15,7 @@ import java.util.List;
 @RequestMapping("/api/training")
 public class TrainingCandlesController {
 
-    private final KisMarketDataService KisMarketDataService;
+    private final KisMarketDataService kisMarketDataService;
 
     /**
      * 테스트용 : 캔들 조회
@@ -34,7 +34,7 @@ public class TrainingCandlesController {
         // TODO: MVP 기본값 예시
         String marketCode = "J";     // KRX
         String adjPrice = "0";       // 문서값 기준. (실제로 수정주가 반영이 어느 값인지 테스트 후 고정)
-        return KisMarketDataService.getCandles(marketCode, symbol, from, to, period, adjPrice);
+        return kisMarketDataService.getCandles(marketCode, symbol, from, to, period, adjPrice);
     }
 
 }

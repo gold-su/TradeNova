@@ -24,12 +24,12 @@ import java.time.OffsetDateTime;
         name = "training_session_candle",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_training_session_candle_session_idx",
-                        columnNames = {"session_id", "idx"}
+                        name = "uk_training_session_candle_chart_idx",
+                        columnNames = {"chart_id", "idx"}
                 )
         },
         indexes = {
-                @Index(name = "idx_training_session_candle_session", columnList = "session_id"),
+                @Index(name = "idx_training_session_candle_chart", columnList = "chart_id"),
                 @Index(name = "idx_training_session_candle_time", columnList = "t")
         }
 )
@@ -40,9 +40,9 @@ public class TrainingSessionCandle {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** 어떤 훈련 세션의 캔들인지 */
-    @Column(name = "session_id", nullable = false)
-    private Long sessionId;
+    /** 어떤 차트(chart)의 캔들인지 */
+    @Column(name = "chart_id", nullable = false)
+    private Long chartId;
 
     /**
      * 세션 내 봉 인덱스 (0부터 시작)

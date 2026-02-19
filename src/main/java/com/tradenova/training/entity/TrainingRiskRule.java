@@ -19,8 +19,8 @@ import java.time.OffsetDateTime;
                 // 하나의 훈련 세션(session_id)에
                 // 리스크 규칙은 반드시 1개만 존재하도록 보장
                 @UniqueConstraint(
-                        name = "uk_risk_rule_session",
-                        columnNames = {"session_id"}
+                        name = "uk_risk_rule_chart",
+                        columnNames = {"chart_id"}
                 )
         }
 )
@@ -33,12 +33,9 @@ public class TrainingRiskRule {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * 어떤 훈련 세션에 적용되는 리스크 규칙인지
-     * TrainingSession.id 와 연결
-     */
-    @Column(name="session_id", nullable=false)
-    private Long sessionId;
+    /**  어떤 차트에 적용되는 리스크룰인지 */
+    @Column(name="chart_id", nullable=false)
+    private Long chartId;
 
     /**
      * 어떤 모의투자 계좌 기준의 리스크 규칙인지

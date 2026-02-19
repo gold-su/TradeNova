@@ -6,15 +6,18 @@ import com.tradenova.kis.service.KisMarketDataService;
 import com.tradenova.kis.dto.CandleDto;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperAccountRepository;
-import com.tradenova.paper.service.PaperAccountService;
 import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.symbol.repository.SymbolRepository;
+import com.tradenova.training.dto.ChartSummaryResponse;
+import com.tradenova.training.dto.SessionDetailResponse;
 import com.tradenova.training.dto.TrainingSessionCreateRequest;
 import com.tradenova.training.dto.TrainingSessionCreateResponse;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.entity.TrainingSessionCandle;
+import com.tradenova.training.entity.TrainingSessionChart;
 import com.tradenova.training.entity.TrainingStatus;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
+import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingSessionRepository;
 import com.tradenova.user.entity.User;
 import com.tradenova.user.repository.UserRepository;
@@ -32,17 +35,20 @@ import java.util.concurrent.ThreadLocalRandom;
 public class TrainingSessionService {
 
     // 세션 저장/조회
-    private final TrainingSessionRepository trainingSessionRepository;
-    //중목 후보군 조회(활성 종목)
+    private final TrainingSessionRepository sessionRepo;
+    // 차트 저장/조회 (실제 훈련 단위: 종목/기간/bars/progressIndex 등 보유)
+    private final TrainingSessionChartRepository chartRepo;
+    // 중목 후보군 조회(활성 종목)
     private final SymbolRepository symbolRepository;
-    //userId -> User 엔티티 조회(안전하게 영속 상태 확보)
+    // userId -> User 엔티티 조회(안전하게 영속 상태 확보)
     private final UserRepository userRepository;
-    //KIS 시세/캔들 조회 서비스
+    // KIS 시세/캔들 조회 서비스
     private final KisMarketDataService kisMarketDataService;
     private final PaperAccountRepository paperAccountRepository;
-
+    // 세션 디테일 조회용 리포
+    private final TrainingSessionRepository trainingSessionRepository;
     // 캔들 저장/조회용 Repository
-    private final TrainingSessionCandleRepository candleRepository;
+    private final TrainingSessionCandleRepository candleRepo;
 
     /**
      * 세션 생성 (RANDOM)
@@ -139,18 +145,27 @@ public class TrainingSessionService {
 
             // 4-5) 훈련 세션 저장
             // - user/account/symbol + 구간(start/end) + 상태(status) 등을 DB에 기록
-            TrainingSession saved = trainingSessionRepository.save(
+            TrainingSession saved = sessionRepo.save(
                     TrainingSession.builder()
                             .user(user)         //세션 소유자
                             .account(account)   //어떤 연습 계좌로 하는지
-                            .symbol(picked)     //어떤 종목인지
-                            .progressIndex(progressIndex) //현재까지 공개된 봉 중 마지막 봉의 인덱스 ( 0 부터 시작 봉 60개 = index -> 59 )
                             .mode(req.mode())   //훈련 모드(랜덤 등)
-                            .bars(bars)   //노출/사용할 봉 개수
-                            .hiddenFutureBars(0)//(있다면) 미래봉 숨김 초기값
-                            .startDate(finalStart)//봉 기준으로 확정한 시작일
-                            .endDate(finalEnd)    //봉 기준으로 확정한 종료일
                             .status(TrainingStatus.IN_PROGRESS) //생성 즉시 진행중 처리(정책에 따라 READY도 가능)
+                            .build()
+            );
+
+            // 6) 차트 1개 생성 (MVP: chartIndex=0)
+            // - 멀티차트 확장 시 chartIndex=0..N 으로 늘어날 예정
+            TrainingSessionChart chart = chartRepo.save(
+                    TrainingSessionChart.builder()
+                            .session(saved)
+                            .chartIndex(0)
+                            .symbol(picked)
+                            .startDate(finalStart)
+                            .endDate(finalEnd)
+                            .bars(bars)
+                            .hiddenFutureBars(0)
+                            .progressIndex(progressIndex)
                             .build()
             );
 
@@ -161,7 +176,7 @@ public class TrainingSessionService {
 
                 candleEntities .add(
                         TrainingSessionCandle.builder()
-                                .sessionId(saved.getId()) // 핵심: 세션 PK를 그대로 저장
+                                .chartId(chart.getId()) // 핵심: chartId 기준으로 저장
                                 .idx(i)
                                 // 아래 필드명은 네 엔티티에 맞게 조정 필요할 수 있음
                                 .t(candle.t())
@@ -173,21 +188,24 @@ public class TrainingSessionService {
                                 .build()
                 );
             }
-            candleRepository.saveAll(candleEntities);
+            candleRepo.saveAll(candleEntities);
 
             //   5) 프론트가 즉시 차트 화면을 구성할 수 있도록
             //      훈련 세션 생성 결과를 응답 DTO로 반환
             return new TrainingSessionCreateResponse(
-                    saved.getId(),          // sessionId: 생성된 훈련 세션의 PK
-                    account.getId(),        // accountId: 사용 중인 가상 계좌 ID
-                    picked.getId(),         // symbolId: 훈련 종목의 내부 DB ID
-                    picked.getTicker(),     // symbolTicker: 화면에 표시할 종목 코드
-                    picked.getName(),       // symbolName: 화면에 표시할 종목명
-                    saved.getMode(),        // mode: 훈련 모드 (RANDOM 등)
-                    saved.getBars(),        // bars: 차트에 사용할 봉 개수
-                    saved.getStartDate(),   // startDate: 봉 기준으로 확정된 시작 날짜
-                    saved.getEndDate(),     // endDate: 봉 기준으로 확정된 종료 날짜
-                    saved.getStatus()       // status: 현재 세션 상태 (IN_PROGRESS)
+                    saved.getId(),            // sessionId: 생성된 훈련 세션의 PK
+                    chart.getId(),            // chartId
+                    chart.getChartIndex(),    // chartIndex (MVP: 0)
+                    account.getId(),          // accountId: 사용 중인 가상 계좌 ID
+                    picked.getId(),           // symbolId: 훈련 종목의 내부 DB ID
+                    picked.getTicker(),       // symbolTicker: 화면에 표시할 종목 코드
+                    picked.getName(),         // symbolName: 화면에 표시할 종목명
+                    saved.getMode(),          // mode: 훈련 모드 (RANDOM 등)
+                    chart.getBars(),          // bars: 차트에 사용할 봉 개수
+                    chart.getProgressIndex(), // progressIndex
+                    chart.getStartDate(),     // startDate: 봉 기준으로 확정된 시작 날짜
+                    chart.getEndDate(),       // endDate: 봉 기준으로 확정된 종료 날짜
+                    saved.getStatus()         // status: 현재 세션 상태 (IN_PROGRESS)
             );
 
         }
@@ -202,11 +220,11 @@ public class TrainingSessionService {
      * - 즉, 프론트는 sessionId만 주고 서버가 세션 정보로 캔들 범위를 확정한다.
      */
     @Transactional(readOnly = true)
-    public List<CandleDto> getSessionCandles(Long userId, Long sessionId){
+    public List<CandleDto> getChartCandles(Long userId, Long chartId){
 
-        // 1) 세션 조회 + 소유권 검증 (내 세션만 접근)
-        TrainingSession session = trainingSessionRepository.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
+        // 1) 차트 조회
+        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
         /**
         // 2) 세션에 저장된 날짜 범위를 KIS 요청 형식(YYYYMMDD)로 변환
@@ -216,7 +234,7 @@ public class TrainingSessionService {
          */
 
         // 2) DB에서 캔들 조회
-        List<TrainingSessionCandle> rows = candleRepository.findAllBySessionIdOrderByIdxAsc(session.getId());
+        List<TrainingSessionCandle> rows = candleRepo.findAllByChartIdOrderByIdxAsc(chart.getId());
 
         // 비어있으면 예외
         if (rows.isEmpty()) {
@@ -235,6 +253,44 @@ public class TrainingSessionService {
                 ))
                 .toList();
     }
+    
+    // 세션 디테일 가져오기
+    @Transactional(readOnly = true)
+    public SessionDetailResponse getSession(Long userId, Long sessionId) {
+        TrainingSession s = trainingSessionRepository.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
+
+        return new SessionDetailResponse(
+                s.getId(),
+                s.getAccount().getId(),
+                s.getMode(),
+                s.getStatus()
+        );
+    }
+    
+    // 차트 목록 가져오기
+    @Transactional(readOnly = true)
+    public List<ChartSummaryResponse> getSessionCharts(Long userId, Long sessionId) {
+        TrainingSession s = trainingSessionRepository.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
+
+        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(s.getId());
+
+        return charts.stream()
+                .map(c -> new ChartSummaryResponse(
+                        c.getId(),
+                        c.getChartIndex(),
+                        c.getSymbol().getId(),
+                        c.getSymbol().getTicker(),
+                        c.getSymbol().getName(),
+                        c.getBars(),
+                        c.getProgressIndex(),
+                        c.getStartDate(),
+                        c.getEndDate()
+                ))
+                .toList();
+    }
+
 
     // ===== helpers =====
 

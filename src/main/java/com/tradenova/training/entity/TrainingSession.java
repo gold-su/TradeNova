@@ -9,6 +9,8 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -28,8 +30,6 @@ import java.time.OffsetDateTime;
                 @Index(name = "idx_session_user", columnList = "user_id"),
                 //계좌별 세션 조회 성능용
                 @Index(name = "idx_session_account", columnList = "account_id"),
-                //종목별 세션 조회 성능용
-                @Index(name = "idx_session_symbol", columnList = "symbol_id")
         }
 )
 public class TrainingSession {
@@ -50,34 +50,10 @@ public class TrainingSession {
     @JoinColumn(name = "account_id", nullable = false)
     private PaperAccount account;
 
-    // 어떤 종목으로 훈련하는지
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "symbol_id", nullable = false)
-    private Symbol symbol;
-
-    // 지금까지 공개된 캔들의 마지막 인덱스 / 현재가 계산용
-    @Column(name = "progress_index", nullable = false)
-    private Integer progressIndex;
-
     // 훈련 모드
     @Enumerated(EnumType.STRING)
     @Column(name = "mode", length = 20, nullable = false)
     private TrainingMode mode;
-
-    // 랜덤 훈련 구간 (일봉 기준)
-    @Column(name = "start_date", nullable = false)
-    private LocalDate startDate; // 훈련 시작 날짜 (YYYY-MM-DD)
-
-    @Column(name = "end_date", nullable = false)
-    private LocalDate endDate; // 훈련 종료 날짜
-
-    // 일 봉 몇개를 보여줄지 (=bars)
-    @Column(name = "bars", nullable = false)
-    private Integer bars;
-
-    // “미래 봉 숨기기/되감기” 같은 기능을 위해 남겨두는 옵션(지금은 0 고정해도 됨)
-    @Column(name = "hidden_future_bars", nullable = false)
-    private Integer hiddenFutureBars;
 
     // 세션 상태
     // READY / ONGOING / FINISHED 등
@@ -89,4 +65,12 @@ public class TrainingSession {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
+
+    // 멀티차트 핵심: 세션은 차트 묶음을 가진다
+    // 1:N 관계, Session(부모)(1) : SessionChart(자식)(N)
+    // mappedBy = "session"는 연관관계의 주인은 SessionChart 쪽이라는 뜻.
+    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("chartIndex ASC")
+    @Builder.Default
+    private List<TrainingSessionChart> charts = new ArrayList<>();
 }

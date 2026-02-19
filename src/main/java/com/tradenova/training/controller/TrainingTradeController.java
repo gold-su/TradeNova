@@ -1,7 +1,10 @@
 package com.tradenova.training.controller;
 
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.training.dto.TradeRequest;
 import com.tradenova.training.dto.TradeResponse;
+import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.service.TrainingTradeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/training/sessions/{sessionId}/trades")
+@RequestMapping("/api/training/charts/{chartId}/trades")
 public class TrainingTradeController {
 
     /**
@@ -29,10 +32,10 @@ public class TrainingTradeController {
     /**
      * 매수(BUY) 트레이드 실행
      *
-     * POST /api/training/sessions/{sessionId}/trades/buy
+     * POST /api/training/charts/{chartId}/trades/buy
      *
-     * @param user       인증된 사용자 (JWT 기반, SecurityContext에서 주입)
-     * @param sessionId  훈련 세션 ID
+     * @param authentication       인증된 토큰
+     * @param chartId  훈련 세션 ID
      * @param req        매수 요청 DTO (수량 등)
      * @return           체결 결과(가격, 수량, 잔고 반영 등)
      *
@@ -45,24 +48,24 @@ public class TrainingTradeController {
     @PostMapping("/buy")
     public ResponseEntity<TradeResponse> buy(
             Authentication authentication,
-            @PathVariable Long sessionId,
+            @PathVariable Long chartId,
             @Valid @RequestBody TradeRequest req
     ) {
         Object p = authentication.getPrincipal();
         Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
 
         return ResponseEntity.ok(
-                tradeService.buy(userId, sessionId, req.qty())
+                tradeService.buy(userId, chartId, req.qty())
         );
     }
 
     /**
      * 매도(SELL) 트레이드 실행
      *
-     * POST /api/training/sessions/{sessionId}/trades/sell
+     * POST /api/training/charts/{chartId}/trades/sell
      *
-     * @param user       인증된 사용자 (JWT 기반)
-     * @param sessionId  훈련 세션 ID
+     * @param authentication      인증된 토큰
+     * @param chartId  훈련 세션 ID
      * @param req        매도 요청 DTO (수량 등)
      * @return           체결 결과(가격, 수량, 잔고 반영 등)
      *
@@ -74,7 +77,7 @@ public class TrainingTradeController {
     @PostMapping("/sell")
     public ResponseEntity<TradeResponse> sell(
             Authentication authentication,
-            @PathVariable Long sessionId,
+            @PathVariable Long chartId,
             @Valid @RequestBody TradeRequest req
     ) {
 
@@ -82,9 +85,25 @@ public class TrainingTradeController {
         Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
 
         return ResponseEntity.ok(
-                tradeService.sell(userId, sessionId, req.qty())
+                tradeService.sell(userId, chartId, req.qty())
         );
     }
 
+    /**
+     * 전량 매도 (SELL ALL)
+     * POST /api/training/charts/{chartId}/sell-all
+     */
+    @PostMapping("/sell-all")
+    public ResponseEntity<TradeResponse> sellAll(
+            Authentication authentication,
+            @PathVariable Long chartId
+    ) {
+        //JWT 인증 정보에서 사용자 ID 추출
+        // (Security 설정에서 principal을 Long userId로 넣어둔 전체)
+        Object p = authentication.getPrincipal();
+        Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
+
+        return ResponseEntity.ok(tradeService.sellAll(userId, chartId));
+    }
 
 }

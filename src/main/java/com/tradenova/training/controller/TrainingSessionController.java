@@ -3,9 +3,7 @@ package com.tradenova.training.controller;
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.kis.dto.CandleDto;
-import com.tradenova.training.dto.TradeResponse;
-import com.tradenova.training.dto.TrainingSessionCreateRequest;
-import com.tradenova.training.dto.TrainingSessionCreateResponse;
+import com.tradenova.training.dto.*;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.repository.TrainingSessionRepository;
 import com.tradenova.training.service.TrainingSessionService;
@@ -56,7 +54,8 @@ public class TrainingSessionController {
             @Valid @RequestBody TrainingSessionCreateRequest req  //요청 DTO (Validation 적용)
     ){
         //로그인된 사용자(Principal)에서 userId 추출
-        Long userId = (Long) authentication.getPrincipal();
+        Object p = authentication.getPrincipal();
+        Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
 
         //서비스 호출 -> 세션 생성 -> 응답 DTO 반환
         return ResponseEntity.ok(trainingSessionService.createSession(userId, req));
@@ -64,41 +63,43 @@ public class TrainingSessionController {
 
     /**
      * 세션 기반 캔들 조회
-     * GET /api/training/sessions/{sessionId}/candles
+     * GET /api/training/sessions/{chartId}/candles
      *
      * 특징:
      * - symbol/from/to 를 클라이언트가 직접 주지 않는다.
-     * - sessionId만 받고, 서버가 세션에 저장된 (symbol, 기간)을 기준으로 KIS 조회한다.
+     * - chartId만 받고, 서버가 세션에 저장된 (symbol, 기간)을 기준으로 KIS 조회한다.
      *   → 프론트 조작으로 "다른 기간/다른 종목" 조회 방지
      */
-    @GetMapping("/{sessionId}/candles")
+    @GetMapping("/{chartId}/candles")
     public ResponseEntity<List<CandleDto>> candles(
             Authentication authentication,        //로그인 사용자 정보 (인증 객체)
-            @PathVariable Long sessionId               //조회할 세션 ID
+            @PathVariable Long chartId               //조회할 세션 ID
     ) {
         //로그인된 사용자 ID 추출
-        Long userId = (Long) authentication.getPrincipal();
+        Object p = authentication.getPrincipal();
+        Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
         //세션 소유권 검증(findByIdAndUserId) 포함해서 캔들 조회
-        return ResponseEntity.ok(trainingSessionService.getSessionCandles(userId, sessionId));
+        return ResponseEntity.ok(trainingSessionService.getChartCandles(userId, chartId));
     }
 
-    /**
-     * 전량 매도 (SELL ALL)
-     * POST /api/training/sessions/{sessionId}/sell-all
-     */
-    @PostMapping("/{sessionId}/sell-all")
-    public ResponseEntity<TradeResponse> sellAll(
+    @GetMapping("/{sessionId}")
+    public ResponseEntity<SessionDetailResponse> getSession(
             Authentication authentication,
             @PathVariable Long sessionId
     ) {
-        //JWT 인증 정보에서 사용자 ID 추출
-        // (Security 설정에서 principal을 Long userId로 넣어둔 전체)
-        Long userId = (Long) authentication.getPrincipal();
-
-        // 세션 조회 + 소유권 검증(남의 세션이면 못 찾게)
-        TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
-
-        return ResponseEntity.ok(tradeService.sellAll(userId, s));
+        Object p = authentication.getPrincipal();
+        Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
+        return ResponseEntity.ok(trainingSessionService.getSession(userId, sessionId));
     }
+
+    @GetMapping("/{sessionId}/charts")
+    public ResponseEntity<List<ChartSummaryResponse>> getSessionCharts(
+            Authentication authentication,
+            @PathVariable Long sessionId
+    ) {
+        Object p = authentication.getPrincipal();
+        Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
+        return ResponseEntity.ok(trainingSessionService.getSessionCharts(userId, sessionId));
+    }
+
 }
