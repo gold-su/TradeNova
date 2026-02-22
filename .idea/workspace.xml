@@ -4,19 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="sc modify">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingChartCandlesController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingChartCreateResponse.java" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="refactoring done">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperPositionRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/repository/PaperPositionRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingChartProgressController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingChartProgressController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingSessionCreateRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingSessionCreateRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingSessionCreateResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingSessionCreateResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingSessionChart.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingSessionChart.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingSessionChartRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingSessionChartRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/controller/PaperAccountController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/paper/controller/PaperAccountController.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -187,15 +177,7 @@
       <workItem from="1771283199438" duration="8061000" />
       <workItem from="1771323940234" duration="22881000" />
       <workItem from="1771589399168" duration="3963000" />
-      <workItem from="1771730899381" duration="9501000" />
-    </task>
-    <task id="LOCAL-00007" summary="I worked on a userLogin">
-      <option name="closed" value="true" />
-      <created>1764869002948</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1764869002948</updated>
+      <workItem from="1771730899381" duration="13674000" />
     </task>
     <task id="LOCAL-00008" summary="I worked on a userLogin">
       <option name="closed" value="true" />
@@ -581,7 +563,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770808409193</updated>
     </task>
-    <option name="localTasksCounter" value="56" />
+    <task id="LOCAL-00056" summary="refactoring done">
+      <option name="closed" value="true" />
+      <created>1771741709865</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1771741709866</updated>
+    </task>
+    <option name="localTasksCounter" value="57" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -599,7 +589,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="worked on the exception" />
     <MESSAGE value="error fixed" />
     <MESSAGE value="fixed a user entity" />
     <MESSAGE value="cors and securityFilter setting" />
@@ -637,6 +626,7 @@
     <MESSAGE value="buy, sell flow done" />
     <MESSAGE value="paper, TrainingSessionProgressService modify" />
     <MESSAGE value="sc modify" />
-    <option name="LAST_COMMIT_MESSAGE" value="sc modify" />
+    <MESSAGE value="refactoring done" />
+    <option name="LAST_COMMIT_MESSAGE" value="refactoring done" />
   </component>
 </project>

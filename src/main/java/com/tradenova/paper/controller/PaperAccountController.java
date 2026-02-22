@@ -24,7 +24,7 @@ public class PaperAccountController {
                                                        @RequestBody PaperAccountCreateRequest req) {
         //Spring Security 에서 인증된 사용자 정보 꺼냄
         //userId를 요청 파라미터로 받지 않음 → 보안적으로 매우 좋음
-        Long userId = ((User) auth.getPrincipal()).getId();
+        Long userId = extractUserId(auth);
 
         return ResponseEntity.ok(paperAccountService.create(userId, req));
     }
@@ -32,7 +32,7 @@ public class PaperAccountController {
     @GetMapping //계좌 목록 조회 API
     public ResponseEntity<List<PaperAccountResponse>> list(Authentication auth) {
 
-        Long userId = ((User) auth.getPrincipal()).getId();
+        Long userId = extractUserId(auth);
 
         return ResponseEntity.ok(paperAccountService.list(userId));
     }
@@ -40,7 +40,7 @@ public class PaperAccountController {
     @PatchMapping("/{id}/default") //기본 계좌 설정 API
     public ResponseEntity<Void> setDefault(Authentication auth, @PathVariable Long id) {
 
-        Long userId = ((User) auth.getPrincipal()).getId();
+        Long userId = extractUserId(auth);
 
         paperAccountService.setDefault(userId, id);
         return ResponseEntity.ok().build();
@@ -49,7 +49,7 @@ public class PaperAccountController {
     @PostMapping("/{id}/reset") //계좌 리셋 API
     public ResponseEntity<Void> reset(Authentication auth, @PathVariable Long id) {
 
-        Long userId = ((User) auth.getPrincipal()).getId();
+        Long userId = extractUserId(auth);
 
         paperAccountService.reset(userId, id);
         return ResponseEntity.ok().build();
@@ -61,7 +61,12 @@ public class PaperAccountController {
             @PathVariable Long id,
             @RequestBody PaperAccountUpdateRequest req
     ) {
-        Long userId = ((User) auth.getPrincipal()).getId();
+        Long userId = extractUserId(auth);
         return ResponseEntity.ok(paperAccountService.update(userId, id, req));
+    }
+    // CHANGED: 공통 userId 추출 유틸 (훈련 컨트롤러들과 동일 패턴)
+    private Long extractUserId(Authentication authentication) {
+        Object p = authentication.getPrincipal();
+        return (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
     }
 }
