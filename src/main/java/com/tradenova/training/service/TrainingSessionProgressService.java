@@ -54,7 +54,7 @@ public class TrainingSessionProgressService {
 
         // 1) 세션 조회 + 소유권 검증
         //      - 남의 세션 접근 방지
-        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+        TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND)); // 없으면 새 에러코드 추천
 
         // 2) 세션 상태 검사 (정책: 세션이 완료면 차트 진행 금지)
@@ -82,6 +82,10 @@ public class TrainingSessionProgressService {
         // 5) 진행 반영
         chart.setProgressIndex(nextIdx);
 
+        // 여기서 flush 한번 걸어주면 이후 로직에서 progressIndex 기준 조회가 안정적
+        // (candle 조회/autoExit/거래 로직이 같은 트랜잭션에서 일관되게 동작)
+        chartRepo.flush();
+
         // 6) chart가 마지막 봉까지 가면(옵션) 세션까지 종료할지?
         //    MVP에서는 "세션 종료는 세션 정책으로 따로" 가도 되는데,
         //    지금은 단순하게 chart가 끝까지 가면 세션도 끝내는 걸로 처리해도 됨.
@@ -104,7 +108,7 @@ public class TrainingSessionProgressService {
         Long accountId = chart.getSession().getAccount().getId();
         Long symbolId = chart.getSymbol().getId();
 
-        PaperPosition pos = positionRepo.findByAccount_IdAndSymbolId(accountId, symbolId)
+        PaperPosition pos = positionRepo.findByAccountIdAndSymbolId(accountId, symbolId)
                 .orElse(null);
 
         BigDecimal positionQty = (pos == null) ? BigDecimal.ZERO : pos.getQuantity();
@@ -134,7 +138,7 @@ public class TrainingSessionProgressService {
 
         // 11) 프론트로 내려줄 진행 결과 응답 DTO 생성
         return new SessionProgressResponse(
-                chart.getId(),              // 세션 ID
+                chart.getId(),              // chartId
                 chart.getProgressIndex(),   // 현재 진행 인덱스
                 currentPrice,           // 현재가
                 chart.getSession().getStatus().name(),   // 세션 상태(IN_PROGRESS / COMPLETED)

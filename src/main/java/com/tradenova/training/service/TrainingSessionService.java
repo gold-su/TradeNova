@@ -8,10 +8,7 @@ import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperAccountRepository;
 import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.symbol.repository.SymbolRepository;
-import com.tradenova.training.dto.ChartSummaryResponse;
-import com.tradenova.training.dto.SessionDetailResponse;
-import com.tradenova.training.dto.TrainingSessionCreateRequest;
-import com.tradenova.training.dto.TrainingSessionCreateResponse;
+import com.tradenova.training.dto.*;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.entity.TrainingSessionChart;
@@ -26,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -33,6 +31,21 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 @RequiredArgsConstructor
 public class TrainingSessionService {
+
+    private static final int MIN_BARS = 30;
+    private static final int MAX_BARS = 120;
+
+    private static final int MAX_CHARTS = 4;
+    private static final int DEFAULT_CHART_COUNT = 4;
+
+    private static final int MAX_TRIES_PER_CHART = 15;
+
+    private static final String MARKET_CODE = "J";
+    private static final String PERIOD = "D";
+    private static final String ADJ_PRICE = "0";
+
+    private static final DateTimeFormatter KIS_DATE = DateTimeFormatter.BASIC_ISO_DATE;
+
 
     // 세션 저장/조회
     private final TrainingSessionRepository sessionRepo;
@@ -45,8 +58,6 @@ public class TrainingSessionService {
     // KIS 시세/캔들 조회 서비스
     private final KisMarketDataService kisMarketDataService;
     private final PaperAccountRepository paperAccountRepository;
-    // 세션 디테일 조회용 리포
-    private final TrainingSessionRepository trainingSessionRepository;
     // 캔들 저장/조회용 Repository
     private final TrainingSessionCandleRepository candleRepo;
 
@@ -56,16 +67,13 @@ public class TrainingSessionService {
     @Transactional
     public TrainingSessionCreateResponse createSession(Long userId, TrainingSessionCreateRequest req){
 
-        // 0) bars 검증 (가장 먼저)
-        int bars = req.bars();
-        if (bars < 30 || bars > 120) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
+        // 0) validation 함수로 검증
+        validateCreateRequest(req);
 
-        // 0-1) mode 검증 (명확한 에러코드)
-        if (req.mode() == null) {
-            throw new CustomException(ErrorCode.INVALID_TRAINING_MODE);
-        }
+        int bars = req.bars();
+
+        // CHANGED: chartCount 지원 (없으면 기본 4)
+        int chartCount = resolveChartCount(req);
 
         // 1) 유저 조회(혹시나 principal user가 detached인 경우 대비)
         // - auth principal 에서 받은 user가 dateched일 수도 있고(영속성 컨텍스트 밖)
@@ -86,132 +94,37 @@ public class TrainingSessionService {
             throw new CustomException(ErrorCode.SYMBOL_NOT_FOUND);
         }
 
-        // 4) 랜덤으로 뽑되, "bars 만큼 캔들이 충분한 종목/기간"을 찾을 때까지 반복
-        //    - KIS 데이터는 주말/휴장 때문에 기간을 대충 잡으면 봉 수가 부족할 수 있음
-        //    - 그래서 여러 번 시도해서 조건 만족하는 구간을 찾는 방식
-        int maxTries = 15;
-        for (int attempt =1; attempt <= maxTries; attempt++) {
+        // 4) 세션은 무조건 "한 번만" 생성
+        TrainingSession session = sessionRepo.save(
+                TrainingSession.builder()
+                        .user(user)
+                        .account(account)
+                        .mode(req.mode())
+                        .status(TrainingStatus.IN_PROGRESS)
+                        .build()
+        );
 
-            // 4-1) 종목 랜덤 선택
-            Symbol picked = pickRandom(candidates);
+        //  5) 차트를 chartCount 만큼 생성
+        List<TrainingChartCreateResponse> chartResponses = new ArrayList<>(chartCount);
 
-            // 4-2) 랜덤 기간 생성
-            // - 너무 최근은 데이터 공백/휴장/이슈로 꼬일 수 있으니 최근 30일 제외
-            // (A) 랜덤 기간 생성
-            //     - 너무 최근은 데이터 부족/휴장/이벤트 때문에 꼬일 수 있으니 “최근 30일은 제외” 같은 완충을 둠
-            //     - 예: 2018~현재-30일 범위에서 랜덤 endDate
-            LocalDate endDate = randomDate(LocalDate.of(2018, 1, 1), LocalDate.now().minusDays(30));
-            // - bars 봉을 얻기 위해 달력 day를 넉넉히 잡는다(주말/휴장 보정)
-            LocalDate startDate = endDate.minusDays(bars * 3L);
-            // 위처럼 *3를 하는 이유:
-            // - ‘bars=180’이라도 실제로는 주말/공휴일이 빠져서
-            //   캘린더 days를 그대로 쓰면 캔들이 부족할 수 있음
-            // - 넉넉히 뽑고, 실제로는 KIS 조회 결과로 검증
-
-            // 4-3) KIS로 캔들 조회해서 bars 이상인지 확인
-            // - KIS 조회는 YYYYMMDD 문자열을 요구하는 경우가 많아서 BASIC_ISO_DATE 사용
-            // (B) KIS로 캔들 조회해서 bars 이상인지 확인
-            List<CandleDto> candles = new ArrayList<>(kisMarketDataService.getCandles(
-                    "J", //시장코드(예: 국내 KRX)
-                    picked.getTicker(), //종목코드(005930 등)
-                    startDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE), //from
-                    endDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE), //to
-                    "D", //일봉
-                    "0" //수정주가/조정여부(문서 기준)
-            ));
-
-            // 봉이 부족하면 이 조합은 실패 -> 다음 시도
-            if(candles.size() < bars){
-                continue;
-            }
-
-            // 정렬
-            candles.sort(java.util.Comparator.comparingLong(CandleDto::t));
-
-            // 4-4) 날짜를 "봉 기준으로 정확히" 다시 맞춘다 (가장 중요)
-            // - startDate/endDate를 달력으로 잡으면 휴장으로 인해 실제 봉 수가 달라짐
-            // - 그래서 실제 캔들 배열에서 마지막 bars개를 기준으로 최종 구간을 확정
-            int fromIndex = candles.size() - bars; // 여기선 size >= bars 이니까 음수 아님
-            List<CandleDto> sessionCandles = new ArrayList<>(candles.subList(fromIndex, candles.size()));
-
-            long startMillis = sessionCandles.get(0).t();   //bars 구간의 첫 봉 시간
-            long endMillis =  sessionCandles.get(sessionCandles.size() - 1).t(); //마지막 봉 시간
-
-            LocalDate finalStart = millisToSeoulDate(startMillis);
-            LocalDate finalEnd = millisToSeoulDate(endMillis);
-
-            int initialVisibleBars = Math.min(60, bars);
-            int progressIndex = Math.max(0, initialVisibleBars - 1);
-
-            // 4-5) 훈련 세션 저장
-            // - user/account/symbol + 구간(start/end) + 상태(status) 등을 DB에 기록
-            TrainingSession saved = sessionRepo.save(
-                    TrainingSession.builder()
-                            .user(user)         //세션 소유자
-                            .account(account)   //어떤 연습 계좌로 하는지
-                            .mode(req.mode())   //훈련 모드(랜덤 등)
-                            .status(TrainingStatus.IN_PROGRESS) //생성 즉시 진행중 처리(정책에 따라 READY도 가능)
-                            .build()
+        for(int chartIndex = 0; chartIndex < chartCount; chartIndex++){
+            TrainingChartCreateResponse chartRes = createOneRandomChartWithCandles(
+                    session,
+                    candidates,
+                    bars,
+                    chartIndex
             );
-
-            // 6) 차트 1개 생성 (MVP: chartIndex=0)
-            // - 멀티차트 확장 시 chartIndex=0..N 으로 늘어날 예정
-            TrainingSessionChart chart = chartRepo.save(
-                    TrainingSessionChart.builder()
-                            .session(saved)
-                            .chartIndex(0)
-                            .symbol(picked)
-                            .startDate(finalStart)
-                            .endDate(finalEnd)
-                            .bars(bars)
-                            .hiddenFutureBars(0)
-                            .progressIndex(progressIndex)
-                            .build()
-            );
-
-            // 4-6) 캔들 DB 저장 (session_id + idx=0..bars-1)
-            List<TrainingSessionCandle> candleEntities  = new ArrayList<>(sessionCandles.size());
-            for(int i = 0; i < sessionCandles.size(); i++){
-                CandleDto candle = sessionCandles.get(i);
-
-                candleEntities .add(
-                        TrainingSessionCandle.builder()
-                                .chartId(chart.getId()) // 핵심: chartId 기준으로 저장
-                                .idx(i)
-                                // 아래 필드명은 네 엔티티에 맞게 조정 필요할 수 있음
-                                .t(candle.t())
-                                .o(candle.o())
-                                .h(candle.h())
-                                .l(candle.l())
-                                .c(candle.c())
-                                .v(candle.v())
-                                .build()
-                );
-            }
-            candleRepo.saveAll(candleEntities);
-
-            //   5) 프론트가 즉시 차트 화면을 구성할 수 있도록
-            //      훈련 세션 생성 결과를 응답 DTO로 반환
-            return new TrainingSessionCreateResponse(
-                    saved.getId(),            // sessionId: 생성된 훈련 세션의 PK
-                    chart.getId(),            // chartId
-                    chart.getChartIndex(),    // chartIndex (MVP: 0)
-                    account.getId(),          // accountId: 사용 중인 가상 계좌 ID
-                    picked.getId(),           // symbolId: 훈련 종목의 내부 DB ID
-                    picked.getTicker(),       // symbolTicker: 화면에 표시할 종목 코드
-                    picked.getName(),         // symbolName: 화면에 표시할 종목명
-                    saved.getMode(),          // mode: 훈련 모드 (RANDOM 등)
-                    chart.getBars(),          // bars: 차트에 사용할 봉 개수
-                    chart.getProgressIndex(), // progressIndex
-                    chart.getStartDate(),     // startDate: 봉 기준으로 확정된 시작 날짜
-                    chart.getEndDate(),       // endDate: 봉 기준으로 확정된 종료 날짜
-                    saved.getStatus()         // status: 현재 세션 상태 (IN_PROGRESS)
-            );
-
+            chartResponses.add(chartRes);
         }
 
-        //maxTries 동안 조건 만족 구간을 못 찾았으면 실패 처리
-        throw new CustomException(ErrorCode.TRAINING_SESSION_CREATE_FAILED);
+        // 6) 응답은 chart[] 포함 정석 DTO로
+        return new TrainingSessionCreateResponse(
+                session.getId(),
+                account.getId(),
+                session.getMode(),
+                session.getStatus(),
+                chartResponses
+        );
     }
 
     /**
@@ -253,11 +166,14 @@ public class TrainingSessionService {
                 ))
                 .toList();
     }
-    
-    // 세션 디테일 가져오기
+
+    /**
+     * 세션 디테일 가져오기
+     */
     @Transactional(readOnly = true)
     public SessionDetailResponse getSession(Long userId, Long sessionId) {
-        TrainingSession s = trainingSessionRepository.findByIdAndUserId(sessionId, userId)
+
+        TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
         return new SessionDetailResponse(
@@ -267,11 +183,13 @@ public class TrainingSessionService {
                 s.getStatus()
         );
     }
-    
-    // 차트 목록 가져오기
+
+    /**
+     * 세션의 차트 목록 가져오기
+     */
     @Transactional(readOnly = true)
     public List<ChartSummaryResponse> getSessionCharts(Long userId, Long sessionId) {
-        TrainingSession s = trainingSessionRepository.findByIdAndUserId(sessionId, userId)
+        TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
         List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(s.getId());
@@ -291,6 +209,128 @@ public class TrainingSessionService {
                 .toList();
     }
 
+
+    //=================================================
+    //validate 분리
+    private void validateCreateRequest(TrainingSessionCreateRequest request) throws CustomException {
+        if(request == null) throw new CustomException(ErrorCode.INVALID_REQUEST);
+
+        if(request.mode() == null) throw new CustomException(ErrorCode.INVALID_TRAINING_MODE);
+
+        if(request.accountId() == null) throw new CustomException(ErrorCode.INVALID_REQUEST);
+
+        if (request.bars() == null || request.bars() < MIN_BARS || request.bars() > MAX_BARS) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // chartCount가 요청 DTO에 없으면 이 부분 컴파일 에러 날 수 있음
+        // 그 경우 resolveChartCount()에서 request.chartCount() 관련 코드만 삭제하면 됨.
+        if(request.chartCount() != null){
+            int c = request.chartCount();
+            if(c<1 || c>MAX_CHARTS) throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+    }
+
+    private int resolveChartCount(TrainingSessionCreateRequest request) throws CustomException {
+        // CHANGED: chartCount 지원(없으면 기본값)
+        Integer count = request.chartCount();
+        return (count == null) ? DEFAULT_CHART_COUNT : count;
+    }
+
+
+    /**
+     *  핵심: 차트 1개를 만들고 + 캔들 저장까지 끝내고 + 차트 DTO 리턴
+     * - 실패하면 MAX_TRIES_PER_CHART 만큼 재시도
+     * - 결국 실패하면 예외 → 트랜잭션 롤백
+     */
+    private TrainingChartCreateResponse createOneRandomChartWithCandles(
+            TrainingSession session,
+            List<Symbol> candidates,
+            int bars,
+            int chartIndex
+    ) {
+        for (int attempt = 1; attempt <= MAX_TRIES_PER_CHART; attempt++) {
+
+            Symbol picked = pickRandom(candidates);
+
+            //  랜덤 기간 생성
+            LocalDate endDate = randomDate(LocalDate.of(2018, 1, 1), LocalDate.now().minusDays(30));
+            LocalDate startDate = endDate.minusDays(bars * 3L);
+
+            //  KIS 캔들 조회
+            List<CandleDto> candles = new ArrayList<>(kisMarketDataService.getCandles(
+                    MARKET_CODE,
+                    picked.getTicker(),
+                    startDate.format(KIS_DATE),
+                    endDate.format(KIS_DATE),
+                    PERIOD,
+                    ADJ_PRICE
+            ));
+
+            if (candles.size() < bars) continue;
+
+            candles.sort(java.util.Comparator.comparingLong(CandleDto::t));
+
+            //  봉 기준으로 최종 구간 확정
+            int fromIndex = candles.size() - bars;
+            List<CandleDto> sessionCandles = new ArrayList<>(candles.subList(fromIndex, candles.size()));
+
+            LocalDate finalStart = millisToSeoulDate(sessionCandles.get(0).t());
+            LocalDate finalEnd = millisToSeoulDate(sessionCandles.get(sessionCandles.size() - 1).t());
+
+            //  초기 공개 progressIndex 계산
+            int initialVisibleBars = Math.min(60, bars);
+            int progressIndex = Math.max(0, initialVisibleBars - 1);
+
+            //  차트 생성
+            TrainingSessionChart chart = chartRepo.save(
+                    TrainingSessionChart.builder()
+                            .session(session)
+                            .chartIndex(chartIndex)
+                            .symbol(picked)
+                            .startDate(finalStart)
+                            .endDate(finalEnd)
+                            .bars(bars)
+                            .hiddenFutureBars(0)
+                            .progressIndex(progressIndex)
+                            .build()
+            );
+
+            //  캔들 저장 (chartId 기반, idx=0..bars-1)
+            List<TrainingSessionCandle> entities = new ArrayList<>(sessionCandles.size());
+            for (int i = 0; i < sessionCandles.size(); i++) {
+                CandleDto c = sessionCandles.get(i);
+                entities.add(
+                        TrainingSessionCandle.builder()
+                                .chartId(chart.getId())
+                                .idx(i)
+                                .t(c.t())
+                                .o(c.o())
+                                .h(c.h())
+                                .l(c.l())
+                                .c(c.c())
+                                .v(c.v())
+                                .build()
+                );
+            }
+            candleRepo.saveAll(entities);
+
+            // 응답용 DTO
+            return new TrainingChartCreateResponse(
+                    chart.getId(),
+                    chart.getChartIndex(),
+                    picked.getId(),
+                    picked.getTicker(),
+                    picked.getName(),
+                    chart.getBars(),
+                    chart.getProgressIndex(),
+                    chart.getStartDate(),
+                    chart.getEndDate()
+            );
+        }
+        // 차트 1개를 끝내 못 만들면 세션 생성 자체 실패로 처리 (트랜잭션 롤백)
+        throw new CustomException(ErrorCode.TRAINING_SESSION_CREATE_FAILED);
+    }
 
     // ===== helpers =====
 
@@ -314,4 +354,5 @@ public class TrainingSessionService {
                 .atZone(java.time.ZoneId.of("Asia/Seoul"))
                 .toLocalDate();
     }
+
 }

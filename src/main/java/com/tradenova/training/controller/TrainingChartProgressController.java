@@ -49,7 +49,7 @@ public class TrainingChartProgressController {
             @PathVariable Long chartId
     ) {
         // SecurityContext에 저장된 principal = userId(Long) 전제
-        Long userId = (Long) authentication.getPrincipal();
+        Long userId = extractUserId(authentication);
 
         // 1봉 진행 후 상태 스냅샷 반환
         return ResponseEntity.ok(progressService.next(userId, chartId));
@@ -81,9 +81,14 @@ public class TrainingChartProgressController {
             @PathVariable Long chartId,
             @Valid @RequestBody SessionAdvanceRequest req
     ) {
-        Long userId = (Long) authentication.getPrincipal();
+        Long userId = extractUserId(authentication);
         
         // N봉 진행 후 상태 스냅샷 반환
         return ResponseEntity.ok(progressService.advance(userId, chartId, req.steps()));
+    }
+
+    private Long extractUserId(Authentication authentication) {
+        Object p = authentication.getPrincipal();
+        return (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
     }
 }

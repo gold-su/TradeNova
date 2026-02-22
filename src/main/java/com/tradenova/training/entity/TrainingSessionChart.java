@@ -30,6 +30,11 @@ public class TrainingSessionChart {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // CHANGED: 동시성(연타/중복요청) 방어용 버전 컬럼 추가
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     // 어떤 세션의 차트인지
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "session_id", nullable = false)
