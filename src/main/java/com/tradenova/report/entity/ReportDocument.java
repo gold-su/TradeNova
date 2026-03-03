@@ -68,7 +68,7 @@ public class ReportDocument {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private ResportKind kind;
+    private ReportKind kind;
 
     // contentJson 구조 버전, 마이그레이션 전략 핵심
     @Column(nullable = false)
