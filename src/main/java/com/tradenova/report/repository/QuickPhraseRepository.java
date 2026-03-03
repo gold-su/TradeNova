@@ -9,7 +9,7 @@ import java.util.Optional;
 public interface QuickPhraseRepository extends JpaRepository<QuickPhrase, Long> {
 
     // 유저의 빠른 문장 목록 (정렬 : sortOrder -> id)
-    List<QuickPhrase> findByUserIdOrderBySortOrderAscIdAsc(Long userId);
+    List<QuickPhrase> findAllByUserIdOrderBySortOrderAscIdAsc(Long userId);
 
     // 유저 소유권 검증용 (수정/삭제 시)
     Optional<QuickPhrase> findByIdAndUserId(Long id, Long userId);
