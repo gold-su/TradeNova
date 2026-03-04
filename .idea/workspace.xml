@@ -5,16 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="report coding">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/QuickPhraseCreateRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/QuickPhraseResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/QuickPhraseUpdateRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/ReportDocumentResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/ReportDraftUpsertRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/TrainingEventResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/QuickPhraseService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/controller/TrainingEventController.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/ReportDocumentService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/TrainingEventService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/QuickPhraseRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/QuickPhraseRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/messages_en.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_en.properties" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" afterDir="false" />
@@ -33,9 +29,9 @@
         <option value="Interface" />
         <option value="Enum" />
         <option value="Enum" />
-        <option value="Class" />
-        <option value="Class" />
         <option value="Record" />
+        <option value="Class" />
+        <option value="Class" />
         <option value="Class" />
       </list>
     </option>
@@ -191,15 +187,8 @@
       <workItem from="1771589399168" duration="3963000" />
       <workItem from="1771730899381" duration="13674000" />
       <workItem from="1772259566337" duration="6452000" />
-      <workItem from="1772515618316" duration="8059000" />
-    </task>
-    <task id="LOCAL-00009" summary="worked on the exception">
-      <option name="closed" value="true" />
-      <created>1765225319167</created>
-      <option name="number" value="00009" />
-      <option name="presentableId" value="LOCAL-00009" />
-      <option name="project" value="LOCAL" />
-      <updated>1765225319167</updated>
+      <workItem from="1772515618316" duration="8108000" />
+      <workItem from="1772589160498" duration="13021000" />
     </task>
     <task id="LOCAL-00010" summary="error fixed">
       <option name="closed" value="true" />
@@ -585,7 +574,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772548903740</updated>
     </task>
-    <option name="localTasksCounter" value="58" />
+    <task id="LOCAL-00058" summary="report coding">
+      <option name="closed" value="true" />
+      <created>1772551711623</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1772551711623</updated>
+    </task>
+    <option name="localTasksCounter" value="59" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -603,7 +600,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fixed a user entity" />
     <MESSAGE value="cors and securityFilter setting" />
     <MESSAGE value="late commit from yesterday" />
     <MESSAGE value="commit for a bit" />
