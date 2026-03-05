@@ -8,7 +8,7 @@ public record ReportDocumentResponse(
         Long id,
         Long chartId,
         String kind,          // "DRAFT" or "SNAPSHOT"
-        JsonNode payloadJson,
+        JsonNode contentJson,
         Instant createdAt,
         Instant updatedAt
 ) {

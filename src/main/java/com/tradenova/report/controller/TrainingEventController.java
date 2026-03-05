@@ -37,19 +37,6 @@ public class TrainingEventController {
         return ResponseEntity.ok(trainingEventService.listLatest(userId, chartId, size));
     }
 
-    // 이벤트 단건
-    // GET /api/reports/events/{eventId}
-    @GetMapping("/{eventId}")
-    public ResponseEntity<TrainingEventResponse> getOne(
-            Authentication auth,        // 로그인 사용자
-            @PathVariable Long eventId  // 이벤트 ID
-    ) {
-        // 인증 객체에서 userId 추출
-        Long userId = extractUserId(auth);
-        // 서비스 호출
-        return ResponseEntity.ok(trainingEventService.getOne(userId, eventId));
-    }
-
     // Authentication에서 userId 꺼내는 유틸
     private Long extractUserId(Authentication authentication) {
         // JWT 필터에서 넣은 값
