@@ -1,11 +1,15 @@
 package com.tradenova.training.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.entity.PaperPosition;
 import com.tradenova.paper.repository.PaperAccountRepository;
 import com.tradenova.paper.repository.PaperPositionRepository;
+import com.tradenova.report.entity.Type;
+import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.training.dto.TradeResponse;
 import com.tradenova.training.entity.*;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
@@ -32,6 +36,9 @@ public class TrainingTradeService {
     // 페이퍼 계좌/포지션 관련 (현금/보유수량 갱신)
     private final PaperAccountRepository accountRepo;
     private final PaperPositionRepository positionRepo;
+
+    private final TrainingEventService eventService;
+    private final ObjectMapper objectMapper;
 
     /**
      * 매수(BUY)
@@ -163,6 +170,22 @@ public class TrainingTradeService {
                         .build()
         );
 
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("side", "BUY");
+        payload.put("qty", qty);
+        payload.put("executedPrice", price);
+        payload.put("cashBalance", acc.getCashBalance());
+        payload.put("positionQty", pos.getQuantity());
+        payload.put("avgPrice", pos.getAvgPrice());
+
+        eventService.append(
+                userId,
+                chart.getId(),
+                Type.TRADE,
+                chart.getSymbol().getName() + " " + qty + "주 매수",
+                payload
+        );
+
         // ===== 응답 DTO 구성 =====
 
         // 프론트에서 즉시 상태 반영할 수 있도록 스냅샷 형태로 응답 구성
@@ -268,6 +291,22 @@ public class TrainingTradeService {
         // 포지션이 0이 되면(삭제됨) 응답에서는 0,0으로 내려줘야 프론트가 깔끔하게 초기화 가능
         BigDecimal outQty = (remain.compareTo(BigDecimal.ZERO) == 0) ? BigDecimal.ZERO : remain;
         BigDecimal outAvg = (remain.compareTo(BigDecimal.ZERO) == 0) ? BigDecimal.ZERO : pos.getAvgPrice();
+
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("side", "SELL");
+        payload.putPOJO("qty", qty);
+        payload.putPOJO("executedPrice", price);
+        payload.putPOJO("cashBalance", acc.getCashBalance());
+        payload.putPOJO("positionQty", outQty);
+        payload.putPOJO("avgPrice", outAvg);
+
+        eventService.append(
+                userId,
+                chart.getId(),
+                Type.TRADE,
+                chart.getSymbol().getName() + " " + qty + "주 매도",
+                payload
+        );
 
         // 프론트 즉시 반영용 스냅샷 응답
         return new TradeResponse(

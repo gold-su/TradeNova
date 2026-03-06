@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="report coding">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/TrainingEventAppendRequest.java" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="event log coding">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/controller/TrainingEventController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/controller/TrainingEventController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/ReportDocumentService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/ReportDocumentService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -186,15 +183,7 @@
       <workItem from="1772515618316" duration="8108000" />
       <workItem from="1772589160498" duration="13021000" />
       <workItem from="1772681083924" duration="8634000" />
-      <workItem from="1772778628767" duration="6327000" />
-    </task>
-    <task id="LOCAL-00010" summary="error fixed">
-      <option name="closed" value="true" />
-      <created>1765310698311</created>
-      <option name="number" value="00010" />
-      <option name="presentableId" value="LOCAL-00010" />
-      <option name="project" value="LOCAL" />
-      <updated>1765310698312</updated>
+      <workItem from="1772778628767" duration="6959000" />
     </task>
     <task id="LOCAL-00011" summary="fixed a user entity">
       <option name="closed" value="true" />
@@ -580,7 +569,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772551711623</updated>
     </task>
-    <option name="localTasksCounter" value="59" />
+    <task id="LOCAL-00059" summary="event log coding">
+      <option name="closed" value="true" />
+      <created>1772809424028</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1772809424028</updated>
+    </task>
+    <option name="localTasksCounter" value="60" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -598,7 +595,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="cors and securityFilter setting" />
     <MESSAGE value="late commit from yesterday" />
     <MESSAGE value="commit for a bit" />
     <MESSAGE value="error setting" />
@@ -635,6 +631,7 @@
     <MESSAGE value="sc modify" />
     <MESSAGE value="refactoring done" />
     <MESSAGE value="report coding" />
-    <option name="LAST_COMMIT_MESSAGE" value="report coding" />
+    <MESSAGE value="event log coding" />
+    <option name="LAST_COMMIT_MESSAGE" value="event log coding" />
   </component>
 </project>
