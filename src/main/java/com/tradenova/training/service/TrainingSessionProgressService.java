@@ -1,10 +1,14 @@
 package com.tradenova.training.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.paper.entity.PaperPosition;
 import com.tradenova.paper.repository.PaperAccountRepository;
 import com.tradenova.paper.repository.PaperPositionRepository;
+import com.tradenova.report.entity.Type;
+import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.training.dto.SessionProgressResponse;
 import com.tradenova.training.dto.TradeResponse;
 import com.tradenova.training.entity.TrainingSession;
@@ -31,6 +35,9 @@ public class TrainingSessionProgressService {
 
     // 자동청산 발생 시 실제 전량매도 처리용
     private final TrainingTradeService tradeService;
+
+    private final TrainingEventService eventService;
+    private final ObjectMapper objectMapper; // payload 만들 때 편함
 
     /**
      * 한 봉(candle)만 진행시키는 API
@@ -82,6 +89,8 @@ public class TrainingSessionProgressService {
         // 5) 진행 반영
         chart.setProgressIndex(nextIdx);
 
+        // currentPrice는 아래에서 계산되니 일단 나중에 put해도 됨
+
         // 여기서 flush 한번 걸어주면 이후 로직에서 progressIndex 기준 조회가 안정적
         // (candle 조회/autoExit/거래 로직이 같은 트랜잭션에서 일관되게 동작)
         chartRepo.flush();
@@ -103,6 +112,24 @@ public class TrainingSessionProgressService {
 
         // 8) 현재가 (progressIndex 기준 close 가격)
         BigDecimal currentPrice = r.currentPrice();
+
+        // progress 이벤트 로그 payload
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("steps", steps);
+        payload.put("progressIndex", chart.getProgressIndex());
+        payload.put("bars", chart.getBars());
+
+        // 가격 추가
+        payload.put("currentPrice", currentPrice);
+
+        // 이벤트 기록
+        eventService.append(
+                userId,
+                chart.getId(),
+                Type.PROGRESS,
+                steps + "봉 진행",
+                payload
+        );
 
         // 9) 스냅샷 구성
         Long accountId = chart.getSession().getAccount().getId();
@@ -134,6 +161,20 @@ public class TrainingSessionProgressService {
             currentPrice = sellAllResult.executedPrice();
 
             executedAutoExit = true;
+
+            // 자동청산 이벤트 로그 추가
+            ObjectNode autoExitPayload = objectMapper.createObjectNode();
+            autoExitPayload.put("reason", autoExitReason.name());
+            autoExitPayload.put("executedPrice", currentPrice);
+            autoExitPayload.put("chartId", chart.getId());
+
+            eventService.append(
+                    userId,
+                    chart.getId(),
+                    Type.WARNING,
+                    "자동청산 발생: " + autoExitReason.name(),
+                    autoExitPayload
+            );
         }
 
         // 11) 프론트로 내려줄 진행 결과 응답 DTO 생성

@@ -75,7 +75,7 @@ public class ReportDocumentService {
      * - version을 1,2,3... 순번으로 증가
      */
     @Transactional
-    public ReportDocumentResponse createSnapshot(Long userId, Long chartId, JsonNode payloadJson) {
+    public ReportDocumentResponse createSnapshot(Long userId, Long chartId,Long linkedEventId, JsonNode payloadJson) {
         // Version 가져오기 + 1
         int nextVersion = repo.findMaxVersionByUserIdAndChartIdAndKind(userId, chartId, ReportKind.SNAPSHOT)
                 .map(v -> v + 1)
@@ -89,6 +89,7 @@ public class ReportDocumentService {
                         .kind(ReportKind.SNAPSHOT)  // 문서 타입 = SNAPSHOT
                         .schemaVersion(SCHEMA_V1)
                         .version(nextVersion)
+                        .linkedEventId(linkedEventId)
                         .contentJson(payloadJson)   // 실제 리포트 내용
                         .build()
         );

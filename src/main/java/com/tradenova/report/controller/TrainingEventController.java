@@ -2,7 +2,9 @@ package com.tradenova.report.controller;
 
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.report.dto.TrainingEventAppendRequest;
 import com.tradenova.report.dto.TrainingEventResponse;
+import com.tradenova.report.entity.Type;
 import com.tradenova.report.service.TrainingEventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +37,30 @@ public class TrainingEventController {
         Long userId = extractUserId(auth);
         // 서비스 호출, 조건으로 최신 이벤트 조회
         return ResponseEntity.ok(trainingEventService.listLatest(userId, chartId, size));
+    }
+
+    // 사용자가 “과정 중” 메모/리포트 입력 -> 이벤트로 쌓기
+    // POST /api/reports/charts/{chartId}/events
+    @PostMapping("/{chartId}/events")
+    public ResponseEntity<TrainingEventResponse> appendNote(
+            Authentication auth,
+            @PathVariable Long chartId,
+            @RequestBody TrainingEventAppendRequest req
+    ) {
+        Long userId = extractUserId(auth);
+
+        // NOTE 기본값으로 사용 (원하면 req.type() 허용해도 됨)
+        Type type = (req.type() == null) ? Type.NOTE : req.type();
+
+        return ResponseEntity.ok(
+                trainingEventService.append(
+                        userId,
+                        chartId,
+                        type,
+                        req.title(),
+                        req.payloadJson()
+                )
+        );
     }
 
     // Authentication에서 userId 꺼내는 유틸
