@@ -114,22 +114,12 @@ public class TrainingSessionProgressService {
         BigDecimal currentPrice = r.currentPrice();
 
         // progress 이벤트 로그 payload
-        ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("steps", steps);
-        payload.put("progressIndex", chart.getProgressIndex());
-        payload.put("bars", chart.getBars());
-
+        ObjectNode progressPayload  = objectMapper.createObjectNode();
+        progressPayload .put("steps", steps);
+        progressPayload .put("progressIndex", chart.getProgressIndex());
+        progressPayload .put("bars", chart.getBars());
         // 가격 추가
-        payload.put("currentPrice", currentPrice);
-
-        // 이벤트 기록
-        eventService.append(
-                userId,
-                chart.getId(),
-                Type.PROGRESS,
-                steps + "봉 진행",
-                payload
-        );
+        progressPayload .put("currentPrice", currentPrice);
 
         // 9) 스냅샷 구성
         Long accountId = chart.getSession().getAccount().getId();
@@ -176,6 +166,19 @@ public class TrainingSessionProgressService {
                     autoExitPayload
             );
         }
+
+        // 자동청산 결과를 progress payload에 반영
+        progressPayload.put("autoExited", executedAutoExit);
+        progressPayload.put("autoExitReason", autoExitReason == null ? null : autoExitReason.name());
+
+        // 자동천산 결과까지 반영한 뒤 저장
+        eventService.append(
+                userId,
+                chart.getId(),
+                Type.PROGRESS,
+                steps + "봉 진행",
+                progressPayload
+        );
 
         // 11) 프론트로 내려줄 진행 결과 응답 DTO 생성
         return new SessionProgressResponse(

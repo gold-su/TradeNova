@@ -1,10 +1,7 @@
 package com.tradenova.training.controller;
 
-import com.tradenova.common.exception.CustomException;
-import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.training.dto.TradeRequest;
 import com.tradenova.training.dto.TradeResponse;
-import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.service.TrainingTradeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -85,7 +82,7 @@ public class TrainingTradeController {
         Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
 
         return ResponseEntity.ok(
-                tradeService.sell(userId, chartId, req.qty())
+                tradeService.sell(userId, chartId, req.qty(), false)
         );
     }
 

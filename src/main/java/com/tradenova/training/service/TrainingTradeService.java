@@ -14,7 +14,6 @@ import com.tradenova.training.dto.TradeResponse;
 import com.tradenova.training.entity.*;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
-import com.tradenova.training.repository.TrainingSessionRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -210,7 +209,7 @@ public class TrainingTradeService {
      * - qty만큼 부분 매도 지원
      */
     @Transactional
-    public TradeResponse sell(Long userId, Long chartId, BigDecimal qty) {
+    public TradeResponse sell(Long userId, Long chartId, BigDecimal qty, boolean sellAll) {
 
         // chartId + (chart.session.user.id == userId) 조건으로 차트 조회
         // - 남의 차트 접근을 구조적으로 차단 (없으면 404 성격)
@@ -294,17 +293,22 @@ public class TrainingTradeService {
 
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("side", "SELL");
+        payload.put("sellAll", sellAll);
         payload.putPOJO("qty", qty);
         payload.putPOJO("executedPrice", price);
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", outQty);
         payload.putPOJO("avgPrice", outAvg);
 
+        String summary = sellAll
+                ? chart.getSymbol().getName() + " " + qty + "주 전량 매도"
+                : chart.getSymbol().getName() + " " + qty + "주 매도";
+
         eventService.append(
                 userId,
                 chart.getId(),
                 Type.TRADE,
-                chart.getSymbol().getName() + " " + qty + "주 매도",
+                summary,
                 payload
         );
 
@@ -366,9 +370,7 @@ public class TrainingTradeService {
             );
         }
 
-        // 실제 전량 매도는 sell() 재사용
-        // - 수량 = 현재 포지션 보유 수량
-        return sell(userId, chart.getId(), pos.getQuantity());
+        return sell(userId, chart.getId(), pos.getQuantity(), true);
     }
 
     // ======================

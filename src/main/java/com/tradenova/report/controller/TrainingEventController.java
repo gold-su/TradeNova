@@ -23,7 +23,7 @@ public class TrainingEventController {
     private final TrainingEventService trainingEventService;
 
     // 최신 이벤트 N개
-    // GET /api/reports/events/charts/{chartId}?size=50
+    // GET /api/reports/charts/{chartId}/events
     @GetMapping("/{chartId}/events")
     public ResponseEntity<List<TrainingEventResponse>> getLatestEvents( // 반환 타입
             Authentication auth,        // 현재 사용자
