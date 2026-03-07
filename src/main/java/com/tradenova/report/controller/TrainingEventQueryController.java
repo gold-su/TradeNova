@@ -24,7 +24,7 @@ public class TrainingEventQueryController {
             Authentication auth,
             @PathVariable Long eventId
     ) {
-        // 인증 객체에서 userId 추출
+        // 인증 객체에서 userId 추출s
         Long userId = extractUserId(auth);
         // 서비스 호출
         return ResponseEntity.ok(trainingEventService.getOne(userId, eventId));

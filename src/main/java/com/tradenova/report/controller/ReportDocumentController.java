@@ -53,7 +53,7 @@ public class ReportDocumentController {
     ) {
         Long userId = extractUserId(auth);
         return ResponseEntity.ok(
-                service.createSnapshot(userId, chartId, req.linkedEventId(), req.payloadJson())
+                service.createSnapshot(userId, chartId, req.linkedEventId(), req.contentJson())
         );
     }
 

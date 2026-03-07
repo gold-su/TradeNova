@@ -6,6 +6,7 @@ import com.tradenova.report.dto.TrainingEventAppendRequest;
 import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.service.TrainingEventService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -45,7 +46,7 @@ public class TrainingEventController {
     public ResponseEntity<TrainingEventResponse> appendNote(
             Authentication auth,
             @PathVariable Long chartId,
-            @RequestBody TrainingEventAppendRequest req
+            @Valid @RequestBody TrainingEventAppendRequest req
     ) {
         Long userId = extractUserId(auth);
 

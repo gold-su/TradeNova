@@ -171,12 +171,12 @@ public class TrainingTradeService {
         );
 
         ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("side", "BUY");
-        payload.put("qty", qty);
-        payload.put("executedPrice", price);
-        payload.put("cashBalance", acc.getCashBalance());
-        payload.put("positionQty", pos.getQuantity());
-        payload.put("avgPrice", pos.getAvgPrice());
+        payload.putPOJO("side", "BUY");
+        payload.putPOJO("qty", qty);
+        payload.putPOJO("executedPrice", price);
+        payload.putPOJO("cashBalance", acc.getCashBalance());
+        payload.putPOJO("positionQty", pos.getQuantity());
+        payload.putPOJO("avgPrice", pos.getAvgPrice());
 
         eventService.append(
                 userId,

@@ -5,6 +5,6 @@ import jakarta.validation.constraints.NotNull;
 
 public record ReportSnapshotCreateRequest(
         Long linkedEventId,          // 선택(optional)
-        @NotNull JsonNode payloadJson // 필수
+        @NotNull JsonNode contentJson // 필수
 ) {
 }
