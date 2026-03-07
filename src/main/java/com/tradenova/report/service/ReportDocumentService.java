@@ -56,7 +56,7 @@ public class ReportDocumentService {
                         .build());
 
         // Draft 내용을 저장
-        doc.setContentJson(req.payloadJson());
+        doc.setContentJson(req.contentJson());
 
         // 혹시 기존 Draft에 schema/version이 null로 들어온 경우 대비
         if (doc.getSchemaVersion() == null) doc.setSchemaVersion(SCHEMA_V1);
