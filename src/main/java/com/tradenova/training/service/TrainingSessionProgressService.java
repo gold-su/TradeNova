@@ -115,11 +115,11 @@ public class TrainingSessionProgressService {
 
         // progress 이벤트 로그 payload
         ObjectNode progressPayload  = objectMapper.createObjectNode();
-        progressPayload .put("steps", steps);
-        progressPayload .put("progressIndex", chart.getProgressIndex());
-        progressPayload .put("bars", chart.getBars());
+        progressPayload .putPOJO("steps", steps);
+        progressPayload .putPOJO("progressIndex", chart.getProgressIndex());
+        progressPayload .putPOJO("bars", chart.getBars());
         // 가격 추가
-        progressPayload .put("currentPrice", currentPrice);
+        progressPayload .putPOJO("currentPrice", currentPrice);
 
         // 9) 스냅샷 구성
         Long accountId = chart.getSession().getAccount().getId();
@@ -133,10 +133,15 @@ public class TrainingSessionProgressService {
         // 현금 (PaperAccount에 맞는 getter로 바꾸기)
         BigDecimal cashBalance = chart.getSession().getAccount().getCashBalance();
 
+
         // 10) 자동청산
         //     - 룰은 발동했는데 포지션이 0이면, 팔 게 없으니 자동청산 실행은 스킵(UX 깔끔)
         boolean executedAutoExit = false;
         var autoExitReason = r.reason();
+
+        // WARNING 이벤트는 바로 저장하지 말고, payload만 준비
+        ObjectNode autoExitPayload = null;
+        String autoExitSummary = null;
 
         if (r.autoExited() && positionQty.compareTo(BigDecimal.ZERO) > 0) {
             TradeResponse sellAllResult = tradeService.sellAll(userId, chart.getId());
@@ -152,26 +157,23 @@ public class TrainingSessionProgressService {
 
             executedAutoExit = true;
 
-            // 자동청산 이벤트 로그 추가
-            ObjectNode autoExitPayload = objectMapper.createObjectNode();
-            autoExitPayload.put("reason", autoExitReason.name());
-            autoExitPayload.put("executedPrice", currentPrice);
-            autoExitPayload.put("chartId", chart.getId());
+            // warning payload만 준비
+            autoExitPayload = objectMapper.createObjectNode();
+            autoExitPayload.putPOJO("reason", autoExitReason.name());
+            autoExitPayload.putPOJO("executedPrice", currentPrice);
+            autoExitPayload.putPOJO("chartId", chart.getId());
 
-            eventService.append(
-                    userId,
-                    chart.getId(),
-                    Type.WARNING,
-                    "자동청산 발생: " + autoExitReason.name(),
-                    autoExitPayload
-            );
+            autoExitSummary = "자동청산 발생: " + autoExitReason.name();
+
+
         }
 
         // 자동청산 결과를 progress payload에 반영
-        progressPayload.put("autoExited", executedAutoExit);
-        progressPayload.put("autoExitReason", autoExitReason == null ? null : autoExitReason.name());
+        progressPayload.putPOJO("autoExited", executedAutoExit);
+        progressPayload.putPOJO("autoExitReason", autoExitReason == null ? null : autoExitReason.name());
+        progressPayload.putPOJO("currentPrice", currentPrice); // 혹시 autoExit 후 체결가로 바뀌었다면 최종값 반영
 
-        // 자동천산 결과까지 반영한 뒤 저장
+        // 1) 먼저 progress 저장
         eventService.append(
                 userId,
                 chart.getId(),
@@ -179,6 +181,17 @@ public class TrainingSessionProgressService {
                 steps + "봉 진행",
                 progressPayload
         );
+
+        // 2) 그 다음 warning 저장
+        if (executedAutoExit) {
+            eventService.append(
+                    userId,
+                    chart.getId(),
+                    Type.WARNING,
+                    autoExitSummary,
+                    autoExitPayload
+            );
+        }
 
         // 11) 프론트로 내려줄 진행 결과 응답 DTO 생성
         return new SessionProgressResponse(

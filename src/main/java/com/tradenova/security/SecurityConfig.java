@@ -48,7 +48,7 @@ public class SecurityConfig {
                                 "/health",
                                 "/error"
                         ).permitAll() // 회원가입/로그인은 허용
-                        .anyRequest().authenticated() // 일단 전부 허용
+                        .anyRequest().authenticated() // 나머지 모든 API는 인증 필요
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class) //모든 요청 앞단에서 JWT를 검사하겠다. 기본 인증 필터보다 먼저 실행해야 하므로 Before() 사용.
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

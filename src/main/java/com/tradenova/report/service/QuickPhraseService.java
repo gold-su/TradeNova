@@ -85,6 +85,30 @@ public class QuickPhraseService {
     @Transactional
     // 본인 특정 문장 수정 + 자동 DB 반영
     public QuickPhraseResponse update(Long userId, Long phraseId, QuickPhraseUpdateRequest req) {
+
+        // ===== 1차 방어 (null 체크) =====
+        if (req == null) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // ===== 2차 방어 (title 검증) =====
+        String title = req.title();
+        if (title == null || title.isBlank()) {
+            throw new CustomException(ErrorCode.QUICK_PHRASE_TITLE_REQUIRED);
+        }
+        if (title.length() > 40) {
+            throw new CustomException(ErrorCode.QUICK_PHRASE_TITLE_TOO_LONG);
+        }
+
+        // ===== 3차 방어 (content 검증) =====
+        String content = req.content();
+        if (content == null || content.isBlank()) {
+            throw new CustomException(ErrorCode.QUICK_PHRASE_CONTENT_REQUIRED);
+        }
+        if (content.length() > 2000) {
+            throw new CustomException(ErrorCode.QUICK_PHRASE_CONTENT_TOO_LONG);
+        }
+
         // userId 포함 조회
         // 다른 사용자 문장 접근 차단
         QuickPhrase p = repo.findByIdAndUserId(phraseId, userId)

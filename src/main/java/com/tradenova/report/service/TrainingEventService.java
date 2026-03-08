@@ -64,10 +64,18 @@ public class TrainingEventService {
 
         // PageRequest.of(0, n) => 첫 페이지(0)에서 n개만 가져오겠다
         // repo 메서드는 최신순으로 가져오도록 "OrderByIdDesc"가 붙어있어야 함
-        return repo.findAllByUserIdAndChartIdOrderByIdDesc(userId, chartId, PageRequest.of(0, n))
-                .stream()
-                .map(this::toRes) // 엔티티 -> DTO 변환
-                .toList();
+        List<TrainingEventResponse> list = new java.util.ArrayList<>(
+                repo.findAllByUserIdAndChartIdOrderByIdDesc(userId, chartId, PageRequest.of(0, n))
+                        .stream()
+                        .map(this::toRes) // 엔티티 -> DTO 변환
+                        .toList()
+        );
+        
+        // 최신 N개를 가져오되, 화면에서는 오래된 순 -> 최신 순으로 보여주기 위해 뒤집음
+        // 위에서 repo를 ASC(오래된) 순으로 가져오면 '최근 N개' 개념이 꼬일 수 있음 
+        java.util.Collections.reverse(list);
+
+        return list;
     }
 
     /**

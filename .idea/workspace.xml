@@ -4,9 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="modify">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="event log coding">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/ReportDocumentService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/ReportDocumentService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/QuickPhraseService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/QuickPhraseService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/TrainingEventService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/TrainingEventService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/security/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -103,8 +106,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.26094.121" />
-        <option value="bundled-js-predefined-d6986cc7102b-b26f3e71634d-JavaScript-IU-251.26094.121" />
+        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.25410.129" />
+        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-IU-251.25410.129" />
       </set>
     </attachedChunks>
   </component>
@@ -596,6 +599,8 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
+    <MESSAGE value="late commit from yesterday" />
+    <MESSAGE value="commit for a bit" />
     <MESSAGE value="error setting" />
     <MESSAGE value="DTO valid global coding" />
     <MESSAGE value="error &amp; global response done" />
@@ -623,6 +628,7 @@
     <MESSAGE value="매수/매도 구현 완료" />
     <MESSAGE value="오류 및 버그 수정" />
     <MESSAGE value="symbol code modify" />
+    <MESSAGE value="modify" />
     <MESSAGE value="fixed" />
     <MESSAGE value="buy, sell flow done" />
     <MESSAGE value="paper, TrainingSessionProgressService modify" />
