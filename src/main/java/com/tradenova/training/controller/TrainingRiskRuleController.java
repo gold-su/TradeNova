@@ -3,12 +3,10 @@ package com.tradenova.training.controller;
 import com.tradenova.training.dto.RiskRuleResponse;
 import com.tradenova.training.dto.RiskRuleUpsertRequest;
 import com.tradenova.training.service.TrainingRiskRuleService;
-import com.tradenova.user.entity.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
