@@ -21,7 +21,8 @@ import java.time.Instant;
         },
         uniqueConstraints = {
                 // Draft는 차트당 1개 고정 (Snapshot은 여러 개)
-                @UniqueConstraint(name="uq_draft_user_chart", columnNames={"user_id","chart_id","kind"})
+                @UniqueConstraint(name="uq_report_user_chart_kind_version",
+                        columnNames={"user_id","chart_id","kind","version"})
         }
 )
 @Getter
