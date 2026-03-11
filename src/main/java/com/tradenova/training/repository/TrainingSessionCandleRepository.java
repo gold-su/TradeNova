@@ -24,4 +24,10 @@ public interface TrainingSessionCandleRepository extends JpaRepository<TrainingS
     /** 세션 삭제/리셋 시 사용 */
     void deleteAllByChartId(Long ChartId);
 
+    /**
+     * 특정 차트의 최근 30개 봉 조회
+     * - AI 분석용
+     */
+    List<TrainingSessionCandle> findTop30ByChartIdOrderByIdxDesc(Long chartId);
+
 }

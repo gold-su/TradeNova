@@ -3,6 +3,7 @@ package com.tradenova.report.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
 import lombok.RequiredArgsConstructor;
@@ -78,13 +79,18 @@ public class AiAnalysisService {
      */
     public AiAnalysisResponse analyze(AiAnalysisRequest req) {
         try {
+            // AI 역할 설명서
             String systemPrompt = buildSystemPrompt();
+
+            // 사용자 리포트/체결 데이터를 문자열로 정리
             String userPrompt = buildUserPrompt(req);
 
+            // HTTP 헤더 설정
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBearerAuth(apiKey);
 
+            // OpenAI 용청 body
             Map<String, Object> body = Map.of(
                     "model", model,
                     "temperature", 0.2,
@@ -97,6 +103,7 @@ public class AiAnalysisService {
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
+            // OpenAI API 호출
             ResponseEntity<String> response = restTemplate.exchange(
                     "https://api.openai.com/v1/chat/completions",
                     HttpMethod.POST,
@@ -104,16 +111,18 @@ public class AiAnalysisService {
                     String.class
             );
 
+            // 응답이 비정상이면 예외 처리
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
             }
 
+            // 응답 JSON -> AiAnalysisResponse 변환
             return parseResponse(response.getBody());
 
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
-            throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
+            throw new CustomException(ErrorCode.AI_RESPONSE_INVALID);
         }
     }
 
@@ -146,6 +155,7 @@ public class AiAnalysisService {
                 - strengths는 없으면 빈 배열
                 - 투자 추천/매수 추천 금지
                 - 사용자의 리스크 관리, 진입 근거, 감정 통제, 계획 구체성을 평가해라
+                - 사용자가 현저히 정보가 부족 해보인다면 학습을 추천해라
                 """;
     }
 
@@ -166,8 +176,11 @@ public class AiAnalysisService {
                 [체결 정보]
                 price: %s
                 qty: %s
+                
+                [현재 포지션/계좌]
                 avgPrice: %s
                 positionQty: %s
+                cashBalance: %s
                 
                 [최근 종가]
                 %s
@@ -191,6 +204,7 @@ public class AiAnalysisService {
                 req.qty(),
                 req.avgPrice(),
                 req.positionQty(),
+                req.cashBalance(),
                 req.closes(),
                 req.volumes()
         );
@@ -206,10 +220,12 @@ public class AiAnalysisService {
         JsonNode root = objectMapper.readTree(rawBody);
         JsonNode contentNode = root.path("choices").get(0).path("message").path("content");
 
+        // content가 비어있으면 실패 처리
         if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
             throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
         }
 
+        // content 문자열을 다시 JSON으로 파싱
         JsonNode aiJson = objectMapper.readTree(contentNode.asText());
 
         Integer score = aiJson.path("score").asInt(0);

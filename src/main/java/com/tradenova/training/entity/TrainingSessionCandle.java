@@ -77,7 +77,7 @@ public class TrainingSessionCandle {
 
     /** 거래량 */
     @Column(name = "v", nullable = false)
-    private Long v;
+    private Double v;
 
     /** 저장 시각 (디버깅/감사용) */
     @CreationTimestamp

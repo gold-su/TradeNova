@@ -25,7 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -46,6 +48,7 @@ public class TrainingSessionService {
 
     private static final DateTimeFormatter KIS_DATE = DateTimeFormatter.BASIC_ISO_DATE;
 
+    private static final int DEFAULT_INITIAL_VISIBLE_BARS = 60;
 
     // 세션 저장/조회
     private final TrainingSessionRepository sessionRepo;
@@ -75,6 +78,19 @@ public class TrainingSessionService {
         // CHANGED: chartCount 지원 (없으면 기본 4)
         int chartCount = resolveChartCount(req);
 
+        // active symbol 후보군 가져오기
+        // - 훈련에 쓸 수 있는 종목 풀(활성화=true)만 가져옴
+        List<Symbol> candidates = symbolRepository.findAllByActiveTrueOrderByIdAsc();
+        if(candidates.isEmpty()){
+            //종목이 0개면 랜덤 뽑기 자체가 불가능
+            throw new CustomException(ErrorCode.SYMBOL_NOT_FOUND);
+        }
+
+        // 중복 없이 chartCount 개수를 만들 수 있는지 확인
+        if (candidates.size() < chartCount) {
+            throw new CustomException(ErrorCode.TRAINING_SESSION_CREATE_FAILED);
+        }
+
         // 1) 유저 조회(혹시나 principal user가 detached인 경우 대비)
         // - auth principal 에서 받은 user가 dateched일 수도 있고(영속성 컨텍스트 밖)
         // - DB에 실제 존재하는 유저인지 검증도 해야 함
@@ -85,14 +101,6 @@ public class TrainingSessionService {
         // - userId가 가진 계좌인지 확인 (다른 유저 계좌로 훈련 못 하게 보안)
         PaperAccount account = paperAccountRepository.findByIdAndUserId(req.accountId(), userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAPER_ACCOUNT_NOT_FOUND));
-
-        // 3) active symbol 후보군 가져오기
-        // - 훈련에 쓸 수 있는 종목 풀(활성화=true)만 가져옴
-        List<Symbol> candidates = symbolRepository.findAllByActiveTrueOrderByIdAsc();
-        if(candidates.isEmpty()){
-            //종목이 0개면 랜덤 뽑기 자체가 불가능
-            throw new CustomException(ErrorCode.SYMBOL_NOT_FOUND);
-        }
 
         // 4) 세션은 무조건 "한 번만" 생성
         TrainingSession session = sessionRepo.save(
@@ -106,13 +114,16 @@ public class TrainingSessionService {
 
         //  5) 차트를 chartCount 만큼 생성
         List<TrainingChartCreateResponse> chartResponses = new ArrayList<>(chartCount);
+        // 중복 방지 set
+        Set<Long> usedSymbolIds = new HashSet<>();
 
-        for(int chartIndex = 0; chartIndex < chartCount; chartIndex++){
+        for (int chartIndex = 0; chartIndex < chartCount; chartIndex++) {
             TrainingChartCreateResponse chartRes = createOneRandomChartWithCandles(
                     session,
                     candidates,
                     bars,
-                    chartIndex
+                    chartIndex,
+                    usedSymbolIds
             );
             chartResponses.add(chartRes);
         }
@@ -231,7 +242,7 @@ public class TrainingSessionService {
         }
     }
 
-    private int resolveChartCount(TrainingSessionCreateRequest request) throws CustomException {
+    private int resolveChartCount(TrainingSessionCreateRequest request){
         // CHANGED: chartCount 지원(없으면 기본값)
         Integer count = request.chartCount();
         return (count == null) ? DEFAULT_CHART_COUNT : count;
@@ -247,15 +258,21 @@ public class TrainingSessionService {
             TrainingSession session,
             List<Symbol> candidates,
             int bars,
-            int chartIndex
+            int chartIndex,
+            Set<Long> usedSymbolIds
     ) {
         for (int attempt = 1; attempt <= MAX_TRIES_PER_CHART; attempt++) {
 
             Symbol picked = pickRandom(candidates);
 
+            // 이미 이 세션에서 사용한 종목이면 다시 뽑기
+            if (usedSymbolIds.contains(picked.getId())) {
+                continue;
+            }
+
             //  랜덤 기간 생성
             LocalDate endDate = randomDate(LocalDate.of(2018, 1, 1), LocalDate.now().minusDays(30));
-            LocalDate startDate = endDate.minusDays(bars * 3L);
+            LocalDate startDate = endDate.minusDays(bars * 5L);
 
             //  KIS 캔들 조회
             List<CandleDto> candles = new ArrayList<>(kisMarketDataService.getCandles(
@@ -279,7 +296,7 @@ public class TrainingSessionService {
             LocalDate finalEnd = millisToSeoulDate(sessionCandles.get(sessionCandles.size() - 1).t());
 
             //  초기 공개 progressIndex 계산
-            int initialVisibleBars = Math.min(60, bars);
+            int initialVisibleBars = Math.min(DEFAULT_INITIAL_VISIBLE_BARS, bars);
             int progressIndex = Math.max(0, initialVisibleBars - 1);
 
             //  차트 생성
@@ -314,6 +331,8 @@ public class TrainingSessionService {
                 );
             }
             candleRepo.saveAll(entities);
+
+            usedSymbolIds.add(picked.getId());
 
             // 응답용 DTO
             return new TrainingChartCreateResponse(

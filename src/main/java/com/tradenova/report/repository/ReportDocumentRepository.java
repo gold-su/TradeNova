@@ -45,4 +45,5 @@ public interface ReportDocumentRepository extends JpaRepository<ReportDocument, 
     Optional<Integer> findMaxVersionByUserIdAndChartIdAndKind(@Param("userId") Long userId,
                                                               @Param("chartId") Long chartId,
                                                               @Param("kind") ReportKind kind);
+
 }

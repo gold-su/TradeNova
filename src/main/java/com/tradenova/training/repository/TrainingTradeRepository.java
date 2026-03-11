@@ -4,6 +4,7 @@ import com.tradenova.training.entity.TrainingTrade;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TrainingTradeRepository extends JpaRepository<TrainingTrade, Long> {
     //특정 훈련 세션(sessionId)에 속한 모든 매매 기록을, id 오름차순으로 조회한다.
@@ -18,4 +19,9 @@ public interface TrainingTradeRepository extends JpaRepository<TrainingTrade, Lo
      * 생성 시간(createdAt) 오름차순으로 조회한다.
      */
     List<TrainingTrade> findAllByChartIdOrderByCreatedAtAsc(Long chartId);
+
+    /**
+     * 특정 차트의 최신 거래 1건 조회
+     */
+    Optional<TrainingTrade> findTopByChartIdOrderByIdDesc(Long chartId);
 }

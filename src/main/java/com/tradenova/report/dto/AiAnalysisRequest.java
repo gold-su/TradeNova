@@ -91,6 +91,11 @@ public record AiAnalysisRequest(
         BigDecimal positionQty,
 
         /**
+         * 현재 남은 현금
+         */
+        BigDecimal cashBalance,
+
+        /**
          * 최근 캔들 종가 리스트
          *
          * AI가 차트 흐름을 파악할 수 있도록 제공

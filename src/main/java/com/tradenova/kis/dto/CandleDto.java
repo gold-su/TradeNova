@@ -8,6 +8,6 @@ public record CandleDto(
         double h, // High
         double l, // Low
         double c, // Close
-        long v // Volume(거래량)
+        double v // Volume(거래량)
 ) {
 }
