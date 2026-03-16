@@ -16,9 +16,11 @@ import com.tradenova.report.entity.ReportDocument;
 import com.tradenova.report.entity.ReportKind;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.repository.ReportDocumentRepository;
+import com.tradenova.training.entity.TrainingRiskRule;
 import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.entity.TrainingSessionChart;
 import com.tradenova.training.entity.TrainingTrade;
+import com.tradenova.training.repository.TrainingRiskRuleRepository;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
@@ -60,6 +62,9 @@ public class ReportAnalysisService {
 
     // 실제 OpenAI 호출 담당
     private final AiAnalysisService aiAnalysisService;
+
+    // 리스크 룰 조회용
+    private final TrainingRiskRuleRepository trainingRiskRuleRepository;
 
     // AI 분석 결과를 이벤트 로그로 저장
     private final TrainingEventService trainingEventService;
@@ -104,6 +109,10 @@ public class ReportAnalysisService {
         // 4) 최근 캔들 30개 조회
         List<TrainingSessionCandle> candles = candleRepository.findTop30ByChartIdOrderByIdxDesc(chartId);
 
+        if (candles == null || candles.isEmpty()) {
+            throw new CustomException(ErrorCode.CANDLES_EMPTY);
+        }
+
         // 종가 리스트 추출
         List<Double> closes = candles.stream()
                 .map(TrainingSessionCandle::getC)
@@ -141,6 +150,15 @@ public class ReportAnalysisService {
         // 현재 계좌의 남은 현금
         BigDecimal cashBalance = chart.getSession().getAccount().getCashBalance();
 
+        // 7) 리스크 룰 조회
+        TrainingRiskRule riskRule = trainingRiskRuleRepository.findByChartId(chartId)
+                .orElse(null);
+
+        BigDecimal stopLossPrice = riskRule != null ? riskRule.getStopLossPrice() : null;
+        BigDecimal takeProfitPrice = riskRule != null ? riskRule.getTakeProfitPrice() : null;
+        Boolean autoExitEnabled = riskRule != null ? riskRule.isEnabled() : Boolean.FALSE;
+
+
         // 7) AI 분석 요청 DTO 생성
         AiAnalysisRequest request = new AiAnalysisRequest(
                 text(content, "thesis"),
@@ -153,6 +171,9 @@ public class ReportAnalysisService {
                 avgPrice,
                 positionQty,
                 cashBalance,
+                stopLossPrice,
+                takeProfitPrice,
+                autoExitEnabled,
                 closes,
                 volumes
         );
@@ -176,8 +197,12 @@ public class ReportAnalysisService {
         }
 
         // 어떤 snapshot / chart에 대한 결과인지 함께 저장
+        // 분석에 사용된 문맥도 일부 같이 저장
         payload.put("snapshotId", snapshot.getId());
         payload.put("chartId", chartId);
+        payload.put("stopLossPrice", stopLossPrice != null ? stopLossPrice.toPlainString() : null);
+        payload.put("takeProfitPrice", takeProfitPrice != null ? takeProfitPrice.toPlainString() : null);
+        payload.put("autoExitEnabled", autoExitEnabled);
 
         // 10) AI 리뷰 결과를 training_event로 저장 후 반환
         return trainingEventService.append(

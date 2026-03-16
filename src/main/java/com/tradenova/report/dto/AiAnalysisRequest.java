@@ -95,6 +95,28 @@ public record AiAnalysisRequest(
          */
         BigDecimal cashBalance,
 
+
+        // ===== 리스크 룰 =====
+
+        /**
+         * 저장된 손절가
+         * 없으면 null 가능
+         */
+        BigDecimal stopLossPrice,
+
+        /**
+         * 저장된 익절가
+         * 없으면 null 가능
+         */
+        BigDecimal takeProfitPrice,
+
+        /**
+         * 자동청산 활성화 여부
+         */
+        Boolean autoExitEnabled,
+
+        // ===== 최근 차트 데이터 =====
+
         /**
          * 최근 캔들 종가 리스트
          *

@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -39,6 +40,11 @@ public class AiAnalysisService {
      * - 나중에 WebClient로 바꿔도 됨
      */
     private final RestTemplate restTemplate;
+
+    /**
+     * prompt 주입용
+     */
+    private final PromptBuilder promptBuilder;
 
     /**
      * JSON 직렬화/역직렬화
@@ -79,11 +85,12 @@ public class AiAnalysisService {
      */
     public AiAnalysisResponse analyze(AiAnalysisRequest req) {
         try {
+
             // AI 역할 설명서
-            String systemPrompt = buildSystemPrompt();
+            String systemPrompt = promptBuilder.buildSystemPrompt();
 
             // 사용자 리포트/체결 데이터를 문자열로 정리
-            String userPrompt = buildUserPrompt(req);
+            String userPrompt = promptBuilder.buildUserPrompt(req);
 
             // HTTP 헤더 설정
             HttpHeaders headers = new HttpHeaders();
@@ -110,7 +117,8 @@ public class AiAnalysisService {
                     entity,
                     String.class
             );
-
+            System.out.println("=== OpenAI raw response ===");
+            System.out.println(response.getBody());
             // 응답이 비정상이면 예외 처리
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
@@ -119,95 +127,20 @@ public class AiAnalysisService {
             // 응답 JSON -> AiAnalysisResponse 변환
             return parseResponse(response.getBody());
 
-        } catch (CustomException e) {
+        }catch (HttpStatusCodeException e){
+            System.out.println("=== OpenAI status code ===");
+            System.out.println(e.getStatusCode());
+
+            System.out.println("=== OpenAI error body ===");
+            System.out.println(e.getResponseBodyAsString());
+
+            throw new CustomException(ErrorCode.AI_API_CALL_FAILED);
+        }
+        catch (CustomException e) {
             throw e;
         } catch (Exception e) {
             throw new CustomException(ErrorCode.AI_RESPONSE_INVALID);
         }
-    }
-
-    /**
-     * 시스템 프롬프트
-     *
-     * AI 역할을 고정한다.
-     * - 트레이딩 조언을 해주는 게 아니라
-     * - 사용자의 "매매 판단 과정"을 평가하는 코치 역할
-     */
-    private String buildSystemPrompt() {
-        return """
-                너는 트레이딩 훈련 플랫폼의 AI 코치다.
-                너의 역할은 사용자의 매매 판단 과정을 평가하는 것이다.
-                
-                반드시 JSON 객체만 반환해라.
-                아래 형식을 정확히 지켜라.
-                
-                {
-                  "score": 0,
-                  "summary": "문장",
-                  "warnings": ["문장1", "문장2"],
-                  "strengths": ["문장1", "문장2"]
-                }
-                
-                규칙:
-                - score는 0~100 사이 정수
-                - summary는 1~3문장
-                - warnings는 없으면 빈 배열
-                - strengths는 없으면 빈 배열
-                - 투자 추천/매수 추천 금지
-                - 사용자의 리스크 관리, 진입 근거, 감정 통제, 계획 구체성을 평가해라
-                - 사용자가 현저히 정보가 부족 해보인다면 학습을 추천해라
-                """;
-    }
-
-    /**
-     * 유저 프롬프트 생성
-     *
-     * AI가 해석하기 쉽게 구조화된 텍스트로 만든다.
-     */
-    private String buildUserPrompt(AiAnalysisRequest req) {
-        return """
-                [트레이딩 리포트]
-                thesis: %s
-                entryReason: %s
-                exitPlan: %s
-                riskNote: %s
-                freeNote: %s
-                
-                [체결 정보]
-                price: %s
-                qty: %s
-                
-                [현재 포지션/계좌]
-                avgPrice: %s
-                positionQty: %s
-                cashBalance: %s
-                
-                [최근 종가]
-                %s
-                
-                [최근 거래량]
-                %s
-                
-                위 데이터를 보고:
-                1) 판단의 구체성
-                2) 리스크 관리 수준
-                3) 감정적/충동적 진입 여부
-                4) 강점과 나쁜 습관 가능성
-                을 평가해라.
-                """.formatted(
-                nullSafe(req.thesis()),
-                nullSafe(req.entryReason()),
-                nullSafe(req.exitPlan()),
-                nullSafe(req.riskNote()),
-                nullSafe(req.freeNote()),
-                req.price(),
-                req.qty(),
-                req.avgPrice(),
-                req.positionQty(),
-                req.cashBalance(),
-                req.closes(),
-                req.volumes()
-        );
     }
 
     /**
@@ -217,13 +150,28 @@ public class AiAnalysisService {
      * choices[0].message.content 안에 JSON 문자열이 들어있다.
      */
     private AiAnalysisResponse parseResponse(String rawBody) throws Exception {
+        // rawBody log
+        System.out.println("=== parseResponse rawBody ===");
+        System.out.println(rawBody);
+
         JsonNode root = objectMapper.readTree(rawBody);
+        // root log
+        System.out.println("=== parseResponse root ===");
+        System.out.println(root);
+
         JsonNode contentNode = root.path("choices").get(0).path("message").path("content");
+        // contrentNode log
+        System.out.println("=== root ===");
+        System.out.println(root.toPrettyString());
 
         // content가 비어있으면 실패 처리
         if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
             throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
         }
+
+        String content = contentNode.asText();
+        System.out.println("=== content text ===");
+        System.out.println(content);
 
         // content 문자열을 다시 JSON으로 파싱
         JsonNode aiJson = objectMapper.readTree(contentNode.asText());

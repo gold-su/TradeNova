@@ -4,23 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="modify">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/config/HttpClientConfig.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/controller/ReportAnalysisController.java" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="AiAnal">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/dto/CandleDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/kis/dto/CandleDto.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/AiAnalysisRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/AiAnalysisRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/AiAnalysisService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/AiAnalysisService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/PromptBuilder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/PromptBuilder.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/ReportAnalysisService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/ReportAnalysisService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingSessionCandle.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingSessionCandle.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingSessionCandleRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingSessionCandleRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_en.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_en.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/application.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -199,15 +190,10 @@
       <workItem from="1772681083924" duration="8634000" />
       <workItem from="1772778628767" duration="7261000" />
       <workItem from="1772883236282" duration="9349000" />
-      <workItem from="1773107690517" duration="13982000" />
-    </task>
-    <task id="LOCAL-00016" summary="DTO valid global coding">
-      <option name="closed" value="true" />
-      <created>1766351708716</created>
-      <option name="number" value="00016" />
-      <option name="presentableId" value="LOCAL-00016" />
-      <option name="project" value="LOCAL" />
-      <updated>1766351708716</updated>
+      <workItem from="1773107690517" duration="14592000" />
+      <workItem from="1773200964600" duration="2533000" />
+      <workItem from="1773369381356" duration="6963000" />
+      <workItem from="1773642395267" duration="10708000" />
     </task>
     <task id="LOCAL-00017" summary="error &amp; global response done">
       <option name="closed" value="true" />
@@ -593,7 +579,15 @@
       <option name="project" value="LOCAL" />
       <updated>1773063185577</updated>
     </task>
-    <option name="localTasksCounter" value="65" />
+    <task id="LOCAL-00065" summary="AiAnal">
+      <option name="closed" value="true" />
+      <created>1773195956508</created>
+      <option name="number" value="00065" />
+      <option name="presentableId" value="LOCAL-00065" />
+      <option name="project" value="LOCAL" />
+      <updated>1773195956508</updated>
+    </task>
+    <option name="localTasksCounter" value="66" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -611,7 +605,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="commit for a bit" />
     <MESSAGE value="error setting" />
     <MESSAGE value="DTO valid global coding" />
     <MESSAGE value="error &amp; global response done" />
@@ -650,6 +643,7 @@
     <MESSAGE value="code modify" />
     <MESSAGE value="modify" />
     <MESSAGE value="modify" />
-    <option name="LAST_COMMIT_MESSAGE" value="modify" />
+    <MESSAGE value="AiAnal" />
+    <option name="LAST_COMMIT_MESSAGE" value="AiAnal" />
   </component>
 </project>

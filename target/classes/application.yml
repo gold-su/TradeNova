@@ -40,5 +40,9 @@ kis:
   appsecret: ${KIS_APPSECRET}
   custtype: P  # 개인: P, 법인: B
 
+openai:
+  api-key: ${OPENAI_API_KEY}
+  model: gpt-4.1-mini
+
 server:
   port: 8080
