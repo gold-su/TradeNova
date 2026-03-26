@@ -2,6 +2,7 @@ package com.tradenova.training.repository;
 
 import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.training.entity.TrainingSession;
+import com.tradenova.training.entity.TrainingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -18,5 +19,8 @@ public interface TrainingSessionRepository extends JpaRepository<TrainingSession
 
     //특정 세션 ID가 해당 유저의 세션이 맞는지 확인하면서 조회
     Optional<TrainingSession> findByIdAndUserId(Long id, Long userId);
+
+    // 특정 유저의 "가장 최근 진행 중 세션 1개" 조회, 새로고침 후 이어하기 용도
+    Optional<TrainingSession> findTopByUserIdAndStatusOrderByIdDesc(Long userId, TrainingStatus status);
 
 }

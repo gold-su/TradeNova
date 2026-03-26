@@ -351,6 +351,26 @@ public class TrainingSessionService {
         throw new CustomException(ErrorCode.TRAINING_SESSION_CREATE_FAILED);
     }
 
+    //session 종료 메서드
+    @Transactional
+    public void finishSession(Long userId, Long sessionId) {
+        TrainingSession session = sessionRepo.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
+
+        if (session.getStatus() == TrainingStatus.COMPLETED) {
+            return;
+        }
+
+        session.setStatus(TrainingStatus.COMPLETED);
+    }
+
+    @Transactional(readOnly = true)
+    public TrainingSession findActiveSession(Long userId) {
+        return sessionRepo
+                .findTopByUserIdAndStatusOrderByIdDesc(userId, TrainingStatus.IN_PROGRESS)
+                .orElse(null);
+    }
+
     // ===== helpers =====
 
     // 후보 리스트에서 랜덤 1개 선택

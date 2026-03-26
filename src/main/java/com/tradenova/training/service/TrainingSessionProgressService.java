@@ -99,8 +99,7 @@ public class TrainingSessionProgressService {
         //    MVP에서는 "세션 종료는 세션 정책으로 따로" 가도 되는데,
         //    지금은 단순하게 chart가 끝까지 가면 세션도 끝내는 걸로 처리해도 됨.
         if (nextIdx >= maxIdx) {
-            // chart 자체만 종료 상태 필드 추가하는게 이상적이지만
-            // 지금은 세션 종료는 건드리지 않는게 안정적
+            chart.getSession().setStatus(TrainingStatus.COMPLETED);
         }
 
         // 7) 자동청산 체크 (반환: autoExited 여부 + reason + currentPrice)

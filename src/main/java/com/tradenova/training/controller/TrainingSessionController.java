@@ -1,8 +1,5 @@
 package com.tradenova.training.controller;
 
-import com.tradenova.common.exception.CustomException;
-import com.tradenova.common.exception.ErrorCode;
-import com.tradenova.kis.dto.CandleDto;
 import com.tradenova.training.dto.*;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.repository.TrainingSessionRepository;
@@ -54,8 +51,7 @@ public class TrainingSessionController {
             @Valid @RequestBody TrainingSessionCreateRequest req  //요청 DTO (Validation 적용)
     ){
         //로그인된 사용자(Principal)에서 userId 추출
-        Object p = authentication.getPrincipal();
-        Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
+        Long userId = extractUserId(authentication);
 
         //서비스 호출 -> 세션 생성 -> 응답 DTO 반환
         return ResponseEntity.ok(trainingSessionService.createSession(userId, req));
@@ -66,8 +62,7 @@ public class TrainingSessionController {
             Authentication authentication,
             @PathVariable Long sessionId
     ) {
-        Object p = authentication.getPrincipal();
-        Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
+        Long userId = extractUserId(authentication);
         return ResponseEntity.ok(trainingSessionService.getSession(userId, sessionId));
     }
 
@@ -76,9 +71,49 @@ public class TrainingSessionController {
             Authentication authentication,
             @PathVariable Long sessionId
     ) {
-        Object p = authentication.getPrincipal();
-        Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
+        Long userId = extractUserId(authentication);
         return ResponseEntity.ok(trainingSessionService.getSessionCharts(userId, sessionId));
     }
 
+    /**
+     * 세션 수동 종료
+     * POST /api/training/sessions/{sessionId}/finish
+     */
+    @PostMapping("/{sessionId}/finish")
+    public ResponseEntity<Void> finish(
+            Authentication authentication,
+            @PathVariable Long sessionId
+    ){
+        Long userId = extractUserId(authentication);
+        trainingSessionService.finishSession(userId, sessionId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 현재 진행 중인 가장 최근 세션 조회
+     */
+    @GetMapping("/active")
+    public ResponseEntity<SessionDetailResponse> getActiveSession(Authentication authentication) {
+        Long userId = extractUserId(authentication);
+
+        TrainingSession s = trainingSessionService.findActiveSession(userId);
+
+        if (s == null) {
+            return ResponseEntity.ok(null);
+        }
+
+        return ResponseEntity.ok(
+                new SessionDetailResponse(
+                        s.getId(),
+                        s.getAccount().getId(),
+                        s.getMode(),
+                        s.getStatus()
+                )
+        );
+    }
+
+    private Long extractUserId(Authentication authentication) {
+        Object p = authentication.getPrincipal();
+        return (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
+    }
 }
