@@ -11,6 +11,7 @@ import com.tradenova.report.entity.Type;
 import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.training.dto.SessionProgressResponse;
 import com.tradenova.training.dto.TradeResponse;
+import com.tradenova.training.entity.TrainingChartStatus;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.entity.TrainingSessionChart;
 import com.tradenova.training.entity.TrainingStatus;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor    //final 필드 자동 생성자
@@ -69,6 +71,11 @@ public class TrainingSessionProgressService {
             throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
         }
 
+        // 차트가 COMPLETED 상태면 에러
+        if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
+            throw new CustomException(ErrorCode.TRAINING_CHART_ALREADY_COMPLETED);
+        }
+        
         // 3) steps 검증
         //    - 0 이하로 넘기는 건 의미 없으므로 거부
         // 스펙: 1 ~ 500
@@ -99,7 +106,8 @@ public class TrainingSessionProgressService {
         //    MVP에서는 "세션 종료는 세션 정책으로 따로" 가도 되는데,
         //    지금은 단순하게 chart가 끝까지 가면 세션도 끝내는 걸로 처리해도 됨.
         if (nextIdx >= maxIdx) {
-            chart.getSession().setStatus(TrainingStatus.COMPLETED);
+            chart.complete();
+            completeSessionIfAllChartsCompleted(chart.getSession().getId());
         }
 
         // 7) 자동청산 체크 (반환: autoExited 여부 + reason + currentPrice)
@@ -204,5 +212,17 @@ public class TrainingSessionProgressService {
                 executedAutoExit,         // 이번 진행에서 자동청산 발생 여부
                 autoExitReason            // 자동청산 사유(STOP_LOSS / TAKE_PROFIT / null)
         );
+    }
+
+    private void completeSessionIfAllChartsCompleted(Long sessionId) {
+        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(sessionId);
+
+        boolean allCompleted = charts.stream()
+                .allMatch(c -> c.getStatus() == TrainingChartStatus.COMPLETED);
+
+        if (allCompleted) {
+            TrainingSession session = charts.get(0).getSession();
+            session.setStatus(TrainingStatus.COMPLETED);
+        }
     }
 }

@@ -1,24 +1,27 @@
 package com.tradenova.training.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.kis.service.KisMarketDataService;
 import com.tradenova.kis.dto.CandleDto;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperAccountRepository;
+import com.tradenova.report.entity.Type;
+import com.tradenova.report.service.ReportAnalysisService;
+import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.symbol.repository.SymbolRepository;
 import com.tradenova.training.dto.*;
-import com.tradenova.training.entity.TrainingSession;
-import com.tradenova.training.entity.TrainingSessionCandle;
-import com.tradenova.training.entity.TrainingSessionChart;
-import com.tradenova.training.entity.TrainingStatus;
+import com.tradenova.training.entity.*;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingSessionRepository;
 import com.tradenova.user.entity.User;
 import com.tradenova.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TrainingSessionService {
@@ -45,6 +49,8 @@ public class TrainingSessionService {
     private static final String MARKET_CODE = "J";
     private static final String PERIOD = "D";
     private static final String ADJ_PRICE = "0";
+
+    private final ObjectMapper objectMapper;
 
     private static final DateTimeFormatter KIS_DATE = DateTimeFormatter.BASIC_ISO_DATE;
 
@@ -63,6 +69,10 @@ public class TrainingSessionService {
     private final PaperAccountRepository paperAccountRepository;
     // 캔들 저장/조회용 Repository
     private final TrainingSessionCandleRepository candleRepo;
+    // 이벤트 서비스
+    private final TrainingEventService trainingEventService;
+    // AI 리포트 서비스
+    private final ReportAnalysisService reportAnalysisService;
 
     /**
      * 세션 생성 (RANDOM)
@@ -214,6 +224,7 @@ public class TrainingSessionService {
                         c.getSymbol().getName(),
                         c.getBars(),
                         c.getProgressIndex(),
+                        c.getStatus(),
                         c.getStartDate(),
                         c.getEndDate()
                 ))
@@ -310,6 +321,7 @@ public class TrainingSessionService {
                             .bars(bars)
                             .hiddenFutureBars(0)
                             .progressIndex(progressIndex)
+                            .status(TrainingChartStatus.IN_PROGRESS)
                             .build()
             );
 
@@ -343,6 +355,7 @@ public class TrainingSessionService {
                     picked.getName(),
                     chart.getBars(),
                     chart.getProgressIndex(),
+                    chart.getStatus(),
                     chart.getStartDate(),
                     chart.getEndDate()
             );
@@ -353,22 +366,134 @@ public class TrainingSessionService {
 
     //session 종료 메서드
     @Transactional
-    public void finishSession(Long userId, Long sessionId) {
+    public SessionFinishResponse finishSession(Long userId, Long sessionId) {
+        // 1. 세션 조회 + 권한 체크
         TrainingSession session = sessionRepo.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
+        // 이미 종료한 세션 에러
         if (session.getStatus() == TrainingStatus.COMPLETED) {
-            return;
+            throw new CustomException(ErrorCode.TRAINING_SESSION_ALREADY_COMPLETED);
         }
 
+        // 2. 차트 전부 가져오기
+        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(session.getId());
+
+        // 3. 카운터 변수
+        int completedBefore = 0; // 이미 끝난 차트
+        int forceCompleted = 0; // 강제로 끝낸 차트
+
+        // 4. 차트 돌면서 처리
+        for (TrainingSessionChart chart : charts) {
+            if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
+                completedBefore++;
+                continue;
+            }
+
+            // 강제 종료
+            chart.complete();
+            forceCompleted++;
+
+            // 차트 강제 종료 이벤트 저장
+            ObjectNode chartPayload = objectMapper.createObjectNode();
+            chartPayload.put("sessionId", session.getId());
+            chartPayload.put("chartId", chart.getId());
+            chartPayload.put("chartIndex", chart.getChartIndex());
+            chartPayload.put("symbolId", chart.getSymbol().getId());
+            chartPayload.put("symbolTicker", chart.getSymbol().getTicker());
+            chartPayload.put("symbolName", chart.getSymbol().getName());
+            chartPayload.put("reason", "FORCED_SESSION_FINISH");
+
+            trainingEventService.append(
+                    userId,
+                    chart.getId(),
+                    Type.NOTE,
+                    "차트 강제 종료",
+                    chartPayload
+            );
+        }
+
+        // 5. 세션 종료
         session.setStatus(TrainingStatus.COMPLETED);
+
+        // 6. 세션 종료 이벤트 저장
+        ObjectNode sessionPayload = objectMapper.createObjectNode();
+        sessionPayload.put("sessionId", session.getId());
+        sessionPayload.put("totalCharts", charts.size());
+        sessionPayload.put("completedBefore", completedBefore);
+        sessionPayload.put("forceCompleted", forceCompleted);
+        sessionPayload.put("finalCompletedCount", completedBefore + forceCompleted);
+
+        // chartId 없는 세션 이벤트는 첫 차트 기준으로 남기거나
+        // 정책상 chartId nullable 허용이 아니면 첫 차트 id를 대표로 사용
+        Long representativeChartId = charts.isEmpty() ? null : charts.get(0).getId();
+
+        if (representativeChartId != null) {
+            trainingEventService.append(
+                    userId,
+                    representativeChartId,
+                    Type.NOTE,
+                    "세션 종료",
+                    sessionPayload
+            );
+        }
+
+        // 8. 결과 반환
+        return new SessionFinishResponse(
+                session.getId(),
+                session.getStatus().name(),
+                charts.size(),
+                completedBefore + forceCompleted,
+                forceCompleted
+        );
     }
 
+    /**
+     * 현재 사용자의 "진행 중(IN_PROGRESS)"인 가장 최근 세션을 조회한다.
+     * - 사용자가 페이지를 새로고침하거나 재접속했을 때 이어서 진행할 수 있는 세션 상태로 복구.
+     */
     @Transactional(readOnly = true)
-    public TrainingSession findActiveSession(Long userId) {
-        return sessionRepo
+    public ActiveTrainingSessionResponse getActiveSession(Long userId) {
+
+        // 1) 가장 최근 진행 중 세션 조회 (없으면 null)
+        TrainingSession session = sessionRepo
                 .findTopByUserIdAndStatusOrderByIdDesc(userId, TrainingStatus.IN_PROGRESS)
                 .orElse(null);
+        // 진행 중 세션이 없으면 그대로 null 반환
+        if (session == null) {
+            return null;
+        }
+        // 2) 해당 세션의 차트 목록 조회 (chartIndex 순서 유지)
+        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(session.getId());
+        // 3) 엔티티 -> DTO 변환
+        List<ChartSummaryResponse> chartDtos = charts.stream()
+                .map(c -> new ChartSummaryResponse(
+                        c.getId(),                  // chartId
+                        c.getChartIndex(),          // 차트 위치 (0~3)
+                        c.getSymbol().getId(),      // 종목 ID
+                        c.getSymbol().getTicker(),  // 종목 코드
+                        c.getSymbol().getName(),    // 종목 이름
+                        c.getBars(),                // 총 봉 개수
+                        c.getProgressIndex(),       // 현재 진행 위치
+                        c.getStatus(),              // 차트 상태
+                        c.getStartDate(),           // 시작일
+                        c.getEndDate()              // 종료일
+                ))
+                .toList();
+        // 4) 완료된 차트 개수 계산
+        int completedCount = (int) charts.stream()
+                .filter(c -> c.getStatus() == TrainingChartStatus.COMPLETED)
+                .count();
+        // 5) 최종 응답 반환
+        return new ActiveTrainingSessionResponse(
+                session.getId(),                // 세션 ID
+                session.getAccount().getId(),   // 계좌 ID
+                session.getMode(),              // 훈련 모드
+                session.getStatus(),            // 세션 상태
+                charts.size(),                  // 전체 차트 수
+                completedCount,                 // 완료된 차트 수
+                chartDtos                       // 차트 리스트
+        );
     }
 
     // ===== helpers =====

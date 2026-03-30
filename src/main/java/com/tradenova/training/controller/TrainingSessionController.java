@@ -80,36 +80,21 @@ public class TrainingSessionController {
      * POST /api/training/sessions/{sessionId}/finish
      */
     @PostMapping("/{sessionId}/finish")
-    public ResponseEntity<Void> finish(
+    public ResponseEntity<SessionFinishResponse> finish(
             Authentication authentication,
             @PathVariable Long sessionId
     ){
         Long userId = extractUserId(authentication);
-        trainingSessionService.finishSession(userId, sessionId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(trainingSessionService.finishSession(userId, sessionId));
     }
 
     /**
      * 현재 진행 중인 가장 최근 세션 조회
      */
     @GetMapping("/active")
-    public ResponseEntity<SessionDetailResponse> getActiveSession(Authentication authentication) {
+    public ResponseEntity<ActiveTrainingSessionResponse> getActiveSession(Authentication authentication) {
         Long userId = extractUserId(authentication);
-
-        TrainingSession s = trainingSessionService.findActiveSession(userId);
-
-        if (s == null) {
-            return ResponseEntity.ok(null);
-        }
-
-        return ResponseEntity.ok(
-                new SessionDetailResponse(
-                        s.getId(),
-                        s.getAccount().getId(),
-                        s.getMode(),
-                        s.getStatus()
-                )
-        );
+        return ResponseEntity.ok(trainingSessionService.getActiveSession(userId));
     }
 
     private Long extractUserId(Authentication authentication) {

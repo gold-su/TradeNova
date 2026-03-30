@@ -1,6 +1,10 @@
 package com.tradenova.training.dto;
 
-public class SessionFinishResponse {
-
-
+public record SessionFinishResponse(
+        Long sessionId,
+        String sessionStatus,
+        int totalChartCount,
+        int completedChartCount,
+        int forceCompletedChartCount
+) {
 }

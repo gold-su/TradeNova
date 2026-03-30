@@ -72,8 +72,16 @@ public class TrainingSessionChart {
     @Column(name="created_at", nullable=false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private TrainingChartStatus status = TrainingChartStatus.IN_PROGRESS;
+
     // ===== 편의 메서드 =====
     public void setProgressIndex(int progressIndex) {
         this.progressIndex = progressIndex;
+    }
+
+    public void complete() {
+        this.status = TrainingChartStatus.COMPLETED;
     }
 }

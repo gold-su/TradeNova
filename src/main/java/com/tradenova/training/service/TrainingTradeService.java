@@ -67,6 +67,11 @@ public class TrainingTradeService {
             throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
         }
 
+        // 차트가 COMPLETED 상태면 에러
+        if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
+            throw new CustomException(ErrorCode.TRAINING_CHART_ALREADY_COMPLETED);
+        }
+
         // ===== 입력값 검증 =====
 
         // qty(주문 수량) 검증
@@ -221,6 +226,11 @@ public class TrainingTradeService {
             throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
         }
 
+        // 차트가 COMPLETED 상태면 에러
+        if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
+            throw new CustomException(ErrorCode.TRAINING_CHART_ALREADY_COMPLETED);
+        }
+
         // 매도 수량 검증 (null/0 이하/소수점 금지 등 기존 정책 적용)
         qty = validateStockQty(qty);
 
@@ -344,6 +354,11 @@ public class TrainingTradeService {
         // 세션이 진행 중이 아니면 거래 금지
         if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
             throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
+        }
+
+        // 차트가 COMPLETED 상태면 에러
+        if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
+            throw new CustomException(ErrorCode.TRAINING_CHART_ALREADY_COMPLETED);
         }
 
         // 세션 계좌 가져오기
