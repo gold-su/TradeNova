@@ -6,6 +6,7 @@ import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
+import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -190,6 +191,79 @@ public class AiAnalysisService {
         );
 
         return new AiAnalysisResponse(score, summary, warnings, strengths);
+    }
+
+
+    /**
+     * 세션 전체 데이터를 기반으로 OpenAI API를 호출해
+     * 세션 단위 AI 분석 결과를 생성
+     */
+    public AiAnalysisResponse analyzeSession(SessionAiAnalysisRequest req) {
+        try {
+            // 1. AI 역할, 출력 형식, 평가 규칙을 담은 system prompt 생성
+            String systemPrompt = promptBuilder.buildSessionSystemPrompt();
+            // 2. 실세 세션 데이터(차트 요약, snapshot 등)를 담은 user prompt 생성
+            String userPrompt = promptBuilder.buildSessionUserPrompt(req);
+
+            // 3. OpenAI API 요청 헤더 구성
+            //    - JSON 형식으로 요청
+            //    - Bearer 토큰으로 인증
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            // 4. OpenAI Chat Completions 요청 바디 구성
+            //    - model: 사용할 모델명
+            //    - temperature: 응답의 랜덤성 (낮을수록 일관적)
+            //    - response_format: JSON 객체 형태 강제
+            //    - messages: system + user 프롬포트 전달
+            Map<String, Object> body = Map.of(
+                    "model", model,
+                    "temperature", 0.2,
+                    "response_format", Map.of("type", "json_object"),
+                    "messages", List.of(
+                            Map.of("role", "system", "content", systemPrompt),
+                            Map.of("role", "user", "content", userPrompt)
+                    )
+            );
+
+            // 5. 헤더 + 바디를 하나의 HTTP 요청 엔티티로 묶음
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+
+            // 6. OpenAI API 호출
+            ResponseEntity<String> response = restTemplate.exchange(
+                    "https://api.openai.com/v1/chat/completions",
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            // 7. 응답 상태 코드 또는 body 검증
+            //    - 2xx가 아니거나 응답 본문이 없으면 실패 처리
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
+            }
+            // 8. OpenAI 응답 JSON에서 실제 분석 결과(score, summary 등)를 파싱하여 반환
+            return parseResponse(response.getBody());
+
+        } catch (HttpStatusCodeException e) {
+            // OpenAI 서버가 4xx / 5xx 응답을 준 경우
+            // 예: 인증 실패, 요청 형식 오류, quota 초과 등
+
+            System.out.println("=== OpenAI status code ===");
+            System.out.println(e.getStatusCode());
+
+            System.out.println("=== OpenAI error body ===");
+            System.out.println(e.getResponseBodyAsString());
+
+            throw new CustomException(ErrorCode.AI_API_CALL_FAILED);
+        } catch (CustomException e) {
+            // 내부에서 이미 의도적으로 만든 비즈니스 예외는 그대로 전달
+            throw e;
+        } catch (Exception e) {
+            // 그 외 예외는 응답 파싱 실패 / 예상치 못한 런타임 오류로 간주
+            throw new CustomException(ErrorCode.AI_RESPONSE_INVALID);
+        }
     }
 
     /**

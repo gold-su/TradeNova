@@ -34,6 +34,12 @@ public interface ReportDocumentRepository extends JpaRepository<ReportDocument, 
             Long userId, Long chartId, ReportKind kind
     );
 
+    List<ReportDocument> findAllByUserIdAndChartIdInAndKindOrderByCreatedAtDesc(
+            Long userId,
+            List<Long> chartIds,
+            ReportKind kind
+    );
+
     // (옵션) 특정 이벤트에 연결된 스냅샷 조회
     List<ReportDocument> findAllByUserIdAndChartIdAndLinkedEventIdOrderByVersionDesc(
             Long userId, Long chartId, Long linkedEventId

@@ -4,22 +4,20 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="finish &amp; active coding and modify">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/ActiveTrainingSessionResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingChartStatus.java" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="finish &amp; active coding and modify 2">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/controller/SessionReportAnalysisController.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/SessionAiAnalysisRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/SessionChartSummary.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/dto/SessionSnapshotSummary.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/SessionReportAnalysisService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/ChartSummaryResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/ChartSummaryResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionFinishResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionFinishResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingChartCreateResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingChartCreateResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingSessionChart.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingSessionChart.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionProgressService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/controller/ReportAnalysisController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/controller/ReportAnalysisController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/TrainingEventRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/TrainingEventRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/AiAnalysisService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/AiAnalysisService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/PromptBuilder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/service/PromptBuilder.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_en.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_en.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,10 +32,10 @@
         <option value="Interface" />
         <option value="Interface" />
         <option value="Enum" />
+        <option value="Enum" />
+        <option value="Class" />
         <option value="Record" />
         <option value="Class" />
-        <option value="Class" />
-        <option value="Enum" />
         <option value="Class" />
       </list>
     </option>
@@ -203,15 +201,8 @@
       <workItem from="1773369381356" duration="6963000" />
       <workItem from="1773642395267" duration="13410000" />
       <workItem from="1774244135537" duration="4279000" />
-      <workItem from="1774334477877" duration="39921000" />
-    </task>
-    <task id="LOCAL-00019" summary="한국투자증권 KIS API codding">
-      <option name="closed" value="true" />
-      <created>1767043379613</created>
-      <option name="number" value="00019" />
-      <option name="presentableId" value="LOCAL-00019" />
-      <option name="project" value="LOCAL" />
-      <updated>1767043379613</updated>
+      <workItem from="1774334477877" duration="48850000" />
+      <workItem from="1775015438539" duration="8062000" />
     </task>
     <task id="LOCAL-00020" summary="한국투자증권 KIS API TOKEN 발급 API DTO codding">
       <option name="closed" value="true" />
@@ -597,7 +588,15 @@
       <option name="project" value="LOCAL" />
       <updated>1774526820413</updated>
     </task>
-    <option name="localTasksCounter" value="68" />
+    <task id="LOCAL-00068" summary="finish &amp; active coding and modify 2">
+      <option name="closed" value="true" />
+      <created>1774859796458</created>
+      <option name="number" value="00068" />
+      <option name="presentableId" value="LOCAL-00068" />
+      <option name="project" value="LOCAL" />
+      <updated>1774859796459</updated>
+    </task>
+    <option name="localTasksCounter" value="69" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -615,7 +614,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="error &amp; global response done" />
     <MESSAGE value="Finish commit" />
     <MESSAGE value="한국투자증권 KIS API codding" />
     <MESSAGE value="한국투자증권 KIS API TOKEN 발급 API DTO codding" />
@@ -654,6 +652,7 @@
     <MESSAGE value="AiAnal" />
     <MESSAGE value="Ai report 초안 성공" />
     <MESSAGE value="finish &amp; active coding and modify" />
-    <option name="LAST_COMMIT_MESSAGE" value="finish &amp; active coding and modify" />
+    <MESSAGE value="finish &amp; active coding and modify 2" />
+    <option name="LAST_COMMIT_MESSAGE" value="finish &amp; active coding and modify 2" />
   </component>
 </project>

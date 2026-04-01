@@ -18,7 +18,7 @@ public interface TrainingTradeRepository extends JpaRepository<TrainingTrade, Lo
      * 특정 차트(chartId)에 속한 모든 트레이드(매수/매도 내역)를
      * 생성 시간(createdAt) 오름차순으로 조회한다.
      */
-    List<TrainingTrade> findAllByChartIdOrderByCreatedAtAsc(Long chartId);
+    List<TrainingTrade> findAllByChartIdInOrderByCreatedAtAsc(List<Long> chartIds);
 
     /**
      * 특정 차트의 최신 거래 1건 조회

@@ -71,8 +71,6 @@ public class TrainingSessionService {
     private final TrainingSessionCandleRepository candleRepo;
     // 이벤트 서비스
     private final TrainingEventService trainingEventService;
-    // AI 리포트 서비스
-    private final ReportAnalysisService reportAnalysisService;
 
     /**
      * 세션 생성 (RANDOM)
