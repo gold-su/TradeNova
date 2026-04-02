@@ -287,6 +287,71 @@ public class SessionReportAnalysisService {
         return realizedPnL.add(unrealizedPnL).setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * userId의 세션에 대한 '세션 단위 AI 분석 결과'를 조회.
+     */
+    @Transactional
+    public TrainingEventResponse getLatestSessionAi(Long userId, Long sessionId) {
+        // 1) 세션 조회 + 소유권 검증
+        // - 해당 usrId의 세션인지 확인
+        TrainingSession session = sessionRepository.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
+
+        // 2) 세션에 포함된 차트 목록 조회
+        List<TrainingSessionChart> charts = chartRepository.findAllBySession_IdOrderByChartIndexAsc(session.getId());
+
+        // 차트가 없으면 AI 결과도 없음
+        if (charts.isEmpty()) {
+            return null;
+        }
+
+        // chartId 리스트 추출
+        List<Long> chartIds = charts.stream()
+                .map(TrainingSessionChart::getId)
+                .toList();
+
+        // 3) 해당 차트들에 대한 AI 이벤트 조회 (최신순)
+        List<TrainingEvent> aiEvents = eventRepository
+                .findAllByUserIdAndChartIdInAndTypeOrderByIdDesc(userId, chartIds, Type.AI);
+
+        // 4) payload 기준으로 "세션 AI"만 필터링
+        TrainingEvent matched = aiEvents.stream()
+                .filter(event -> {
+
+                    // payload JSON 가져오기
+                    JsonNode payload = event.getPayloadJson();
+                    if (payload == null || payload.isNull()) return false;
+
+                    // analysisScope (SESSION / CHART 구분용)
+                    String scope = payload.path("analysisScope").asText("");
+
+                    // payload에 저장된 sessionId
+                    long payloadSessionId = payload.path("sessionId").asLong(-1L);
+
+                    // 조건:
+                    // 1) 세션 분석인지
+                    // 2) 현재 요청한 sessionId와 동일한지
+                    return "SESSION".equals(scope) && payloadSessionId == sessionId;
+                })
+                .findFirst()// 최신순이므로 첫 번째가 가장 최신
+                .orElse(null);
+
+        // 5) 매칭되는 AI 결과가 없으면 null 반환
+        if (matched == null) {
+            return null;
+        }
+
+        // 6) TrainingEvent + Response DTO 변환
+        return new TrainingEventResponse(
+                matched.getId(),
+                matched.getChartId(),
+                matched.getType().name(),
+                matched.getSummary(),
+                matched.getPayloadJson(),
+                matched.getCreatedAt()
+        );
+    }
+
     private String text(JsonNode node, String field) {
         if (node == null || node.isNull()) return "";
         JsonNode child = node.get(field);
