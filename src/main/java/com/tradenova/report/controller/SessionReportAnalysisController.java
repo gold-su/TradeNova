@@ -5,10 +5,7 @@ import com.tradenova.report.service.SessionReportAnalysisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 
 @RestController
@@ -26,6 +23,18 @@ public class SessionReportAnalysisController {
         Long userId = extractUserId(authentication);
         return ResponseEntity.ok(
                 sessionReportAnalysisService.analyzeSession(userId, sessionId)
+        );
+    }
+
+    // 마지막 세션 리포트 가져오기
+    @GetMapping("/{sessionId}/ai/latest")
+    public ResponseEntity<TrainingEventResponse> getLatestSessionAi(
+            Authentication authentication,
+            @PathVariable Long sessionId
+    ) {
+        Long userId = extractUserId(authentication);
+        return ResponseEntity.ok(
+                sessionReportAnalysisService.getLatestSessionAi(userId, sessionId)
         );
     }
 

@@ -71,6 +71,12 @@ public class SessionReportAnalysisService {
             throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND);
         }
 
+        // 중복 방지
+        TrainingEventResponse existing = getLatestSessionAi(userId, sessionId);
+        if (existing != null) {
+            throw new CustomException(ErrorCode.SESSION_AI_ALREADY_EXISTS);
+        }
+
         // chartId 리스트 추출 (이후 모든 조회에서 사용)
         List<Long> chartIds = charts.stream()
                 .map(TrainingSessionChart::getId)
@@ -338,7 +344,7 @@ public class SessionReportAnalysisService {
 
         // 5) 매칭되는 AI 결과가 없으면 null 반환
         if (matched == null) {
-            return null;
+            throw new CustomException(ErrorCode.SESSION_AI_NOT_FOUND);
         }
 
         // 6) TrainingEvent + Response DTO 변환
