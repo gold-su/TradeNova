@@ -183,8 +183,14 @@ public class ReportAnalysisService {
 
         // 9) AI 결과를 training_event payload JSON 구성
         ObjectNode payload = objectMapper.createObjectNode();
+
+        payload.put("analysisScope", "CHART");
+
         payload.put("score", ai.score());
         payload.put("summary", ai.summary());
+
+        payload.put("generatedAt", java.time.Instant.now().toString());
+        payload.put("analysisVersion", 1);
 
         ArrayNode warningsNode = payload.putArray("warnings");
         if (ai.warnings() != null) {
@@ -209,7 +215,7 @@ public class ReportAnalysisService {
                 userId,
                 chartId,
                 Type.AI,
-                "AI 리뷰: " + ai.summary(),
+                "차트 AI 리뷰",
                 payload
         );
     }

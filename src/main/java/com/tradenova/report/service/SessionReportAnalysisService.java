@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -72,7 +73,7 @@ public class SessionReportAnalysisService {
         }
 
         // 중복 방지
-        TrainingEventResponse existing = getLatestSessionAi(userId, sessionId);
+        TrainingEvent existing = findLatestSessionAiEventOrNull(userId, sessionId);
         if (existing != null) {
             throw new CustomException(ErrorCode.SESSION_AI_ALREADY_EXISTS);
         }
@@ -167,12 +168,24 @@ public class SessionReportAnalysisService {
         // 7) AI 분석 실행
         AiAnalysisResponse ai = aiAnalysisService.analyzeSession(request);
 
+        // 거래가 발생한 차트 수
+        int tradedChartCount = (int) chartSummaries.stream()
+                .filter(SessionChartSummary::traded)
+                .count();
+
         // 8) payload 저장
+        // "AI 분석 결과 + 메타데이터를 JSON으로 저장하는 공간"
         ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("analysisScope", "SESSION");
+        payload.put("analysisScope", "SESSION"); // .put으로 JSON에 key-value 넣기
         payload.put("sessionId", session.getId());
         payload.put("score", ai.score());
         payload.put("summary", ai.summary());
+
+        payload.put("generatedAt", Instant.now().toString());
+        payload.put("analysisVersion", 1);
+        payload.put("hasSnapshots", !snapshots.isEmpty());
+        payload.put("tradedChartCount", tradedChartCount);
+
         payload.put("totalChartCount", charts.size());
         payload.put("completedChartCount", completedChartCount);
         payload.put("totalTradeCount", trades.size());
@@ -199,7 +212,7 @@ public class SessionReportAnalysisService {
                 userId,
                 representativeChartId,
                 Type.AI,
-                "세션 AI 리뷰: " + ai.summary(),
+                "세션 AI 리뷰",
                 payload
         );
     }
@@ -294,12 +307,41 @@ public class SessionReportAnalysisService {
     }
 
     /**
-     * userId의 세션에 대한 '세션 단위 AI 분석 결과'를 조회.
+     * userId의 세션에 대한 최신 세션 AI 분석 결과를 조회한다.
+     *
+     * 반환:
+     * - 결과가 있으면 TrainingEventResponse
+     * - 없으면 SESSION_AI_NOT_FOUND 예외
      */
     @Transactional
     public TrainingEventResponse getLatestSessionAi(Long userId, Long sessionId) {
+        TrainingEvent matched = findLatestSessionAiEventOrNull(userId, sessionId);
+
+        if (matched == null) {
+            throw new CustomException(ErrorCode.SESSION_AI_NOT_FOUND);
+        }
+
+        return new TrainingEventResponse(
+                matched.getId(),
+                matched.getChartId(),
+                matched.getType().name(),
+                matched.getSummary(),
+                matched.getPayloadJson(),
+                matched.getCreatedAt()
+        );
+    }
+    /**
+     * 세션 AI 이벤트를 조회한다.
+     *
+     * 용도:
+     * - 중복 생성 방지 체크
+     * - 없으면 null 반환
+     *
+     * 주의:
+     * - 외부 API 응답용이 아니라 내부 로직용 메서드다.
+     */
+    private TrainingEvent findLatestSessionAiEventOrNull(Long userId, Long sessionId) {
         // 1) 세션 조회 + 소유권 검증
-        // - 해당 usrId의 세션인지 확인
         TrainingSession session = sessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
@@ -321,41 +363,18 @@ public class SessionReportAnalysisService {
                 .findAllByUserIdAndChartIdInAndTypeOrderByIdDesc(userId, chartIds, Type.AI);
 
         // 4) payload 기준으로 "세션 AI"만 필터링
-        TrainingEvent matched = aiEvents.stream()
+        return aiEvents.stream()
                 .filter(event -> {
-
-                    // payload JSON 가져오기
                     JsonNode payload = event.getPayloadJson();
                     if (payload == null || payload.isNull()) return false;
 
-                    // analysisScope (SESSION / CHART 구분용)
                     String scope = payload.path("analysisScope").asText("");
-
-                    // payload에 저장된 sessionId
                     long payloadSessionId = payload.path("sessionId").asLong(-1L);
 
-                    // 조건:
-                    // 1) 세션 분석인지
-                    // 2) 현재 요청한 sessionId와 동일한지
                     return "SESSION".equals(scope) && payloadSessionId == sessionId;
                 })
-                .findFirst()// 최신순이므로 첫 번째가 가장 최신
+                .findFirst()
                 .orElse(null);
-
-        // 5) 매칭되는 AI 결과가 없으면 null 반환
-        if (matched == null) {
-            throw new CustomException(ErrorCode.SESSION_AI_NOT_FOUND);
-        }
-
-        // 6) TrainingEvent + Response DTO 변환
-        return new TrainingEventResponse(
-                matched.getId(),
-                matched.getChartId(),
-                matched.getType().name(),
-                matched.getSummary(),
-                matched.getPayloadJson(),
-                matched.getCreatedAt()
-        );
     }
 
     private String text(JsonNode node, String field) {
