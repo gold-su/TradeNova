@@ -14,8 +14,10 @@ import com.tradenova.report.dto.AiAnalysisResponse;
 import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.entity.ReportDocument;
 import com.tradenova.report.entity.ReportKind;
+import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.repository.ReportDocumentRepository;
+import com.tradenova.report.repository.TrainingEventRepository;
 import com.tradenova.training.entity.TrainingRiskRule;
 import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.entity.TrainingSessionChart;
@@ -57,6 +59,7 @@ public class ReportAnalysisService {
     // 최근 캔들 데이터 조회용
     private final TrainingSessionCandleRepository candleRepository;
 
+
     // 최근 체결 데이터 조회용
     private final TrainingTradeRepository tradeRepository;
 
@@ -74,6 +77,9 @@ public class ReportAnalysisService {
     
     // paper DB 가져오기
     private final PaperPositionRepository paperPositionRepository;
+
+    // Event Repo 가져오기
+    private final TrainingEventRepository trainingEventRepository;
 
     /**
      * 특정 차트의 최신 snapshot을 분석해서
@@ -95,10 +101,17 @@ public class ReportAnalysisService {
         TrainingSessionChart chart = chartRepository.findByIdAndSession_User_Id(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
+        // 이미 생성된 차트 AI가 있으면 중복 생성 방지
+        TrainingEvent existing = findLatestChartAiEventOrNull(userId, chartId);
+        if (existing != null) {
+            throw new CustomException(ErrorCode.CHART_AI_ALREADY_EXISTS);
+        }
+
         // 2) 해당 유저/차트의 최신 snapshot 리포트 조회
         ReportDocument snapshot = reportDocumentRepository
                 .findTopByUserIdAndChartIdAndKindOrderByVersionDesc(userId, chartId, ReportKind.SNAPSHOT)
                 .orElseThrow(() -> new CustomException(ErrorCode.REPORT_SNAPSHOT_NOT_FOUND));
+
 
         // 3) snapshot 본문 JSON 꺼내기
         JsonNode content = snapshot.getContentJson();
@@ -218,6 +231,73 @@ public class ReportAnalysisService {
                 "차트 AI 리뷰",
                 payload
         );
+    }
+
+    /**
+     * 특정 차트의 최신 차트 AI 결과 조회
+     */
+    @Transactional
+    public TrainingEventResponse getLatestChartAi(Long userId, Long chartId) {
+
+        // 1) 차트 소유권 검증
+        chartRepository.findByIdAndSession_User_Id(chartId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
+
+        // 2) 내부 조회 메서드 호출 (있으면 TrainingEvent, 없으면 null)
+        TrainingEvent matched = findLatestChartAiEventOrNull(userId, chartId);
+
+        // 3) 결과가 없으면 차트 AI 분석 자체가 없는 상태 + 404 처리
+        if (matched == null) {
+            throw new CustomException(ErrorCode.CHART_AI_NOT_FOUND);
+        }
+
+        // 4) 엔티티 -> 응답 DTO 변환
+        // - 프론트에서 바로 사용할 수 있는 형태로 변환
+        return new TrainingEventResponse(
+                matched.getId(),            // 이벤트 ID
+                matched.getChartId(),       // 차트 ID
+                matched.getType().name(),   // 타입 (AI)
+                matched.getSummary(),       // 한 줄 요약
+                matched.getPayloadJson(),   // 상세 분석 JSON
+                matched.getCreatedAt()      // 생성 시간
+        );
+    }
+
+    /**
+     * 특정 차트의 최신 차트 AI 이벤트를 조회한다.
+     * - 있으면 TrainingEvent 반환
+     * - 없으면 null 반환
+     */
+    private TrainingEvent findLatestChartAiEventOrNull(Long userId, Long chartId) {
+        // 1) 해당 차트의 AI 이벤트 목록 조회 (최신순)
+        List<TrainingEvent> aiEvents = trainingEventRepository
+                .findAllByUserIdAndChartIdAndTypeOrderByIdDesc(userId, chartId, Type.AI);
+
+        // 2) payload 기준으로 "차트 AI"만 필터링
+        return aiEvents.stream()
+                .filter(event -> {
+
+                    // payload JSON 가져오기
+                    JsonNode payload = event.getPayloadJson();
+
+                    // payload가 없으면 무조건 제외
+                    if (payload == null || payload.isNull()) return false;
+
+                    // analysisScope -> "CHART" / "SESSION" 구분용
+                    String scope = payload.path("analysisScope").asText("");
+
+                    // payload 내부에 저장된 chartId
+                    long payloadChartId = payload.path("chartId").asLong(-1L);
+
+                    // 조건:
+                    // 1) 차트 분석인지 (CHART)
+                    // 2) 해당 chartId와 일치하는지
+                    return "CHART".equals(scope) && payloadChartId == chartId;
+                })
+                // 최신순으로 가져왔기 때문에 첫 번째가 가장 최신 결과
+                .findFirst()
+                // 없으면 null 반환 (내부 로직용)
+                .orElse(null);
     }
 
     /**

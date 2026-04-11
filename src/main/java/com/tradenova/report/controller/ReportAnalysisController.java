@@ -2,14 +2,10 @@ package com.tradenova.report.controller;
 
 import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.service.ReportAnalysisService;
-import com.tradenova.report.service.SessionReportAnalysisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 리포트 AI 분석 실행 컨트롤러
@@ -25,8 +21,7 @@ public class ReportAnalysisController {
 
     // AI 분석 흐름 담당 서비스 주입
     private final ReportAnalysisService reportAnalysisService;
-    // 세션 분석 담당 서비스 주입
-    private final SessionReportAnalysisService sessionReportAnalysisService;
+
 
     /**
      * 최신 snapshot 기준 AI 분석 실행
@@ -50,6 +45,23 @@ public class ReportAnalysisController {
         // AI 분석 실행 후 결과 반환
         return ResponseEntity.ok(
                 reportAnalysisService.analyzeLatestSnapshot(userId, chartId)
+        );
+    }
+
+    /**
+     * 특정 차트의 최신 AI 분석 결과 조회
+     *
+     * GET /api/reports/charts/{chartId}/ai/latest
+     */
+    @GetMapping("/{chartId}/ai/latest")
+    public ResponseEntity<TrainingEventResponse> getLatestChartAi(
+            Authentication authentication,
+            @PathVariable Long chartId
+    ) {
+        Long userId = extractUserId(authentication);
+
+        return ResponseEntity.ok(
+                reportAnalysisService.getLatestChartAi(userId, chartId)
         );
     }
 

@@ -37,5 +37,6 @@ public interface TrainingEventRepository extends JpaRepository<TrainingEvent, Lo
             Type type
     );
 
+
     List<TrainingEvent> findAllByUserIdAndChartIdInOrderByIdAsc(Long userId, List<Long> chartIds);
 }
