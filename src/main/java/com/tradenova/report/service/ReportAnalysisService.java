@@ -107,17 +107,19 @@ public class ReportAnalysisService {
             throw new CustomException(ErrorCode.CHART_AI_ALREADY_EXISTS);
         }
 
-        // 2) 해당 유저/차트의 최신 snapshot 리포트 조회
+        // 2) 해당 유저/차트의 최신 snapshot 리포트 조회하고 없으면 null
         ReportDocument snapshot = reportDocumentRepository
                 .findTopByUserIdAndChartIdAndKindOrderByVersionDesc(userId, chartId, ReportKind.SNAPSHOT)
-                .orElseThrow(() -> new CustomException(ErrorCode.REPORT_SNAPSHOT_NOT_FOUND));
+                .orElse(null);
 
+        // 3) snapshot 본문 JSON 꺼내기 없으면 nullㅌ
+        JsonNode content = snapshot != null ? snapshot.getContentJson() : null;
 
-        // 3) snapshot 본문 JSON 꺼내기
-        JsonNode content = snapshot.getContentJson();
-        if (content == null || content.isNull()) {
-            throw new CustomException(ErrorCode.REPORT_CONTENT_EMPTY);
-        }
+        // snapshot이 null이 아니면 true, 맞으면 false
+        boolean hasSnapshot = snapshot != null;
+
+        // snapshot true면 DEEP, 아니면 FAST
+        String analysisType = hasSnapshot ? "DEEP" : "FAST";
 
         // 4) 최근 캔들 30개 조회
         List<TrainingSessionCandle> candles = candleRepository.findTop30ByChartIdOrderByIdxDesc(chartId);
@@ -174,11 +176,11 @@ public class ReportAnalysisService {
 
         // 7) AI 분석 요청 DTO 생성
         AiAnalysisRequest request = new AiAnalysisRequest(
-                text(content, "thesis"),
-                text(content, "entryReason"),
-                text(content, "exitPlan"),
-                text(content, "riskNote"),
-                text(content, "freeNote"),
+                hasSnapshot ? text(content, "thesis") : "",
+                hasSnapshot ? text(content, "entryReason") : "",
+                hasSnapshot ? text(content, "exitPlan") : "",
+                hasSnapshot ? text(content, "riskNote") : "",
+                hasSnapshot ? text(content, "freeNote") : "",
                 price,
                 qty,
                 avgPrice,
@@ -198,6 +200,8 @@ public class ReportAnalysisService {
         ObjectNode payload = objectMapper.createObjectNode();
 
         payload.put("analysisScope", "CHART");
+        payload.put("analysisType", analysisType);
+        payload.put("hasSnapshot", hasSnapshot);
 
         payload.put("score", ai.score());
         payload.put("summary", ai.summary());
@@ -217,7 +221,7 @@ public class ReportAnalysisService {
 
         // 어떤 snapshot / chart에 대한 결과인지 함께 저장
         // 분석에 사용된 문맥도 일부 같이 저장
-        payload.put("snapshotId", snapshot.getId());
+        payload.put("snapshotId", snapshot != null ? snapshot.getId() : null);
         payload.put("chartId", chartId);
         payload.put("stopLossPrice", stopLossPrice != null ? stopLossPrice.toPlainString() : null);
         payload.put("takeProfitPrice", takeProfitPrice != null ? takeProfitPrice.toPlainString() : null);

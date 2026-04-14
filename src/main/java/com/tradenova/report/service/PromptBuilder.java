@@ -50,6 +50,8 @@ public class PromptBuilder {
                 - summary는 1~3문장
                 - warnings는 없으면 빈 배열
                 - strengths는 없으면 빈 배열
+                - snapshot이 없으면 가격/거래/포지션 기반으로 분석해라
+                - snapshot이 있으면 reasoning 일관성을 함께 평가해라
                 - 투자 추천/매수 추천 금지
                 - 사용자의 리스크 관리, 진입 근거, 감정 통제, 계획 구체성을 평가해라
                 - 사용자가 현저히 정보가 부족해 보이면 학습 필요성을 지적해라

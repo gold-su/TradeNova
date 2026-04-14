@@ -340,6 +340,7 @@ public class TrainingSessionService {
                                 .build()
                 );
             }
+            // 나중에 rewriteBatchedStatements=true 옵션 키기 Insert 1번씩 나가는거 없애기.
             candleRepo.saveAll(entities);
 
             usedSymbolIds.add(picked.getId());
