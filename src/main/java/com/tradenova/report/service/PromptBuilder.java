@@ -68,46 +68,58 @@ public class PromptBuilder {
      */
     public String buildUserPrompt(AiAnalysisRequest req) {
         return """
-                [트레이딩 리포트]
-                thesis: %s
-                entryReason: %s
-                exitPlan: %s
-                riskNote: %s
-                freeNote: %s
-                
-                [최근 체결 정보]
-                price: %s
-                qty: %s
-                
-                [현재 포지션 / 계좌]
-                avgPrice: %s
-                positionQty: %s
-                cashBalance: %s
-                
-                [저장된 리스크 룰]
-                stopLossPrice: %s
-                takeProfitPrice: %s
-                autoExitEnabled: %s
-                
-                [최근 종가]
-                %s
-                
-                [최근 거래량]
-                %s
-                
-                위 데이터를 보고 아래 항목을 평가해라:
-                1) 진입 판단의 구체성
-                2) 청산 계획의 명확성
-                3) 리스크 관리 수준
-                4) 감정적/충동적 진입 가능성
-                5) 강점과 반복될 수 있는 나쁜 습관
-                
-                특히 아래를 중요하게 봐라:
-                - 손절/익절 계획이 실제로 존재하는지
-                - 리포트 내용과 실제 리스크 룰이 일관적인지
-                - 진입 사유가 추상적인지 구체적인지
-                - 포지션 크기와 현금 상태가 과도한지
-                """.formatted(
+            [분석 타입]
+            analysisType: %s
+            hasSnapshot: %s
+
+            [트레이딩 리포트]
+            thesis: %s
+            entryReason: %s
+            exitPlan: %s
+            riskNote: %s
+            freeNote: %s
+            
+            [최근 체결 정보]
+            price: %s
+            qty: %s
+            
+            [현재 포지션 / 계좌]
+            avgPrice: %s
+            positionQty: %s
+            cashBalance: %s
+            
+            [저장된 리스크 룰]
+            stopLossPrice: %s
+            takeProfitPrice: %s
+            autoExitEnabled: %s
+            
+            [최근 종가]
+            %s
+            
+            [최근 거래량]
+            %s
+            
+            위 데이터를 보고 아래 항목을 평가해라:
+            1) 진입 판단의 구체성
+            2) 청산 계획의 명확성
+            3) 리스크 관리 수준
+            4) 감정적/충동적 진입 가능성
+            5) 강점과 반복될 수 있는 나쁜 습관
+            
+            특히 아래를 중요하게 봐라:
+            - 손절/익절 계획이 실제로 존재하는지
+            - 리포트 내용과 실제 리스크 룰이 일관적인지
+            - 진입 사유가 추상적인지 구체적인지
+            - 포지션 크기와 현금 상태가 과도한지
+
+            추가 규칙:
+            - analysisType이 FAST면 snapshot 기반 reasoning 평가는 하지 말고,
+              거래/포지션/리스크/가격 흐름 중심으로만 평가해라.
+            - analysisType이 DEEP면 snapshot의 thesis, entryReason, exitPlan, riskNote를 적극 반영해라.
+            - hasSnapshot=false 인 경우 리포트 텍스트가 비어 있어도 정상 상황으로 간주해라.
+            """.formatted(
+                nullSafe(req.analysisType()),
+                req.hasSnapshot(),
                 nullSafe(req.thesis()),
                 nullSafe(req.entryReason()),
                 nullSafe(req.exitPlan()),

@@ -70,6 +70,15 @@ public record AiAnalysisRequest(
          */
         String freeNote,
 
+        /**
+         * 분석 타입
+         */
+        String analysisType,
+
+        /**
+         * 스냅샷 유무
+         */
+        Boolean hasSnapshot,
 
         /**
          * 체결 가격

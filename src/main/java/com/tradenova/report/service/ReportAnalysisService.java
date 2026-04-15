@@ -181,6 +181,8 @@ public class ReportAnalysisService {
                 hasSnapshot ? text(content, "exitPlan") : "",
                 hasSnapshot ? text(content, "riskNote") : "",
                 hasSnapshot ? text(content, "freeNote") : "",
+                analysisType,
+                hasSnapshot,
                 price,
                 qty,
                 avgPrice,
