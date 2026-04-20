@@ -4,12 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
-import com.tradenova.kis.service.KisMarketDataService;
 import com.tradenova.kis.dto.CandleDto;
+import com.tradenova.market.service.MarketDataService;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperAccountRepository;
 import com.tradenova.report.entity.Type;
-import com.tradenova.report.service.ReportAnalysisService;
 import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.symbol.repository.SymbolRepository;
@@ -46,13 +45,7 @@ public class TrainingSessionService {
 
     private static final int MAX_TRIES_PER_CHART = 15;
 
-    private static final String MARKET_CODE = "J";
-    private static final String PERIOD = "D";
-    private static final String ADJ_PRICE = "0";
-
     private final ObjectMapper objectMapper;
-
-    private static final DateTimeFormatter KIS_DATE = DateTimeFormatter.BASIC_ISO_DATE;
 
     private static final int DEFAULT_INITIAL_VISIBLE_BARS = 60;
 
@@ -65,7 +58,7 @@ public class TrainingSessionService {
     // userId -> User 엔티티 조회(안전하게 영속 상태 확보)
     private final UserRepository userRepository;
     // KIS 시세/캔들 조회 서비스
-    private final KisMarketDataService kisMarketDataService;
+    private final MarketDataService marketDataService;
     private final PaperAccountRepository paperAccountRepository;
     // 캔들 저장/조회용 Repository
     private final TrainingSessionCandleRepository candleRepo;
@@ -283,15 +276,10 @@ public class TrainingSessionService {
             LocalDate endDate = randomDate(LocalDate.of(2018, 1, 1), LocalDate.now().minusDays(30));
             LocalDate startDate = endDate.minusDays(bars * 5L);
 
-            //  KIS 캔들 조회
-            List<CandleDto> candles = new ArrayList<>(kisMarketDataService.getCandles(
-                    MARKET_CODE,
-                    picked.getTicker(),
-                    startDate.format(KIS_DATE),
-                    endDate.format(KIS_DATE),
-                    PERIOD,
-                    ADJ_PRICE
-            ));
+            //  DB 캔들 조회
+            List<CandleDto> candles = new ArrayList<>(
+                    marketDataService.getCandles(picked, startDate, endDate, bars)
+            );
 
             if (candles.size() < bars) continue;
 
