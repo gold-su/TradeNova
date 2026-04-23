@@ -97,6 +97,18 @@ public class TrainingSessionController {
         return ResponseEntity.ok(trainingSessionService.getActiveSession(userId));
     }
 
+    /**
+     * chart 새로고침
+     */
+    @PostMapping("/charts/{chartId}/refresh")
+    public ResponseEntity<TrainingChartCreateResponse> refreshChart(
+            Authentication authentication,
+            @PathVariable Long chartId,
+            @RequestBody ChartRefreshRequest req
+    ) {
+        Long userId = extractUserId(authentication);
+        return ResponseEntity.ok(trainingSessionService.refreshChart(userId, chartId, req));
+    }
     private Long extractUserId(Authentication authentication) {
         Object p = authentication.getPrincipal();
         return (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());

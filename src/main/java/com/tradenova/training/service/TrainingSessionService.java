@@ -25,7 +25,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -57,7 +56,7 @@ public class TrainingSessionService {
     private final SymbolRepository symbolRepository;
     // userId -> User 엔티티 조회(안전하게 영속 상태 확보)
     private final UserRepository userRepository;
-    // KIS 시세/캔들 조회 서비스
+    // 캐시 우선 시장 데이터 조회 서비스
     private final MarketDataService marketDataService;
     private final PaperAccountRepository paperAccountRepository;
     // 캔들 저장/조회용 Repository
@@ -483,6 +482,50 @@ public class TrainingSessionService {
         );
     }
 
+    @Transactional
+    public TrainingChartCreateResponse refreshChart(Long userId, Long chartId, ChartRefreshRequest req) {
+
+        // null 예외
+        if (req == null || req.refreshType() == null) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // 1) 기존 차트 조회 + 소유권 체크
+        TrainingSessionChart currentChart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
+
+        TrainingSession session = currentChart.getSession();
+
+        // 2) 같은 세션의 차트 목록 조회
+        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(session.getId());
+
+        // 3) 현재 차트를 제외한 다른 차트들의 종목 ID 수집
+        Set<Long> usedSymbolIds = charts.stream()
+                .filter(c -> !c.getId().equals(currentChart.getId()))
+                .map(c -> c.getSymbol().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
+        // 4) 새로고침 조건에 맞는 후보 종목 조회
+        List<Symbol> candidates = resolveRefreshCandidates(req);
+
+        if (candidates.isEmpty()) {
+            throw new CustomException(ErrorCode.SYMBOL_NOT_FOUND);
+        }
+
+        // 5) 기존 차트는 삭제하지 않고 COMPLETED 처리 or 그대로 둘 수도 있음
+        // 지금은 데이터 혼선 방지를 위해 완료 처리
+        currentChart.complete();
+
+        // 6) 새 차트 생성 (기존 chartIndex 유지)
+        return createOneRandomChartWithCandles(
+                session,
+                candidates,
+                currentChart.getBars(),
+                currentChart.getChartIndex(),
+                usedSymbolIds
+        );
+    }
+
     // ===== helpers =====
 
     // 후보 리스트에서 랜덤 1개 선택
@@ -504,6 +547,65 @@ public class TrainingSessionService {
         return java.time.Instant.ofEpochMilli(epochMillis)
                 .atZone(java.time.ZoneId.of("Asia/Seoul"))
                 .toLocalDate();
+    }
+
+    /**
+     * 새로고침 요청 조건에 따라 후보 종목 목록을 만든다.
+     *
+     * 현재 지원:
+     * - RANDOM
+     * - TRAINING_SECTOR
+     * - EXCHANGE_SECTOR
+     *
+     * 향후:
+     * - TOP_VOLUME
+     * - ORDER_FLOW
+     * - THEME
+     */
+    private List<Symbol> resolveRefreshCandidates(ChartRefreshRequest req) {
+
+        // switch expression 사용 (값을 반환하는 switch)
+        return switch (req.refreshType()) {
+
+            // 1. RANDOM: 모든 활성 종목 반환
+            case RANDOM -> symbolRepository.findAllByActiveTrueOrderByIdAsc();
+
+            // 2. TRAINING_SECTOR: 내부 정의된 섹터 기준 필터
+            case TRAINING_SECTOR -> {
+
+                // optionValue가 없으면 잘못된 요청
+                if (req.optionValue() == null || req.optionValue().isBlank()) {
+                    throw new CustomException(ErrorCode.INVALID_REQUEST);
+                }
+
+                // 문자열 -> Enum 반환
+                com.tradenova.symbol.dto.SymbolSector sector;
+                try {
+                    sector = com.tradenova.symbol.dto.SymbolSector.valueOf(req.optionValue());
+                } catch (IllegalArgumentException e) {
+                    // enum에 없는 값이면 예외
+                    throw new CustomException(ErrorCode.INVALID_REQUEST);
+                }
+
+                // 해당 섹터에 속한 활성 종목 조회
+                yield symbolRepository.findAllByActiveTrueAndTrainingSectorOrderByIdAsc(sector);
+            }
+
+            // 3. EXCHANGE_SECTOR: 거래소 섹터 기준 필터
+            case EXCHANGE_SECTOR -> {
+
+                // optionValue 필수
+                if (req.optionValue() == null || req.optionValue().isBlank()) {
+                    throw new CustomException(ErrorCode.INVALID_REQUEST);
+                }
+
+                // 문자열 그대로 사용해서 조회
+                yield symbolRepository.findAllByActiveTrueAndExchangeSectorOrderByIdAsc(req.optionValue());
+            }
+
+            // 4. 아직 구현 안 한 확장 타입들
+            case TOP_VOLUME, ORDER_FLOW, THEME -> throw new CustomException(ErrorCode.INVALID_REQUEST);
+        };
     }
 
 }

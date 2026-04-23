@@ -4,12 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="프롬포트 조금 수정하고 Request에 타입이랑 스냅샷 유무 추가">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/market/entity/MarketCandle.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/market/repository/MarketCandleRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/market/service/CachedMarketDataService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/market/service/MarketDataService.java" afterDir="false" />
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="DB에서 CANDLE 데이터 확인 후 없으면 API 부르게끔 수정 (임시)">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/ChartRefreshRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/ChartRefreshType.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -25,11 +24,11 @@
         <option value="Interface" />
         <option value="Interface" />
         <option value="Enum" />
-        <option value="Enum" />
         <option value="Record" />
         <option value="Class" />
         <option value="Class" />
         <option value="Class" />
+        <option value="Enum" />
       </list>
     </option>
   </component>
@@ -196,15 +195,9 @@
       <workItem from="1774244135537" duration="4279000" />
       <workItem from="1774334477877" duration="48850000" />
       <workItem from="1775015438539" duration="54366000" />
-      <workItem from="1776223919887" duration="21326000" />
-    </task>
-    <task id="LOCAL-00027" summary="구독별 계좌 리미트 코딩2">
-      <option name="closed" value="true" />
-      <created>1767418896906</created>
-      <option name="number" value="00027" />
-      <option name="presentableId" value="LOCAL-00027" />
-      <option name="project" value="LOCAL" />
-      <updated>1767418896906</updated>
+      <workItem from="1776223919887" duration="27551000" />
+      <workItem from="1776833391414" duration="7887000" />
+      <workItem from="1776943494254" duration="299000" />
     </task>
     <task id="LOCAL-00028" summary="Errorcode optimiztion">
       <option name="closed" value="true" />
@@ -590,7 +583,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776252167208</updated>
     </task>
-    <option name="localTasksCounter" value="76" />
+    <task id="LOCAL-00076" summary="DB에서 CANDLE 데이터 확인 후 없으면 API 부르게끔 수정 (임시)">
+      <option name="closed" value="true" />
+      <created>1776687346501</created>
+      <option name="number" value="00076" />
+      <option name="presentableId" value="LOCAL-00076" />
+      <option name="project" value="LOCAL" />
+      <updated>1776687346501</updated>
+    </task>
+    <option name="localTasksCounter" value="77" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -608,7 +609,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="구독별 계좌 리미트 코딩" />
     <MESSAGE value="구독별 계좌 리미트 코딩2" />
     <MESSAGE value="Errorcode optimiztion" />
     <MESSAGE value="symbol entity coding" />
@@ -647,6 +647,7 @@
     <MESSAGE value="get chartAI report" />
     <MESSAGE value="snapshot 없이 charAI 가능하게 수정 및 fast, deep 구조로 변경" />
     <MESSAGE value="프롬포트 조금 수정하고 Request에 타입이랑 스냅샷 유무 추가" />
-    <option name="LAST_COMMIT_MESSAGE" value="프롬포트 조금 수정하고 Request에 타입이랑 스냅샷 유무 추가" />
+    <MESSAGE value="DB에서 CANDLE 데이터 확인 후 없으면 API 부르게끔 수정 (임시)" />
+    <option name="LAST_COMMIT_MESSAGE" value="DB에서 CANDLE 데이터 확인 후 없으면 API 부르게끔 수정 (임시)" />
   </component>
 </project>
