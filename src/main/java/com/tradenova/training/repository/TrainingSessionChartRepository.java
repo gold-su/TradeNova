@@ -18,6 +18,27 @@ public interface TrainingSessionChartRepository extends JpaRepository<TrainingSe
     List<TrainingSessionChart> findAllBySession_IdOrderByChartIndexAsc(Long sessionId);
 
     /**
+     * 세션 화면에 실제로 보여줄 활성 차트 목록
+     * - 새로고침으로 비활성화된 과거 차트는 제외
+     */
+    List<TrainingSessionChart> findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(Long sessionId);
+
+    /**
+     * 특정 세션의 특정 index에 있는 현재 활성 차트 조회
+     * - refresh 시 같은 자리의 active 차트를 찾는 용도
+     */
+    Optional<TrainingSessionChart> findBySession_IdAndChartIndexAndActiveTrue(
+            Long sessionId,
+            Integer chartIndex
+    );
+
+    /**
+     * 세션 내 새로고침으로 생성된 차트 개수
+     * - 플랜별 refresh 횟수 제한용
+     */
+    long countBySession_IdAndRefreshedTrue(Long sessionId);
+
+    /**
      * Progress(advance/next)에서 사용할 "정석 조회" 메서드
      * - chartId + userId(세션 소유자) 검증
      * - 동시에 여러 요청이 들어오면 progressIndex가 꼬일 수 있으므로

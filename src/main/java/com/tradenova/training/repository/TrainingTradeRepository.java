@@ -24,4 +24,10 @@ public interface TrainingTradeRepository extends JpaRepository<TrainingTrade, Lo
      * 특정 차트의 최신 거래 1건 조회
      */
     Optional<TrainingTrade> findTopByChartIdOrderByIdDesc(Long chartId);
+
+    /**
+     * 특정 차트에 거래 기록이 있는지 확인
+     * - 거래 기록이 있으면 새로고침 불가
+     */
+    boolean existsByChartId(Long chartId);
 }

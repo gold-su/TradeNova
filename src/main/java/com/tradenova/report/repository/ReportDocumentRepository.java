@@ -47,6 +47,11 @@ public interface ReportDocumentRepository extends JpaRepository<ReportDocument, 
     // 유저 소유권 검증 + 단건 조회
     Optional<ReportDocument> findByIdAndUserId(Long id, Long userId);
 
+    /**
+     * 특정 차트에 스냅샷/드래프트 등 문서가 있는지 확인
+     */
+    boolean existsByUserIdAndChartId(Long userId, Long chartId);
+
     @Query("select max(d.version) from ReportDocument d where d.userId = :userId and d.chartId = :chartId and d.kind = :kind")
     Optional<Integer> findMaxVersionByUserIdAndChartIdAndKind(@Param("userId") Long userId,
                                                               @Param("chartId") Long chartId,

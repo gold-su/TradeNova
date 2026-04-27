@@ -17,6 +17,7 @@ import com.tradenova.training.entity.*;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingSessionRepository;
+import com.tradenova.training.repository.TrainingTradeRepository;
 import com.tradenova.user.entity.User;
 import com.tradenova.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +64,8 @@ public class TrainingSessionService {
     private final TrainingSessionCandleRepository candleRepo;
     // 이벤트 서비스
     private final TrainingEventService trainingEventService;
+    // Trade Repo
+    private final TrainingTradeRepository tradeRepository;
 
     /**
      * 세션 생성 (RANDOM)
@@ -123,7 +126,8 @@ public class TrainingSessionService {
                     candidates,
                     bars,
                     chartIndex,
-                    usedSymbolIds
+                    usedSymbolIds,
+                    false
             );
             chartResponses.add(chartRes);
         }
@@ -203,7 +207,7 @@ public class TrainingSessionService {
         TrainingSession s = sessionRepo.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
-        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(s.getId());
+        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(s.getId());
 
         return charts.stream()
                 .map(c -> new ChartSummaryResponse(
@@ -260,7 +264,8 @@ public class TrainingSessionService {
             List<Symbol> candidates,
             int bars,
             int chartIndex,
-            Set<Long> usedSymbolIds
+            Set<Long> usedSymbolIds,
+            boolean refreshed
     ) {
         for (int attempt = 1; attempt <= MAX_TRIES_PER_CHART; attempt++) {
 
@@ -307,6 +312,8 @@ public class TrainingSessionService {
                             .hiddenFutureBars(0)
                             .progressIndex(progressIndex)
                             .status(TrainingChartStatus.IN_PROGRESS)
+                            .active(true)
+                            .refreshed(refreshed)
                             .build()
             );
 
@@ -363,7 +370,7 @@ public class TrainingSessionService {
         }
 
         // 2. 차트 전부 가져오기
-        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(session.getId());
+        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(session.getId());
 
         // 3. 카운터 변수
         int completedBefore = 0; // 이미 끝난 차트
@@ -450,7 +457,7 @@ public class TrainingSessionService {
             return null;
         }
         // 2) 해당 세션의 차트 목록 조회 (chartIndex 순서 유지)
-        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(session.getId());
+        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(session.getId());
         // 3) 엔티티 -> DTO 변환
         List<ChartSummaryResponse> chartDtos = charts.stream()
                 .map(c -> new ChartSummaryResponse(
@@ -485,44 +492,61 @@ public class TrainingSessionService {
     @Transactional
     public TrainingChartCreateResponse refreshChart(Long userId, Long chartId, ChartRefreshRequest req) {
 
-        // null 예외
         if (req == null || req.refreshType() == null) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
-        // 1) 기존 차트 조회 + 소유권 체크
+        // 1) 현재 활성 차트 조회 + 소유권 체크
         TrainingSessionChart currentChart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
+        if (!currentChart.isActive()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
         TrainingSession session = currentChart.getSession();
 
-        // 2) 같은 세션의 차트 목록 조회
-        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(session.getId());
+        if (session.getStatus() == TrainingStatus.COMPLETED) {
+            throw new CustomException(ErrorCode.TRAINING_SESSION_ALREADY_COMPLETED);
+        }
 
-        // 3) 현재 차트를 제외한 다른 차트들의 종목 ID 수집
-        Set<Long> usedSymbolIds = charts.stream()
+        // 2) 거래한 차트는 새로고침 불가
+        // 나중에 다른 방향으로 수정해도 나쁘지 않을듯 근데 새로고침 불가능이 더 서비스적이나 수익 구조로는 좋은 것 같음.
+        if (tradeRepository.existsByChartId(currentChart.getId())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // 3) 플랜/횟수 제한은 다음 단계에서 붙일 예정
+        // 지금은 구조만 먼저 완성
+
+        // 4) 현재 세션의 활성 차트들 조회
+        List<TrainingSessionChart> activeCharts =
+                chartRepo.findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(session.getId());
+
+        // 5) 현재 차트를 제외한 종목은 중복 방지
+        Set<Long> usedSymbolIds = activeCharts.stream()
                 .filter(c -> !c.getId().equals(currentChart.getId()))
                 .map(c -> c.getSymbol().getId())
                 .collect(java.util.stream.Collectors.toSet());
 
-        // 4) 새로고침 조건에 맞는 후보 종목 조회
+        // 6) 새로고침 조건에 맞는 후보 조회
         List<Symbol> candidates = resolveRefreshCandidates(req);
 
         if (candidates.isEmpty()) {
             throw new CustomException(ErrorCode.SYMBOL_NOT_FOUND);
         }
 
-        // 5) 기존 차트는 삭제하지 않고 COMPLETED 처리 or 그대로 둘 수도 있음
-        // 지금은 데이터 혼선 방지를 위해 완료 처리
-        currentChart.complete();
+        // 7) 기존 차트 비활성화
+        currentChart.deactivate();
 
-        // 6) 새 차트 생성 (기존 chartIndex 유지)
+        // 8) 같은 chartIndex에 새 차트 생성
         return createOneRandomChartWithCandles(
                 session,
                 candidates,
                 currentChart.getBars(),
                 currentChart.getChartIndex(),
-                usedSymbolIds
+                usedSymbolIds,
+                true
         );
     }
 
