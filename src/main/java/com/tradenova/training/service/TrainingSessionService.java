@@ -513,7 +513,7 @@ public class TrainingSessionService {
         // 2) 거래한 차트는 새로고침 불가
         // 나중에 다른 방향으로 수정해도 나쁘지 않을듯 근데 새로고침 불가능이 더 서비스적이나 수익 구조로는 좋은 것 같음.
         if (tradeRepository.existsByChartId(currentChart.getId())) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+            throw new CustomException(ErrorCode.CHART_REFRESH_NOT_ALLOWED_HAS_TRADES);
         }
 
         // 3) 플랜/횟수 제한은 다음 단계에서 붙일 예정
