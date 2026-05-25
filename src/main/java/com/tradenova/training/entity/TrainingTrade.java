@@ -79,4 +79,11 @@ public class TrainingTrade {
     @CreationTimestamp
     @Column(name="created_at", nullable=false)
     private OffsetDateTime createdAt;
+
+    /**
+     * 거래가 체결된 타크 캔들의 시간
+     * BUY/SELL 마커용
+     */
+    @Column(name = "candle_time", nullable = false)
+    private Long candleTime;
 }

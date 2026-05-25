@@ -11,6 +11,7 @@ import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.training.dto.TradeResponse;
+import com.tradenova.training.dto.TrainingTradeItemResponse;
 import com.tradenova.training.entity.*;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -386,6 +388,43 @@ public class TrainingTradeService {
         }
 
         return sell(userId, chart.getId(), pos.getQuantity(), true);
+    }
+
+    /**
+     * 특정 차트의 거래 내역 조회
+     *
+     * 역할:
+     * - 해당 차트에서 발생한 모든 매수/매도 거래 조회
+     * - 거래 발생 순서대로 반환
+     *
+     * 사용 위치:
+     * - 거래 내역 패널
+     * - BUY/SELL 마커 복원
+     * - 세션 거래 로그
+     */
+    @Transactional
+    public List<TrainingTradeItemResponse> getTrades(Long userId, Long chartId) {
+
+        // 1) 차트 존재 여부 + 사용자 소유권 검증
+        // - 해당 chartId가 현재 userId의 세션에 속한 차트인지 확인
+        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
+
+        // 2) 해당 차트의 거래 목록 조회 (오래된 거래 -> 최신 거래 순)
+        return tradeRepo.findAllByChartIdOrderByIdAsc(chart.getId())
+                .stream() // 3) List<TrainingTrade> -> Stream 변환)
+                .map(trade -> new TrainingTradeItemResponse( // 4) 엔티티를 응답 DTO로 변환
+                        trade.getId(),          // 거래 ID
+                        trade.getChartId(),     // 거래가 발생한 차트 ID
+                        trade.getAccountId(),   // 거래 계좌 ID
+                        trade.getSymbolId(),    // 거래 종목 ID
+                        trade.getSide(),        // 거래 방향 (BUY/SELL)
+                        trade.getPrice(),       // 거래 체결 가격
+                        trade.getQty(),         // 거래 수량
+                        trade.getCreatedAt()    // 거래 발생 시간
+                ))
+                // 5) Stream -> List 변환 후 반환
+                .toList();
     }
 
     // ======================

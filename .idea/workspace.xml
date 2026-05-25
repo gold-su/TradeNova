@@ -4,13 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="coding the chart refresh">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="차트 새로고침 에러 정의">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingTradeItemResponse.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/common/exception/ErrorCode.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_en.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_en.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ja.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/messages_ko.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingTradeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingTradeController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingTrade.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/entity/TrainingTrade.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -25,11 +24,11 @@
         <option value="Interface" />
         <option value="Interface" />
         <option value="Enum" />
-        <option value="Record" />
         <option value="Class" />
         <option value="Class" />
         <option value="Class" />
         <option value="Enum" />
+        <option value="Record" />
       </list>
     </option>
   </component>
@@ -54,6 +53,69 @@
     &quot;accountId&quot;: &quot;5438adc9-0989-4db7-a6dc-82fbcc4115e4&quot;
   }
 }</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="4.395463169920303E-118" />
+      <entry key="S5" value="1.1407798938236553E-47" />
+      <entry key="S10" value="3.377543328846656E-24" />
+      <entry key="S30" value="1.5003766948515043E-8" />
+      <entry key="S60" value="1.2248986467669495E-4" />
+      <entry key="M2" value="0.011067513933883026" />
+      <entry key="M5" value="0.16505171107162828" />
+      <entry key="M10" value="0.4062655671745124" />
+      <entry key="M15" value="0.5485379472837133" />
+      <entry key="M30" value="0.7406334770206606" />
+      <entry key="H1" value="0.8606006489775967" />
+      <entry key="H2" value="0.9276856412479374" />
+      <entry key="H4" value="0.9631643895244141" />
+      <entry key="D1" value="0.9937643269907058" />
+      <entry key="W1" value="0.9991067997096501" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0" />
+      <entry key="S10" value="1.0" />
+      <entry key="S30" value="1.0" />
+      <entry key="S60" value="1.0" />
+      <entry key="M2" value="1.0" />
+      <entry key="M5" value="1.0" />
+      <entry key="M10" value="1.0" />
+      <entry key="M15" value="1.0" />
+      <entry key="M30" value="1.0" />
+      <entry key="H1" value="1.0" />
+      <entry key="H2" value="1.0" />
+      <entry key="H4" value="1.0" />
+      <entry key="D1" value="1.0" />
+      <entry key="W1" value="1.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="1.293758704612418E-6" />
+      <entry key="MS500" value="0.06643097964740959" />
+      <entry key="S2" value="0.5076830504347148" />
+      <entry key="S5" value="0.7624951150331067" />
+      <entry key="S10" value="0.8732096627002628" />
+      <entry key="S30" value="0.9558128194278984" />
+      <entry key="S60" value="0.9777784858168937" />
+      <entry key="M2" value="0.999796740265816" />
+      <entry key="M5" value="1.1603272657957415" />
+      <entry key="M10" value="1.4037433699391748" />
+      <entry key="M15" value="1.546794001330224" />
+      <entry key="M30" value="1.7397194176987478" />
+      <entry key="H1" value="1.8601304940529997" />
+      <entry key="H2" value="1.9274468959452826" />
+      <entry key="H4" value="1.9630440472169872" />
+      <entry key="D1" value="1.993744130573374" />
+      <entry key="W1" value="1.9991039110314204" />
+    </decayedShown>
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 1
 }</component>
@@ -72,10 +134,14 @@
     &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
     &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
     &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;Spring Boot.TradeNovaApplication.executor&quot;: &quot;Run&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/pds02/IdeaProjects/TradeNova&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -107,8 +173,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.25410.129" />
-        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-IU-251.25410.129" />
+        <option value="bundled-jdk-30f59d01ecdd-37e91769500f-intellij.indexing.shared.core-IU-261.24374.151" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-IU-261.24374.151" />
       </set>
     </attachedChunks>
   </component>
@@ -199,15 +265,11 @@
       <workItem from="1776223919887" duration="27551000" />
       <workItem from="1776833391414" duration="7887000" />
       <workItem from="1776943494254" duration="299000" />
-      <workItem from="1777002711472" duration="21761000" />
-    </task>
-    <task id="LOCAL-00029" summary="symbol coding">
-      <option name="closed" value="true" />
-      <created>1767566279369</created>
-      <option name="number" value="00029" />
-      <option name="presentableId" value="LOCAL-00029" />
-      <option name="project" value="LOCAL" />
-      <updated>1767566279369</updated>
+      <workItem from="1777002711472" duration="25987000" />
+      <workItem from="1778037059553" duration="1188000" />
+      <workItem from="1778119651355" duration="10321000" />
+      <workItem from="1778661199303" duration="6004000" />
+      <workItem from="1779697149815" duration="5176000" />
     </task>
     <task id="LOCAL-00030" summary="symbol entity coding">
       <option name="closed" value="true" />
@@ -593,7 +655,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777287382381</updated>
     </task>
-    <option name="localTasksCounter" value="78" />
+    <task id="LOCAL-00078" summary="차트 새로고침 에러 정의">
+      <option name="closed" value="true" />
+      <created>1777788843555</created>
+      <option name="number" value="00078" />
+      <option name="presentableId" value="LOCAL-00078" />
+      <option name="project" value="LOCAL" />
+      <updated>1777788843555</updated>
+    </task>
+    <option name="localTasksCounter" value="79" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -611,7 +681,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Errorcode optimiztion" />
     <MESSAGE value="symbol entity coding" />
     <MESSAGE value="symbol coding" />
     <MESSAGE value="ErrorCode &amp; RiskRule coding" />
@@ -650,6 +719,7 @@
     <MESSAGE value="프롬포트 조금 수정하고 Request에 타입이랑 스냅샷 유무 추가" />
     <MESSAGE value="DB에서 CANDLE 데이터 확인 후 없으면 API 부르게끔 수정 (임시)" />
     <MESSAGE value="coding the chart refresh" />
-    <option name="LAST_COMMIT_MESSAGE" value="coding the chart refresh" />
+    <MESSAGE value="차트 새로고침 에러 정의" />
+    <option name="LAST_COMMIT_MESSAGE" value="차트 새로고침 에러 정의" />
   </component>
 </project>

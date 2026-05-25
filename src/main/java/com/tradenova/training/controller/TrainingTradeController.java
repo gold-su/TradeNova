@@ -2,12 +2,15 @@ package com.tradenova.training.controller;
 
 import com.tradenova.training.dto.TradeRequest;
 import com.tradenova.training.dto.TradeResponse;
+import com.tradenova.training.dto.TrainingTradeItemResponse;
 import com.tradenova.training.service.TrainingTradeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 훈련(Training) 세션 내 매수/매도 트레이드 API 컨트롤러
@@ -103,4 +106,33 @@ public class TrainingTradeController {
         return ResponseEntity.ok(tradeService.sellAll(userId, chartId));
     }
 
+    /**
+     * 특정 차트의 거래 내역 조회 API
+     *
+     * 요청:
+     * GET /api/training/charts/{chartId}/trades
+     *
+     * 역할:
+     * - 로그인 사용자의 차트 거래 기록 조회
+     * - BUY / SELL 내역 반환
+     */
+    @GetMapping
+    public ResponseEntity<List<TrainingTradeItemResponse>> getTrades(
+            // Spring Security 인증 객체
+            Authentication authentication,
+            // URL 경로의 chartId 값 추출
+            @PathVariable Long chartId
+    ) {
+        // 1) Authentication 에서 principal 추출
+        Object p = authentication.getPrincipal();
+        // 2) principal -> userId(Long) 변환
+        // - JWT 구조에 따라 Long 또는 String일 수 있어서 둘 다 처리
+        Long userId = (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
+
+        // 3) 서비스 호출 후 200 OK 응답 반환
+        return ResponseEntity.ok(
+                // 해당 유저의 차트 거래 내역 조회
+                tradeService.getTrades(userId, chartId)
+        );
+    }
 }
