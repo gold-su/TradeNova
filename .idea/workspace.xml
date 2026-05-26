@@ -4,8 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="차트 새로고침 에러 정의">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="차트 buy/sell 마커 코딩 2">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TradeResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TradeResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingTradeItemResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingTradeItemResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingTradeService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,61 +58,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="0.0" />
-      <entry key="MS500" value="0.0" />
-      <entry key="S2" value="4.395463169920303E-118" />
-      <entry key="S5" value="1.1407798938236553E-47" />
-      <entry key="S10" value="3.377543328846656E-24" />
-      <entry key="S30" value="1.5003766948515043E-8" />
-      <entry key="S60" value="1.2248986467669495E-4" />
-      <entry key="M2" value="0.011067513933883026" />
-      <entry key="M5" value="0.16505171107162828" />
-      <entry key="M10" value="0.4062655671745124" />
-      <entry key="M15" value="0.5485379472837133" />
-      <entry key="M30" value="0.7406334770206606" />
-      <entry key="H1" value="0.8606006489775967" />
-      <entry key="H2" value="0.9276856412479374" />
-      <entry key="H4" value="0.9631643895244141" />
-      <entry key="D1" value="0.9937643269907058" />
-      <entry key="W1" value="0.9991067997096501" />
+      <entry key="MS100" value="1.0015112939390063" />
+      <entry key="MS500" value="1.2728211820587703" />
+      <entry key="S2" value="1.7809157162484233" />
+      <entry key="S5" value="2.4130395026633455" />
+      <entry key="S10" value="3.28086681004437" />
+      <entry key="S30" value="4.701721854412706" />
+      <entry key="S60" value="5.280880507975471" />
+      <entry key="M2" value="5.624844771149235" />
+      <entry key="M5" value="6.13127060073191" />
+      <entry key="M10" value="7.1379701513722456" />
+      <entry key="M15" value="7.979328397139275" />
+      <entry key="M30" value="9.637668986760858" />
+      <entry key="H1" value="11.222772679825004" />
+      <entry key="H2" value="12.426756672422773" />
+      <entry key="H4" value="13.355093098655763" />
+      <entry key="D1" value="15.226454447753236" />
+      <entry key="W1" value="15.874528285237895" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0" />
-      <entry key="S5" value="1.0" />
-      <entry key="S10" value="1.0" />
-      <entry key="S30" value="1.0" />
-      <entry key="S60" value="1.0" />
-      <entry key="M2" value="1.0" />
-      <entry key="M5" value="1.0" />
-      <entry key="M10" value="1.0" />
-      <entry key="M15" value="1.0" />
-      <entry key="M30" value="1.0" />
-      <entry key="H1" value="1.0" />
-      <entry key="H2" value="1.0" />
-      <entry key="H4" value="1.0" />
-      <entry key="D1" value="1.0" />
-      <entry key="W1" value="1.0" />
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="4.4615858038665273E-231" />
+      <entry key="M2" value="6.679510314286916E-116" />
+      <entry key="M5" value="8.509378662123011E-47" />
+      <entry key="M10" value="9.224629348718035E-24" />
+      <entry key="M15" value="4.3984461907010055E-16" />
+      <entry key="M30" value="2.0972472888767798E-8" />
+      <entry key="H1" value="1.448187587599335E-4" />
+      <entry key="H2" value="0.012034066592799526" />
+      <entry key="H4" value="0.10969989331261686" />
+      <entry key="D1" value="0.6918857205566061" />
+      <entry key="W1" value="0.948741213422914" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.293758704612418E-6" />
-      <entry key="MS500" value="0.06643097964740959" />
-      <entry key="S2" value="0.5076830504347148" />
-      <entry key="S5" value="0.7624951150331067" />
-      <entry key="S10" value="0.8732096627002628" />
-      <entry key="S30" value="0.9558128194278984" />
-      <entry key="S60" value="0.9777784858168937" />
-      <entry key="M2" value="0.999796740265816" />
-      <entry key="M5" value="1.1603272657957415" />
-      <entry key="M10" value="1.4037433699391748" />
-      <entry key="M15" value="1.546794001330224" />
-      <entry key="M30" value="1.7397194176987478" />
-      <entry key="H1" value="1.8601304940529997" />
-      <entry key="H2" value="1.9274468959452826" />
-      <entry key="H4" value="1.9630440472169872" />
-      <entry key="D1" value="1.993744130573374" />
-      <entry key="W1" value="1.9991039110314204" />
+      <entry key="MS100" value="0.7082925183783396" />
+      <entry key="MS500" value="1.1929325227749132" />
+      <entry key="S2" value="1.7505480387025278" />
+      <entry key="S5" value="2.3709866996338422" />
+      <entry key="S10" value="3.2297531758327644" />
+      <entry key="S30" value="4.667144448132643" />
+      <entry key="S60" value="5.259993318040673" />
+      <entry key="M2" value="5.61332009311609" />
+      <entry key="M5" value="6.125588313693314" />
+      <entry key="M10" value="7.133743042777092" />
+      <entry key="M15" value="7.975741679101514" />
+      <entry key="M30" value="9.635186261443845" />
+      <entry key="H1" value="11.221386738452109" />
+      <entry key="H2" value="12.437923530365527" />
+      <entry key="H4" value="13.464318122725752" />
+      <entry key="D1" value="15.918244635192924" />
+      <entry key="W1" value="16.82325498541189" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -266,14 +269,6 @@
       <workItem from="1778119651355" duration="10321000" />
       <workItem from="1778661199303" duration="6004000" />
       <workItem from="1779697149815" duration="5176000" />
-    </task>
-    <task id="LOCAL-00030" summary="symbol entity coding">
-      <option name="closed" value="true" />
-      <created>1767566740960</created>
-      <option name="number" value="00030" />
-      <option name="presentableId" value="LOCAL-00030" />
-      <option name="project" value="LOCAL" />
-      <updated>1767566740960</updated>
     </task>
     <task id="LOCAL-00031" summary="symbol coding">
       <option name="closed" value="true" />
@@ -659,7 +654,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777788843555</updated>
     </task>
-    <option name="localTasksCounter" value="79" />
+    <task id="LOCAL-00079" summary="차트 buy/sell 마커 코딩 2">
+      <option name="closed" value="true" />
+      <created>1779712009657</created>
+      <option name="number" value="00079" />
+      <option name="presentableId" value="LOCAL-00079" />
+      <option name="project" value="LOCAL" />
+      <updated>1779712009657</updated>
+    </task>
+    <option name="localTasksCounter" value="80" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -677,7 +680,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="symbol coding" />
     <MESSAGE value="ErrorCode &amp; RiskRule coding" />
     <MESSAGE value="RiskRule coding" />
     <MESSAGE value="RiskRule PUT" />
@@ -715,6 +717,7 @@
     <MESSAGE value="DB에서 CANDLE 데이터 확인 후 없으면 API 부르게끔 수정 (임시)" />
     <MESSAGE value="coding the chart refresh" />
     <MESSAGE value="차트 새로고침 에러 정의" />
-    <option name="LAST_COMMIT_MESSAGE" value="차트 새로고침 에러 정의" />
+    <MESSAGE value="차트 buy/sell 마커 코딩 2" />
+    <option name="LAST_COMMIT_MESSAGE" value="차트 buy/sell 마커 코딩 2" />
   </component>
 </project>

@@ -88,9 +88,10 @@ public class TrainingTradeService {
         // 이번 거래 대상 종목 ID 가져오기 (차트에 연결된 종목)
         Long symbolId = chart.getSymbol().getId();
 
-        // 현재가 계산(차트의 progressIndex 기준으로 현재 봉의 가격 등)
-        // - 매수 체결 가격으로 사용
-        BigDecimal price = getCurrentPrice(chart);
+        // 현재 캔들 가져오기
+        TrainingSessionCandle currentCandle = getCurrentCandle(chart);
+        // 현재 캔들 데이터에서 가격만 뽑고 BigDecimal로 변환
+        BigDecimal price = BigDecimal.valueOf(currentCandle.getC());
 
         // 총 매수 금액 = 현재가 * 매수수량
         BigDecimal cost = price.multiply(qty);
@@ -173,6 +174,8 @@ public class TrainingTradeService {
                         .price(price)
                         // 체결 수량
                         .qty(qty)
+                        // 어떤 캔들에서 발생한 거래인지 저장
+                        .candleTime(currentCandle.getT())
                         .build()
         );
 
@@ -207,7 +210,9 @@ public class TrainingTradeService {
                 // avgPrice: 매수 후 평균 단가
                 pos.getAvgPrice(),
                 // executedPrice: 이번 거래 체결 가격(현재가)
-                price
+                price,
+                // candleTime: 거래가 발생한 캔들 시간
+                currentCandle.getT()
         );
     }
 
@@ -251,8 +256,11 @@ public class TrainingTradeService {
             throw new CustomException(ErrorCode.INSUFFICIENT_POSITION_QTY);
         }
 
-        // 현재 진행 인덱스(progressIndex)의 캔들로부터 현재가 산출 (체결가)
-        BigDecimal price = getCurrentPrice(chart);
+        // 현재 캔들 가져오기
+        TrainingSessionCandle currentCandle = getCurrentCandle(chart);
+        // 현재 캔들 데이터에서 가격만 뽑고 BigDecimal로 변환
+        BigDecimal price = BigDecimal.valueOf(currentCandle.getC());
+
         // 매도 대금 = 체결가 * 매도 수량
         BigDecimal proceeds = price.multiply(qty);
 
@@ -295,6 +303,8 @@ public class TrainingTradeService {
                         .price(price)
                         // 체결 수량
                         .qty(qty)
+                        // 어느 캔들에서 발생한 거래인지 저장
+                        .candleTime(currentCandle.getT())
                         .build()
         );
 
@@ -337,7 +347,9 @@ public class TrainingTradeService {
                 // 매도 후 평단(0이면 0)
                 outAvg,
                 // 이번 매도 체결가
-                price
+                price,
+                // candleTime: 거래가 발생한 캔들 시간
+                currentCandle.getT()
         );
     }
 
@@ -377,13 +389,18 @@ public class TrainingTradeService {
         // - tradeId는 null로 내려주고
         // - 현재 스냅샷(잔고/포지션=0/현재가)만 반환
         if (pos == null || pos.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            TrainingSessionCandle currentCandle = getCurrentCandle(chart);
+            BigDecimal price = BigDecimal.valueOf(currentCandle.getC());
+
             return new TradeResponse(
                     chart.getId(),
                     null,           // tradeId 없음(거래 미발생)
                     acc.getCashBalance(),
                     BigDecimal.ZERO,
                     BigDecimal.ZERO,
-                    getCurrentPrice(chart) // 현재가는 표시용으로 내려줌
+                    price, // 현재가는 표시용으로 내려줌
+                    // 현재 캔들 시간
+                    getCurrentCandle(chart).getT()
             );
         }
 
@@ -420,32 +437,69 @@ public class TrainingTradeService {
                         trade.getSymbolId(),    // 거래 종목 ID
                         trade.getSide(),        // 거래 방향 (BUY/SELL)
                         trade.getPrice(),       // 거래 체결 가격
-                        trade.getQty(),         // 거래 수량
-                        trade.getCreatedAt()    // 거래 발생 시간
+                        trade.getQty(),          // 거래 수량
+                        trade.getCandleTime(),   // 거래가 발생한 캔들 시간
+                        trade.getCreatedAt()     // 거래 발생 시간
                 ))
                 // 5) Stream -> List 변환 후 반환
                 .toList();
     }
 
+
     // ======================
     // helpers
     // ======================
 
-    private BigDecimal getCurrentPrice(TrainingSessionChart chart) {
-        // progressIndex가 null이면 0으로 시작
+    /**
+     * 현재 progressIndex 위치의 캔들을 조회한다.
+     *
+     * 역할:
+     * - 현재 차트 진행 위치(progressIndex)에 해당하는 캔들 반환
+     * - 매수/매도 가격 계산
+     * - candleTime 저장
+     * - 현재 차트 상태 분석
+     * 등에 사용된다.
+     *
+     * 흐름:
+     * 1. progressIndex 조회
+     * 2. 범위 보정 (0 ~ 마지막 idx)
+     * 3. 해당 idx의 캔들 조회
+     * 4. 없으면 예외 발생
+     */
+    private TrainingSessionCandle getCurrentCandle(TrainingSessionChart chart) {
+        //현재 진행 위치(progressIndex) 조회
+        //null이면 기본값 0 사용
         int idx = (chart.getProgressIndex() == null) ? 0 : chart.getProgressIndex();
-        // bars-1이 최대 인덱스 (0 ~ bars-1)
+        // 차트의 마지막 유효 idx 계산
+        // bars가 100이면 마지막 idx는 99
         int maxIdx = Math.max(0, chart.getBars() - 1);
-        // idx가 범위를 벗어나지 않도록 clamp 처리
+
+        // idx 범위 보정
+        // - 음수 방지
+        // - 마지막 idx 초과 방지
         idx = Math.max(0, Math.min(idx, maxIdx));
 
-        // (chartId, idx)로 특정 봉 1개 조회
-        TrainingSessionCandle candle = candleRepo.findByChartIdAndIdx(chart.getId(), idx)
+        // chartId + idx 기준 현재 캔들 조회
+        return candleRepo.findByChartIdAndIdx(chart.getId(), idx)
+                // 캔들이 없으면 예외 발생
                 .orElseThrow(() -> new CustomException(ErrorCode.CANDLES_EMPTY));
-
-        // candle의 종가(c)를 체결가/현재가로 사용
-        return BigDecimal.valueOf(candle.getC());
     }
+
+//    private BigDecimal getCurrentPrice(TrainingSessionChart chart) {
+//        // progressIndex가 null이면 0으로 시작
+//        int idx = (chart.getProgressIndex() == null) ? 0 : chart.getProgressIndex();
+//        // bars-1이 최대 인덱스 (0 ~ bars-1)
+//        int maxIdx = Math.max(0, chart.getBars() - 1);
+//        // idx가 범위를 벗어나지 않도록 clamp 처리
+//        idx = Math.max(0, Math.min(idx, maxIdx));
+//
+//        // (chartId, idx)로 특정 봉 1개 조회
+//        TrainingSessionCandle candle = candleRepo.findByChartIdAndIdx(chart.getId(), idx)
+//                .orElseThrow(() -> new CustomException(ErrorCode.CANDLES_EMPTY));
+//
+//        // candle의 종가(c)를 체결가/현재가로 사용
+//        return BigDecimal.valueOf(candle.getC());
+//    }
 
     private BigDecimal validateStockQty(BigDecimal qty) {
         // null이거나 0 이하이면 invalid

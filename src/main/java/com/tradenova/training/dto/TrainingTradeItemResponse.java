@@ -3,7 +3,6 @@ package com.tradenova.training.dto;
 import com.tradenova.training.entity.TradeSide;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 /**
@@ -40,6 +39,8 @@ public record TrainingTradeItemResponse(
         BigDecimal price,
         // 거래 수량
         BigDecimal qty,
+        // 어떤 캔들 거래인지
+        Long candleTime,
         // 거래 발생 시간
         OffsetDateTime createdAt
 ) {
