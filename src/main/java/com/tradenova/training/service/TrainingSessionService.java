@@ -216,6 +216,7 @@ public class TrainingSessionService {
                         c.getSymbol().getId(),
                         c.getSymbol().getTicker(),
                         c.getSymbol().getName(),
+                        c.getSymbol().getTrainingSector().name(),
                         c.getBars(),
                         c.getProgressIndex(),
                         c.getStatus(),
@@ -346,6 +347,7 @@ public class TrainingSessionService {
                     picked.getId(),
                     picked.getTicker(),
                     picked.getName(),
+                    picked.getTrainingSector().name(),
                     chart.getBars(),
                     chart.getProgressIndex(),
                     chart.getStatus(),
@@ -466,6 +468,7 @@ public class TrainingSessionService {
                         c.getSymbol().getId(),      // 종목 ID
                         c.getSymbol().getTicker(),  // 종목 코드
                         c.getSymbol().getName(),    // 종목 이름
+                        c.getSymbol().getTrainingSector().name(), // sector 이름
                         c.getBars(),                // 총 봉 개수
                         c.getProgressIndex(),       // 현재 진행 위치
                         c.getStatus(),              // 차트 상태

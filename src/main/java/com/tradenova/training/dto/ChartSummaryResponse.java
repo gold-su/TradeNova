@@ -10,6 +10,7 @@ public record ChartSummaryResponse(
         Long symbolId,
         String symbolTicker,
         String symbolName,
+        String trainingSector,
         Integer bars,
         Integer progressIndex,
         TrainingChartStatus status,
