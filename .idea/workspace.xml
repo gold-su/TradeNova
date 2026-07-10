@@ -4,16 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="마커부분 리팩토링(candleTime)">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="결과 요약 기능 구현 (테스트 x)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/ChartSummaryResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/ChartSummaryResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingChartCreateResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/TrainingChartCreateResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="162" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -25,9 +26,9 @@
         <option value="Enum" />
         <option value="Class" />
         <option value="Class" />
-        <option value="Class" />
         <option value="Enum" />
         <option value="Record" />
+        <option value="Class" />
       </list>
     </option>
   </component>
@@ -58,61 +59,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="5.9242552563030805E-19" />
-      <entry key="MS500" value="2.2621778854745378E-4" />
-      <entry key="S2" value="0.1226400393076218" />
-      <entry key="S5" value="0.4349194689695551" />
-      <entry key="S10" value="0.7340517260340793" />
-      <entry key="S30" value="1.544199090249328" />
-      <entry key="S60" value="2.0941202520745406" />
-      <entry key="M2" value="2.489885515594478" />
-      <entry key="M5" value="2.7801844184998594" />
-      <entry key="M10" value="2.8873210328421717" />
-      <entry key="M15" value="2.926779413596784" />
-      <entry key="M30" value="3.0959960348943185" />
-      <entry key="H1" value="3.9528205302714152" />
-      <entry key="H2" value="5.788844122741928" />
-      <entry key="H4" value="8.932454953361006" />
-      <entry key="D1" value="20.210013267043717" />
-      <entry key="W1" value="25.025225125396425" />
+      <entry key="MS100" value="1.019882534707411" />
+      <entry key="MS500" value="2.3958493950435784" />
+      <entry key="S2" value="6.139956689070273" />
+      <entry key="S5" value="8.160649249315808" />
+      <entry key="S10" value="9.877549930681012" />
+      <entry key="S30" value="19.175322132220114" />
+      <entry key="S60" value="27.795981493064772" />
+      <entry key="M2" value="34.869537287706024" />
+      <entry key="M5" value="40.49603819844999" />
+      <entry key="M10" value="42.664087079432456" />
+      <entry key="M15" value="43.4257451303007" />
+      <entry key="M30" value="44.332061698973604" />
+      <entry key="H1" value="45.55601574055759" />
+      <entry key="H2" value="47.57623693744296" />
+      <entry key="H4" value="50.81429860246564" />
+      <entry key="D1" value="62.183290656933" />
+      <entry key="W1" value="67.02097932846974" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.0000097241307135" />
-      <entry key="MS500" value="1.1048978359868156" />
-      <entry key="S2" value="1.8333362537704196" />
-      <entry key="S5" value="2.3990381629674675" />
-      <entry key="S10" value="2.8434154169579573" />
-      <entry key="S30" value="4.054047364944843" />
-      <entry key="S60" value="4.815248524397907" />
-      <entry key="M2" value="5.341577646533372" />
-      <entry key="M5" value="5.718722883859667" />
-      <entry key="M10" value="5.856186503499749" />
-      <entry key="M15" value="5.903403969311877" />
-      <entry key="M30" value="5.95133802177165" />
-      <entry key="H1" value="5.975577339619818" />
-      <entry key="H2" value="5.987953171616167" />
-      <entry key="H4" value="6.007571433770036" />
-      <entry key="D1" value="6.488108072393395" />
-      <entry key="W1" value="6.902738092696516" />
+      <entry key="MS100" value="6.970142892202516E-234" />
+      <entry key="MS500" value="2.5820795295401823E-47" />
+      <entry key="S2" value="4.03091833427295E-12" />
+      <entry key="S5" value="5.2107700199715653E-5" />
+      <entry key="S10" value="0.013251733348237772" />
+      <entry key="S30" value="0.6771729628759535" />
+      <entry key="S60" value="1.967995507015381" />
+      <entry key="M2" value="3.414854811887342" />
+      <entry key="M5" value="4.781675842974499" />
+      <entry key="M10" value="5.354950232115415" />
+      <entry key="M15" value="5.561554482107137" />
+      <entry key="M30" value="5.776455930362202" />
+      <entry key="H1" value="5.887125511779991" />
+      <entry key="H2" value="5.943470438248322" />
+      <entry key="H4" value="5.985215601840672" />
+      <entry key="D1" value="6.484077811911188" />
+      <entry key="W1" value="6.902125384002684" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.0035205096387749225" />
-      <entry key="MS500" value="0.33070535200613355" />
-      <entry key="S2" value="1.2868965044908134" />
-      <entry key="S5" value="2.3741409928607418" />
-      <entry key="S10" value="3.2705931208654353" />
-      <entry key="S30" value="5.429234539958217" />
-      <entry key="S60" value="6.8034706159903235" />
-      <entry key="M2" value="7.771016504744467" />
-      <entry key="M5" value="8.472561631894095" />
-      <entry key="M10" value="8.729938043925868" />
-      <entry key="M15" value="8.82104583220118" />
-      <entry key="M30" value="9.042712421276189" />
-      <entry key="H1" value="9.92605392669364" />
-      <entry key="H2" value="11.775588444946212" />
-      <entry key="H4" value="14.939358214831454" />
-      <entry key="D1" value="26.697949933987093" />
-      <entry key="W1" value="31.92793449482115" />
+      <entry key="MS100" value="0.9714745837584629" />
+      <entry key="MS500" value="2.3423207121313503" />
+      <entry key="S2" value="6.095222402133384" />
+      <entry key="S5" value="8.137002802154935" />
+      <entry key="S10" value="9.874643377404054" />
+      <entry key="S30" value="19.812276969919328" />
+      <entry key="S60" value="29.711218532797428" />
+      <entry key="M2" value="38.23958134817209" />
+      <entry key="M5" value="45.2527680756969" />
+      <entry key="M10" value="48.0050845645864" />
+      <entry key="M15" value="48.97764136890341" />
+      <entry key="M30" value="50.10349663700402" />
+      <entry key="H1" value="51.44056181346111" />
+      <entry key="H2" value="53.51837175296624" />
+      <entry key="H4" value="56.79878047652283" />
+      <entry key="D1" value="68.66718580654015" />
+      <entry key="W1" value="73.92307436785353" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -135,11 +136,13 @@
     &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
     &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;Spring Boot.TradeNovaApplication.executor&quot;: &quot;Run&quot;,
     &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git.auto.fetch.suggestion.counter&quot;: &quot;1&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/pds02/IdeaProjects/TradeNova&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
@@ -151,7 +154,7 @@
     &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.Confirmation&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
   &quot;keyToStringList&quot;: {
@@ -271,38 +274,28 @@
       <workItem from="1779697149815" duration="5176000" />
       <workItem from="1779878132332" duration="1605000" />
       <workItem from="1780044118595" duration="5470000" />
-    </task>
-    <task id="LOCAL-00032" summary="ErrorCode &amp; RiskRule coding">
-      <option name="closed" value="true" />
-      <created>1768166007816</created>
-      <option name="number" value="00032" />
-      <option name="presentableId" value="LOCAL-00032" />
-      <option name="project" value="LOCAL" />
-      <updated>1768166007816</updated>
-    </task>
-    <task id="LOCAL-00033" summary="RiskRule coding">
-      <option name="closed" value="true" />
-      <created>1768426561293</created>
-      <option name="number" value="00033" />
-      <option name="presentableId" value="LOCAL-00033" />
-      <option name="project" value="LOCAL" />
-      <updated>1768426561293</updated>
-    </task>
-    <task id="LOCAL-00034" summary="RiskRule coding">
-      <option name="closed" value="true" />
-      <created>1768462895344</created>
-      <option name="number" value="00034" />
-      <option name="presentableId" value="LOCAL-00034" />
-      <option name="project" value="LOCAL" />
-      <updated>1768462895344</updated>
-    </task>
-    <task id="LOCAL-00035" summary="RiskRule PUT">
-      <option name="closed" value="true" />
-      <created>1768589914244</created>
-      <option name="number" value="00035" />
-      <option name="presentableId" value="LOCAL-00035" />
-      <option name="project" value="LOCAL" />
-      <updated>1768589914244</updated>
+      <workItem from="1780444618122" duration="454000" />
+      <workItem from="1780472881701" duration="662000" />
+      <workItem from="1780496475056" duration="1215000" />
+      <workItem from="1780498097178" duration="743000" />
+      <workItem from="1780633742082" duration="1025000" />
+      <workItem from="1780837112022" duration="1158000" />
+      <workItem from="1780883771901" duration="1290000" />
+      <workItem from="1781013380014" duration="603000" />
+      <workItem from="1781065018103" duration="2748000" />
+      <workItem from="1781112132224" duration="2390000" />
+      <workItem from="1781148041558" duration="6868000" />
+      <workItem from="1781280429735" duration="26000" />
+      <workItem from="1781450940075" duration="2318000" />
+      <workItem from="1781504218658" duration="1917000" />
+      <workItem from="1781535807052" duration="1807000" />
+      <workItem from="1781542292253" duration="595000" />
+      <workItem from="1781618374075" duration="1096000" />
+      <workItem from="1781669253060" duration="2989000" />
+      <workItem from="1781798821898" duration="2189000" />
+      <workItem from="1782198322463" duration="1795000" />
+      <workItem from="1782265706563" duration="1205000" />
+      <workItem from="1782489647595" duration="77000" />
     </task>
     <task id="LOCAL-00036" summary="미흡한 부분과 하드 코딩 제거">
       <option name="closed" value="true" />
@@ -664,7 +657,39 @@
       <option name="project" value="LOCAL" />
       <updated>1779790883609</updated>
     </task>
-    <option name="localTasksCounter" value="81" />
+    <task id="LOCAL-00081" summary="API KEY ERROR FIXED">
+      <option name="closed" value="true" />
+      <created>1780498839228</created>
+      <option name="number" value="00081" />
+      <option name="presentableId" value="LOCAL-00081" />
+      <option name="project" value="LOCAL" />
+      <updated>1780498839339</updated>
+    </task>
+    <task id="LOCAL-00082" summary="결과 요약 기능 구현 (테스트 x)">
+      <option name="closed" value="true" />
+      <created>1783623456669</created>
+      <option name="number" value="00082" />
+      <option name="presentableId" value="LOCAL-00082" />
+      <option name="project" value="LOCAL" />
+      <updated>1783623456669</updated>
+    </task>
+    <task id="LOCAL-00083" summary="결과 요약 기능 구현 (테스트 x)">
+      <option name="closed" value="true" />
+      <created>1783706759453</created>
+      <option name="number" value="00083" />
+      <option name="presentableId" value="LOCAL-00083" />
+      <option name="project" value="LOCAL" />
+      <updated>1783706759453</updated>
+    </task>
+    <task id="LOCAL-00084" summary="결과 요약 기능 구현 (테스트 x)">
+      <option name="closed" value="true" />
+      <created>1783707676750</created>
+      <option name="number" value="00084" />
+      <option name="presentableId" value="LOCAL-00084" />
+      <option name="project" value="LOCAL" />
+      <updated>1783707676751</updated>
+    </task>
+    <option name="localTasksCounter" value="85" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -682,10 +707,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="RiskRule coding" />
-    <MESSAGE value="RiskRule PUT" />
-    <MESSAGE value="미흡한 부분과 하드 코딩 제거" />
-    <MESSAGE value="Repository create" />
     <MESSAGE value="자동 매도 구현 중" />
     <MESSAGE value="TrainingTradeService commit" />
     <MESSAGE value="매수/매도 구현 중 2" />
@@ -720,6 +741,8 @@
     <MESSAGE value="차트 새로고침 에러 정의" />
     <MESSAGE value="차트 buy/sell 마커 코딩 2" />
     <MESSAGE value="마커부분 리팩토링(candleTime)" />
-    <option name="LAST_COMMIT_MESSAGE" value="마커부분 리팩토링(candleTime)" />
+    <MESSAGE value="API KEY ERROR FIXED" />
+    <MESSAGE value="결과 요약 기능 구현 (테스트 x)" />
+    <option name="LAST_COMMIT_MESSAGE" value="결과 요약 기능 구현 (테스트 x)" />
   </component>
 </project>
