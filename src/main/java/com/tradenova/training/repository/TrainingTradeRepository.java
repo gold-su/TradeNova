@@ -15,6 +15,15 @@ public interface TrainingTradeRepository extends JpaRepository<TrainingTrade, Lo
     long countByChartId(Long ChartId);
 
     /**
+     * 여러 차트에서 발생한 전체 거래 횟수를 계산한다.
+     *
+     * Spring Data JPA가 아래 조건의 count 쿼리를 자동 생성한다.
+     *
+     * WHERE chart_id IN (...)
+     */
+    long countByChartIdIn(List<Long> chartIds);
+
+    /**
      * 특정 차트(chartId)에 속한 모든 트레이드(매수/매도 내역)를
      * 생성 시간(createdAt) 오름차순으로 조회한다.
      */

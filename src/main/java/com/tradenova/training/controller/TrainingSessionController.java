@@ -113,4 +113,26 @@ public class TrainingSessionController {
         Object p = authentication.getPrincipal();
         return (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());
     }
+
+    /**
+     * 세션 완료 화면용 요약 조회
+     *
+     * GET /api/training/sessions/{sessionId}/summary
+     */
+    @GetMapping("/{sessionId}/summary")
+    public ResponseEntity<SessionSummaryResponse> summary(
+            Authentication authentication,
+            @PathVariable Long sessionId
+    ) {
+        // 현재 로그인 사용자 ID 추출
+        Long userId = extractUserId(authentication);
+
+        // 세션 요약 조회 후 반환
+        return ResponseEntity.ok(
+                trainingSessionService.getSessionSummary(
+                        userId,
+                        sessionId
+                )
+        );
+    }
 }

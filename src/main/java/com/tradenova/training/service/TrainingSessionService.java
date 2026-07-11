@@ -8,7 +8,11 @@ import com.tradenova.kis.dto.CandleDto;
 import com.tradenova.market.service.MarketDataService;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperAccountRepository;
+import com.tradenova.report.entity.ReportKind;
+import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.entity.Type;
+import com.tradenova.report.repository.ReportDocumentRepository;
+import com.tradenova.report.repository.TrainingEventRepository;
 import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.symbol.repository.SymbolRepository;
@@ -66,7 +70,10 @@ public class TrainingSessionService {
     private final TrainingEventService trainingEventService;
     // Trade Repo
     private final TrainingTradeRepository tradeRepository;
-
+    // 리포트 문서 조회
+    private final ReportDocumentRepository reportDocumentRepository;
+    // AI 이벤트 조회
+    private final TrainingEventRepository trainingEventRepository;
     /**
      * 세션 생성 (RANDOM)
      */
@@ -489,6 +496,133 @@ public class TrainingSessionService {
                 charts.size(),                  // 전체 차트 수
                 completedCount,                 // 완료된 차트 수
                 chartDtos                       // 차트 리스트
+        );
+    }
+
+    /**
+     * 훈련 세션 완료 화면용 요약 정보를 조회한다.
+     *
+     * 포함 정보:
+     * - 전체 차트 수
+     * - 완료 차트 수
+     * - 전체 거래 횟수
+     * - 전체 스냅샷 수
+     * - 세션 AI 존재 여부
+     * - 세션 AI 점수
+     */
+    @Transactional(readOnly = true)
+    public SessionSummaryResponse getSessionSummary(
+            Long userId,
+            Long sessionId
+    ) {
+
+        // 1) 세션 조회 및 사용자 소유권 검증
+        //
+        // 현재 로그인 사용자의 세션이 아니면 조회할 수 없다.
+        TrainingSession session =
+                sessionRepo.findByIdAndUserId(sessionId, userId)
+                        .orElseThrow(() ->
+                                new CustomException(
+                                        ErrorCode.TRAINING_SESSION_NOT_FOUND
+                                )
+                        );
+
+        // 2) 현재 세션에 노출 중인 활성 차트 조회
+        //
+        // 차트 새로고침으로 교체된 이전 차트는 active=false다.
+        // 현재 완료 화면에서는 active=true 차트를 기준으로 집계한다.
+        List<TrainingSessionChart> charts =
+                chartRepo
+                        .findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(
+                                session.getId()
+                        );
+
+        // 3) 차트 ID 목록 생성
+        //
+        // 거래 횟수와 스냅샷 수를 한 번에 조회하기 위해 사용한다.
+        List<Long> chartIds =
+                charts.stream()
+                        .map(TrainingSessionChart::getId)
+                        .toList();
+
+        // 전체 활성 차트 수
+        int totalChartCount = charts.size();
+
+        // 완료된 활성 차트 수
+        int completedChartCount =
+                (int) charts.stream()
+                        .filter(chart ->
+                                chart.getStatus()
+                                        == TrainingChartStatus.COMPLETED
+                        )
+                        .count();
+
+        // 4) 세션 거래 횟수 계산
+        //
+        // 차트가 하나도 없다면 IN 조건을 실행하지 않고 0 반환
+        long tradeCount =
+                chartIds.isEmpty()
+                        ? 0
+                        : tradeRepository.countByChartIdIn(chartIds);
+
+        // 5) 세션 스냅샷 개수 계산
+        //
+        // DRAFT는 제외하고 SNAPSHOT 문서만 계산한다.
+        long snapshotCount =
+                chartIds.isEmpty()
+                        ? 0
+                        : reportDocumentRepository
+                        .countByUserIdAndChartIdInAndKind(
+                                userId,
+                                chartIds,
+                                ReportKind.SNAPSHOT
+                        );
+
+        // 6) 해당 세션의 가장 최근 SESSION AI 이벤트 조회
+        //
+        // payload_json 안의
+        // analysisScope = SESSION
+        // sessionId = 현재 sessionId
+        // 조건을 사용한다.
+        TrainingEvent sessionAi =
+                trainingEventRepository
+                        .findLatestSessionAiEvent(
+                                userId,
+                                sessionId
+                        )
+                        .orElse(null);
+
+        Integer sessionAiScore = null;
+
+        // 7) AI 이벤트 payload_json에서 score 추출
+        if (
+                sessionAi != null
+                        && sessionAi.getPayloadJson() != null
+        ) {
+
+            var scoreNode =
+                    sessionAi
+                            .getPayloadJson()
+                            .get("score");
+
+            if (
+                    scoreNode != null
+                            && scoreNode.isNumber()
+            ) {
+                sessionAiScore = scoreNode.asInt();
+            }
+        }
+
+        // 8) 완료 화면 응답 반환
+        return new SessionSummaryResponse(
+                session.getId(),
+                session.getStatus().name(),
+                totalChartCount,
+                completedChartCount,
+                tradeCount,
+                snapshotCount,
+                sessionAi != null,
+                sessionAiScore
         );
     }
 

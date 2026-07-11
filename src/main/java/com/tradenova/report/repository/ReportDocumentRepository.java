@@ -40,6 +40,18 @@ public interface ReportDocumentRepository extends JpaRepository<ReportDocument, 
             ReportKind kind
     );
 
+    /**
+     * 여러 차트에 저장된 특정 종류의 리포트 개수를 계산한다.
+     *
+     * 완료 화면에서는 ReportKind.SNAPSHOT을 전달하여
+     * 해당 세션의 스냅샷 개수를 계산한다.
+     */
+    long countByUserIdAndChartIdInAndKind(
+            Long userId,
+            List<Long> chartIds,
+            ReportKind kind
+    );
+
     // (옵션) 특정 이벤트에 연결된 스냅샷 조회
     List<ReportDocument> findAllByUserIdAndChartIdAndLinkedEventIdOrderByVersionDesc(
             Long userId, Long chartId, Long linkedEventId

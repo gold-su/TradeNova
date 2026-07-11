@@ -4,8 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="sector 포함">
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="07111">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionSummaryResponse.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/TrainingEventRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/TrainingEventRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,9 +28,9 @@
         <option value="Enum" />
         <option value="Class" />
         <option value="Class" />
-        <option value="Class" />
         <option value="Enum" />
         <option value="Record" />
+        <option value="Class" />
       </list>
     </option>
   </component>
@@ -35,7 +41,6 @@
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
-    <option name="UPDATE_TYPE" value="REBASE" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -55,61 +60,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000000023422642" />
-      <entry key="MS500" value="1.0297765132433794" />
-      <entry key="S2" value="1.9114503300454233" />
-      <entry key="S5" value="2.8571132299714983" />
-      <entry key="S10" value="3.3591790129442245" />
-      <entry key="S30" value="3.7687649341891136" />
-      <entry key="S60" value="3.882024314599695" />
-      <entry key="M2" value="3.940410341500234" />
-      <entry key="M5" value="3.976018099385209" />
-      <entry key="M10" value="3.987984575439648" />
-      <entry key="M15" value="3.9919842682123554" />
-      <entry key="M30" value="3.9959894072219497" />
-      <entry key="H1" value="3.997994021418782" />
-      <entry key="H2" value="3.998996840404111" />
-      <entry key="H4" value="3.9995628625621693" />
-      <entry key="D1" value="6.8095397244482605" />
-      <entry key="W1" value="22.878209009446486" />
-    </decayedCancelled>
-    <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
-      <entry key="S2" value="0.0" />
-      <entry key="S5" value="0.0" />
-      <entry key="S10" value="0.0" />
-      <entry key="S30" value="0.0" />
-      <entry key="S60" value="0.0" />
-      <entry key="M2" value="0.0" />
-      <entry key="M5" value="9.2208671729025E-247" />
-      <entry key="M10" value="2.3515339667807962E-123" />
-      <entry key="M15" value="3.213118487219224E-82" />
-      <entry key="M30" value="4.39062895205259E-41" />
-      <entry key="H1" value="1.6230650691564525E-20" />
-      <entry key="H2" value="3.1207316466359513E-10" />
-      <entry key="H4" value="4.336985382687536E-5" />
-      <entry key="D1" value="0.9019855451730951" />
-      <entry key="W1" value="5.207202502571054" />
+      <entry key="S2" value="5.740970304884091E-133" />
+      <entry key="S5" value="3.179256352450532E-53" />
+      <entry key="S10" value="1.2505715508413785E-26" />
+      <entry key="S30" value="6.77489250414051E-9" />
+      <entry key="S60" value="1.8400914327136673E-4" />
+      <entry key="M2" value="0.030330570061810686" />
+      <entry key="M5" value="0.6488263064162031" />
+      <entry key="M10" value="1.8011432890083148" />
+      <entry key="M15" value="2.5313680660711415" />
+      <entry key="M30" value="3.557644459103617" />
+      <entry key="H1" value="4.217608339540929" />
+      <entry key="H2" value="4.592171714047057" />
+      <entry key="H4" value="4.791810796293189" />
+      <entry key="D1" value="7.754490922076563" />
+      <entry key="W1" value="23.854090182108784" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0" />
+      <entry key="S10" value="1.0" />
+      <entry key="S30" value="1.0" />
+      <entry key="S60" value="1.0" />
+      <entry key="M2" value="1.0" />
+      <entry key="M5" value="1.0" />
+      <entry key="M10" value="1.0" />
+      <entry key="M15" value="1.0" />
+      <entry key="M30" value="1.0" />
+      <entry key="H1" value="1.0" />
+      <entry key="H2" value="1.0000000002866745" />
+      <entry key="H4" value="1.0000415675260454" />
+      <entry key="D1" value="1.8956272132883933" />
+      <entry key="W1" value="6.201942743467773" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9330329936629596" />
-      <entry key="MS500" value="1.0154785679920195" />
-      <entry key="S2" value="1.9039896134940844" />
-      <entry key="S5" value="2.852468152851206" />
-      <entry key="S10" value="3.356415322594088" />
-      <entry key="S30" value="3.7677236815652826" />
-      <entry key="S60" value="3.8814870892357223" />
-      <entry key="M2" value="3.9401374499634603" />
-      <entry key="M5" value="3.9759078989044063" />
-      <entry key="M10" value="3.9879292997920848" />
-      <entry key="M15" value="3.991947378694751" />
-      <entry key="M30" value="3.9959709428935053" />
-      <entry key="H1" value="3.9979847843571394" />
-      <entry key="H2" value="3.998992220960318" />
-      <entry key="H4" value="3.999603917408102" />
-      <entry key="D1" value="7.711501055530987" />
-      <entry key="W1" value="28.085389789098205" />
+      <entry key="MS100" value="1.9772518773423214E-7" />
+      <entry key="MS500" value="0.04562600033295379" />
+      <entry key="S2" value="0.46217143488367307" />
+      <entry key="S5" value="0.7343806748520204" />
+      <entry key="S10" value="0.8569601360927008" />
+      <entry key="S30" value="0.9498467543746506" />
+      <entry key="S60" value="0.9747846564978058" />
+      <entry key="M2" value="1.0175356645618325" />
+      <entry key="M5" value="1.6435781417792714" />
+      <entry key="M10" value="2.7984133084785134" />
+      <entry key="M15" value="3.5295040546409577" />
+      <entry key="M30" value="4.556681686871468" />
+      <entry key="H1" value="5.217117092208148" />
+      <entry key="H2" value="5.591923296112072" />
+      <entry key="H4" value="5.7917274060517645" />
+      <entry key="D1" value="9.650073541395972" />
+      <entry key="W1" value="30.056008286452073" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -123,41 +128,41 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RequestMappingsPanelOrder0": "0",
-    "RequestMappingsPanelOrder1": "1",
-    "RequestMappingsPanelWidth0": "75",
-    "RequestMappingsPanelWidth1": "75",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "Spring Boot.TradeNovaApplication.executor": "Run",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
-    "git.auto.fetch.suggestion.counter": "2",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/pds02/IdeaProjects/TradeNova",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "onboarding.tips.debug.path": "C:/Users/pds02/IdeaProjects/TradeNova/src/main/java/org/example/Main.java",
-    "project.structure.last.edited": "Modules",
-    "project.structure.proportion": "0.15",
-    "project.structure.side.proportion": "0.2",
-    "settings.editor.selected.configurable": "org.jetbrains.plugins.github.ui.GithubSettingsConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;Spring Boot.TradeNovaApplication.executor&quot;: &quot;Run&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git.auto.fetch.suggestion.counter&quot;: &quot;2&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/pds02/IdeaProjects/TradeNova&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;onboarding.tips.debug.path&quot;: &quot;C:/Users/pds02/IdeaProjects/TradeNova/src/main/java/org/example/Main.java&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
-  "keyToStringList": {
-    "DatabaseDriversLRU": [
-      "mysql"
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;mysql&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="TradeNovaApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <module name="TradeNova" />
@@ -272,14 +277,6 @@
       <workItem from="1782309066231" duration="199000" />
       <workItem from="1782309334096" duration="36000" />
       <workItem from="1782309406355" duration="66000" />
-    </task>
-    <task id="LOCAL-00033" summary="RiskRule coding">
-      <option name="closed" value="true" />
-      <created>1768426561293</created>
-      <option name="number" value="00033" />
-      <option name="presentableId" value="LOCAL-00033" />
-      <option name="project" value="LOCAL" />
-      <updated>1768426561293</updated>
     </task>
     <task id="LOCAL-00034" summary="RiskRule coding">
       <option name="closed" value="true" />
@@ -665,7 +662,15 @@
       <option name="project" value="LOCAL" />
       <updated>1780368120692</updated>
     </task>
-    <option name="localTasksCounter" value="82" />
+    <task id="LOCAL-00082" summary="07111">
+      <option name="closed" value="true" />
+      <created>1783739668449</created>
+      <option name="number" value="00082" />
+      <option name="presentableId" value="LOCAL-00082" />
+      <option name="project" value="LOCAL" />
+      <updated>1783739668450</updated>
+    </task>
+    <option name="localTasksCounter" value="83" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -683,7 +688,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="RiskRule PUT" />
     <MESSAGE value="미흡한 부분과 하드 코딩 제거" />
     <MESSAGE value="Repository create" />
     <MESSAGE value="자동 매도 구현 중" />
@@ -721,6 +725,7 @@
     <MESSAGE value="차트 buy/sell 마커 코딩 2" />
     <MESSAGE value="마커부분 리팩토링(candleTime)" />
     <MESSAGE value="sector 포함" />
-    <option name="LAST_COMMIT_MESSAGE" value="sector 포함" />
+    <MESSAGE value="07111" />
+    <option name="LAST_COMMIT_MESSAGE" value="07111" />
   </component>
 </project>
