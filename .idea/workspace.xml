@@ -4,15 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="07111">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/dto/SessionSummaryResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/ReportDocumentRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/TrainingEventRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/report/repository/TrainingEventRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/controller/TrainingSessionController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/repository/TrainingTradeRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/tradenova/training/service/TrainingSessionService.java" afterDir="false" />
-    </list>
+    <list default="true" id="b1b412b8-ccb6-45e3-85ee-684b52260b88" name="Changes" comment="세션 요약 기능 구현 완료" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -60,61 +52,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="0.0" />
-      <entry key="MS500" value="0.0" />
-      <entry key="S2" value="5.740970304884091E-133" />
-      <entry key="S5" value="3.179256352450532E-53" />
-      <entry key="S10" value="1.2505715508413785E-26" />
-      <entry key="S30" value="6.77489250414051E-9" />
-      <entry key="S60" value="1.8400914327136673E-4" />
-      <entry key="M2" value="0.030330570061810686" />
-      <entry key="M5" value="0.6488263064162031" />
-      <entry key="M10" value="1.8011432890083148" />
-      <entry key="M15" value="2.5313680660711415" />
-      <entry key="M30" value="3.557644459103617" />
-      <entry key="H1" value="4.217608339540929" />
-      <entry key="H2" value="4.592171714047057" />
-      <entry key="H4" value="4.791810796293189" />
-      <entry key="D1" value="7.754490922076563" />
-      <entry key="W1" value="23.854090182108784" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0000008678806536" />
+      <entry key="S2" value="1.0305221415300696" />
+      <entry key="S5" value="1.247654372837347" />
+      <entry key="S10" value="1.497648844907076" />
+      <entry key="S30" value="1.7924544955085255" />
+      <entry key="S60" value="1.8901991325027323" />
+      <entry key="M2" value="1.94350415545067" />
+      <entry key="M5" value="1.9849821225801603" />
+      <entry key="M10" value="2.18813153181717" />
+      <entry key="M15" value="2.5764848542129477" />
+      <entry key="M30" value="3.70523639201552" />
+      <entry key="H1" value="4.921336951168325" />
+      <entry key="H2" value="5.822167029519423" />
+      <entry key="H4" value="6.371719973472335" />
+      <entry key="D1" value="9.636871786111445" />
+      <entry key="W1" value="25.802087442809636" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0" />
-      <entry key="S5" value="1.0" />
-      <entry key="S10" value="1.0" />
-      <entry key="S30" value="1.0" />
-      <entry key="S60" value="1.0" />
-      <entry key="M2" value="1.0" />
-      <entry key="M5" value="1.0" />
-      <entry key="M10" value="1.0" />
-      <entry key="M15" value="1.0" />
-      <entry key="M30" value="1.0" />
-      <entry key="H1" value="1.0" />
-      <entry key="H2" value="1.0000000002866745" />
-      <entry key="H4" value="1.0000415675260454" />
-      <entry key="D1" value="1.8956272132883933" />
-      <entry key="W1" value="6.201942743467773" />
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="2.7911569143415184E-287" />
+      <entry key="S5" value="2.3895366776049216E-115" />
+      <entry key="S10" value="4.888288736976287E-58" />
+      <entry key="S30" value="7.877449302519129E-20" />
+      <entry key="S60" value="2.8066794085750386E-10" />
+      <entry key="M2" value="1.6753147192617392E-5" />
+      <entry key="M5" value="0.012292453148205497" />
+      <entry key="M10" value="0.11087133600803004" />
+      <entry key="M15" value="0.23078780353825604" />
+      <entry key="M30" value="0.4804037921772226" />
+      <entry key="H1" value="0.693111673669707" />
+      <entry key="H2" value="0.8325332870625064" />
+      <entry key="H4" value="0.9124705479962124" />
+      <entry key="D1" value="1.8668943239415676" />
+      <entry key="W1" value="6.1884252943749445" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.9772518773423214E-7" />
-      <entry key="MS500" value="0.04562600033295379" />
-      <entry key="S2" value="0.46217143488367307" />
-      <entry key="S5" value="0.7343806748520204" />
-      <entry key="S10" value="0.8569601360927008" />
-      <entry key="S30" value="0.9498467543746506" />
-      <entry key="S60" value="0.9747846564978058" />
-      <entry key="M2" value="1.0175356645618325" />
-      <entry key="M5" value="1.6435781417792714" />
-      <entry key="M10" value="2.7984133084785134" />
-      <entry key="M15" value="3.5295040546409577" />
-      <entry key="M30" value="4.556681686871468" />
-      <entry key="H1" value="5.217117092208148" />
-      <entry key="H2" value="5.591923296112072" />
-      <entry key="H4" value="5.7917274060517645" />
-      <entry key="D1" value="9.650073541395972" />
-      <entry key="W1" value="30.056008286452073" />
+      <entry key="MS100" value="0.7631296044802796" />
+      <entry key="MS500" value="0.9473709135782516" />
+      <entry key="S2" value="1.0168753723581954" />
+      <entry key="S5" value="1.2415424864398565" />
+      <entry key="S10" value="1.4942253662338771" />
+      <entry key="S30" value="1.7911694019806976" />
+      <entry key="S60" value="1.8895327511272115" />
+      <entry key="M2" value="1.9431810060160082" />
+      <entry key="M5" value="1.997072554337804" />
+      <entry key="M10" value="2.2986311583597807" />
+      <entry key="M15" value="2.8067963823402473" />
+      <entry key="M30" value="4.185154591292271" />
+      <entry key="H1" value="5.614096590990829" />
+      <entry key="H2" value="6.654487725884494" />
+      <entry key="H4" value="7.284073618304112" />
+      <entry key="D1" value="11.50372171067669" />
+      <entry key="W1" value="31.990488082997995" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -277,14 +269,6 @@
       <workItem from="1782309066231" duration="199000" />
       <workItem from="1782309334096" duration="36000" />
       <workItem from="1782309406355" duration="66000" />
-    </task>
-    <task id="LOCAL-00034" summary="RiskRule coding">
-      <option name="closed" value="true" />
-      <created>1768462895344</created>
-      <option name="number" value="00034" />
-      <option name="presentableId" value="LOCAL-00034" />
-      <option name="project" value="LOCAL" />
-      <updated>1768462895344</updated>
     </task>
     <task id="LOCAL-00035" summary="RiskRule PUT">
       <option name="closed" value="true" />
@@ -670,7 +654,15 @@
       <option name="project" value="LOCAL" />
       <updated>1783739668450</updated>
     </task>
-    <option name="localTasksCounter" value="83" />
+    <task id="LOCAL-00083" summary="세션 요약 기능 구현 완료">
+      <option name="closed" value="true" />
+      <created>1783742448962</created>
+      <option name="number" value="00083" />
+      <option name="presentableId" value="LOCAL-00083" />
+      <option name="project" value="LOCAL" />
+      <updated>1783742448962</updated>
+    </task>
+    <option name="localTasksCounter" value="84" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -688,7 +680,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="미흡한 부분과 하드 코딩 제거" />
     <MESSAGE value="Repository create" />
     <MESSAGE value="자동 매도 구현 중" />
     <MESSAGE value="TrainingTradeService commit" />
@@ -726,6 +717,7 @@
     <MESSAGE value="마커부분 리팩토링(candleTime)" />
     <MESSAGE value="sector 포함" />
     <MESSAGE value="07111" />
-    <option name="LAST_COMMIT_MESSAGE" value="07111" />
+    <MESSAGE value="세션 요약 기능 구현 완료" />
+    <option name="LAST_COMMIT_MESSAGE" value="세션 요약 기능 구현 완료" />
   </component>
 </project>
