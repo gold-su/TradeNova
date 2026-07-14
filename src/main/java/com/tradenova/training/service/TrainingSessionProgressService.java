@@ -101,31 +101,14 @@ public class TrainingSessionProgressService {
         // (candle 조회/autoExit/거래 로직이 같은 트랜잭션에서 일관되게 동작)
         chartRepo.flush();
 
-        // 6) chart가 마지막 봉까지 가면(옵션) 세션까지 종료할지?
-        /*
-         * 마지막 봉에 도달하면 차트만 완료한다.
-         *
-         * 중요:
-         * 세션은 여기서 자동 완료하지 않는다.
-         *
-         * 이유:
-         * - 사용자가 마지막 봉 이후 매매 기록을 복기해야 함
-         * - 차트/세션 AI 리뷰를 생성해야 함
-         * - 스냅샷과 메모를 작성할 수 있어야 함
-         * - 사용자가 직접 '훈련 종료'를 눌렀을 때 세션을 완료해야 함
-         */
-        if (nextIdx >= maxIdx) {
-            chart.complete();
-        }
-
-        // 7) 자동청산 체크 (반환: autoExited 여부 + reason + currentPrice)
+        // 6) 자동청산 체크 (반환: autoExited 여부 + reason + currentPrice)
         //    - stop loss / take profit 조건 충족 여부 판단
         //    - 지금 단계에서는 "실제 매도"가 아니라
         //    - autoExited 여부와 사유만 계산
         TrainingAutoExitService.AutoExitResult r =
                 autoExitService.checkAndAutoExit(chart.getId(), chart);
 
-        // 8) 현재가 (progressIndex 기준 close 가격)
+        // 7) 현재가 (progressIndex 기준 close 가격)
         BigDecimal currentPrice = r.currentPrice();
 
         // progress 이벤트 로그 payload
@@ -136,7 +119,7 @@ public class TrainingSessionProgressService {
         // 가격 추가
         progressPayload .putPOJO("currentPrice", currentPrice);
 
-        // 9) 스냅샷 구성
+        // 8) 스냅샷 구성
         Long accountId = chart.getSession().getAccount().getId();
         Long symbolId = chart.getSymbol().getId();
 
@@ -149,7 +132,7 @@ public class TrainingSessionProgressService {
         BigDecimal cashBalance = chart.getSession().getAccount().getCashBalance();
 
 
-        // 10) 자동청산
+        // 9) 자동청산
         //     - 룰은 발동했는데 포지션이 0이면, 팔 게 없으니 자동청산 실행은 스킵(UX 깔끔)
         boolean executedAutoExit = false;
         var autoExitReason = r.reason();
@@ -187,6 +170,23 @@ public class TrainingSessionProgressService {
         progressPayload.putPOJO("autoExited", executedAutoExit);
         progressPayload.putPOJO("autoExitReason", autoExitReason == null ? null : autoExitReason.name());
         progressPayload.putPOJO("currentPrice", currentPrice); // 혹시 autoExit 후 체결가로 바뀌었다면 최종값 반영
+
+        // 10) chart가 마지막 봉까지 가면(옵션) 세션까지 종료할지?
+        /*
+         * 마지막 봉에 도달하면 차트만 완료한다.
+         *
+         * 중요:
+         * 세션은 여기서 자동 완료하지 않는다.
+         *
+         * 이유:
+         * - 사용자가 마지막 봉 이후 매매 기록을 복기해야 함
+         * - 차트/세션 AI 리뷰를 생성해야 함
+         * - 스냅샷과 메모를 작성할 수 있어야 함
+         * - 사용자가 직접 '훈련 종료'를 눌렀을 때 세션을 완료해야 함
+         */
+        if (nextIdx >= maxIdx) {
+            chart.complete();
+        }
 
         // 1) 먼저 progress 저장
         eventService.append(
