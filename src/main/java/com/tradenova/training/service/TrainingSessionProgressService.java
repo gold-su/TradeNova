@@ -86,11 +86,32 @@ public class TrainingSessionProgressService {
         //    예: bars = 100 -> maxIdx = 99
         int maxIdx = Math.max(0, chart.getBars() - 1);
         //    - 아직 한 번도 진행 안 했으면 null -> 0으로 처리
-        int cur = (chart.getProgressIndex() == null) ? 0 : chart.getProgressIndex();
+        int rawProgressIndex =
+                chart.getProgressIndex() == null
+                        ? 0
+                        : chart.getProgressIndex();
+
+        /*
+         * DB 데이터가 잘못되어도 진행 인덱스가
+         * 0 미만 또는 maxIdx 초과가 되지 않게 보정한다.
+         */
+        int cur = Math.min(Math.max(rawProgressIndex, 0), maxIdx);
         //    다음 progressIndex 계산
         //    - cur + steps 만큼 앞으로 가되
         //    - 마지막 캔들(maxIdx)을 넘지 않도록 보정
         int nextIdx = Math.min(cur + steps, maxIdx);
+
+        /*
+         * 실제로 진행된 봉 수
+         *
+         * 예:
+         * 현재 idx = 97
+         * 마지막 idx = 99
+         * 요청 steps = 10
+         *
+         * 실제 진행은 2봉이므로 advancedSteps = 2
+         */
+        int advancedSteps = nextIdx - cur;
 
         // 5) 진행 반영
         chart.setProgressIndex(nextIdx);
@@ -113,7 +134,10 @@ public class TrainingSessionProgressService {
 
         // progress 이벤트 로그 payload
         ObjectNode progressPayload  = objectMapper.createObjectNode();
-        progressPayload .putPOJO("steps", steps);
+        progressPayload.putPOJO("requestedSteps", steps);
+        progressPayload.putPOJO("advancedSteps", advancedSteps);
+        progressPayload.putPOJO("fromIndex", cur);
+        progressPayload.putPOJO("toIndex", nextIdx);
         progressPayload .putPOJO("progressIndex", chart.getProgressIndex());
         progressPayload .putPOJO("bars", chart.getBars());
         // 가격 추가
@@ -126,10 +150,20 @@ public class TrainingSessionProgressService {
         PaperPosition pos = positionRepo.findByAccountIdAndSymbolId(accountId, symbolId)
                 .orElse(null);
 
-        BigDecimal positionQty = (pos == null) ? BigDecimal.ZERO : pos.getQuantity();
-        BigDecimal avgPrice = (pos == null) ? BigDecimal.ZERO : pos.getAvgPrice();
-        // 현금 (PaperAccount에 맞는 getter로 바꾸기)
-        BigDecimal cashBalance = chart.getSession().getAccount().getCashBalance();
+        BigDecimal positionQty =
+                pos == null || pos.getQuantity() == null
+                        ? BigDecimal.ZERO
+                        : pos.getQuantity();
+
+        BigDecimal avgPrice =
+                pos == null || pos.getAvgPrice() == null
+                        ? BigDecimal.ZERO
+                        : pos.getAvgPrice();
+
+        BigDecimal cashBalance =
+                chart.getSession().getAccount().getCashBalance() == null
+                        ? BigDecimal.ZERO
+                        : chart.getSession().getAccount().getCashBalance();
 
 
         // 9) 자동청산
@@ -145,30 +179,60 @@ public class TrainingSessionProgressService {
             TradeResponse sellAllResult = tradeService.sellAll(userId, chart.getId());
 
             // sellAll 결과로 스냅샷 갱신
-            cashBalance = sellAllResult.cashBalance();
-            positionQty = sellAllResult.positionQty();
-            avgPrice = sellAllResult.avgPrice();
+            cashBalance =
+                    sellAllResult.cashBalance() == null
+                            ? BigDecimal.ZERO
+                            : sellAllResult.cashBalance();
+
+            positionQty =
+                    sellAllResult.positionQty() == null
+                            ? BigDecimal.ZERO
+                            : sellAllResult.positionQty();
+
+            avgPrice =
+                    sellAllResult.avgPrice() == null
+                            ? BigDecimal.ZERO
+                            : sellAllResult.avgPrice();
 
             // 체결가도 sellAllResult.executedPrice()를 써도 되지만,
             // 여기선 progress에서 계산한 currentPrice와 동일하게 맞춰도 OK
-            currentPrice = sellAllResult.executedPrice();
+            currentPrice =
+                    sellAllResult.executedPrice() == null
+                            ? currentPrice
+                            : sellAllResult.executedPrice();
 
             executedAutoExit = true;
 
-            // warning payload만 준비
-            autoExitPayload = objectMapper.createObjectNode();
-            autoExitPayload.putPOJO("reason", autoExitReason.name());
-            autoExitPayload.putPOJO("executedPrice", currentPrice);
-            autoExitPayload.putPOJO("chartId", chart.getId());
+            String reasonName =
+                    autoExitReason == null
+                            ? "UNKNOWN"
+                            : autoExitReason.name();
 
-            autoExitSummary = "자동청산 발생: " + autoExitReason.name();
+            /*
+             * 자동청산 WARNING 이벤트에 저장할 payload 생성
+             *
+             * autoExitPayload는 처음에 null이므로
+             * 실제 자동청산이 실행되는 시점에 ObjectNode를 생성해야 한다.
+             */
+            autoExitPayload = objectMapper.createObjectNode();
+
+            autoExitPayload.put("reason", reasonName);
+            autoExitPayload.putPOJO("executedPrice", currentPrice);
+            autoExitPayload.put("chartId", chart.getId());
+
+            autoExitSummary = "자동청산 발생: " + reasonName;
 
 
         }
 
         // 자동청산 결과를 progress payload에 반영
         progressPayload.put("autoExited", executedAutoExit);
-        progressPayload.putPOJO("autoExitReason", autoExitReason == null ? null : autoExitReason.name());
+        progressPayload.putPOJO(
+                "autoExitReason",
+                executedAutoExit && autoExitReason != null
+                        ? autoExitReason.name()
+                        : null
+        );
         progressPayload.putPOJO("currentPrice", currentPrice); // 혹시 autoExit 후 체결가로 바뀌었다면 최종값 반영
 
         // 10) chart가 마지막 봉까지 가면(옵션) 세션까지 종료할지?
@@ -193,7 +257,7 @@ public class TrainingSessionProgressService {
                 userId,
                 chart.getId(),
                 Type.PROGRESS,
-                steps + "봉 진행",
+                advancedSteps + "봉 진행",
                 progressPayload
         );
 
@@ -235,7 +299,7 @@ public class TrainingSessionProgressService {
                 positionQty,
                 avgPrice,
                 executedAutoExit,
-                autoExitReason
+                executedAutoExit ? autoExitReason : null
         );
     }
 
