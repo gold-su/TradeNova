@@ -9,10 +9,16 @@ import java.util.Optional;
 
 public interface TrainingSessionCandleRepository extends JpaRepository<TrainingSessionCandle, Long> {
 
-    /** 세션 전체 캔들 (차트 초기 로딩용) */
+    /**
+     * 특정 차트의 전체 캔들을 idx 오름차순으로 조회
+     */
     List<TrainingSessionCandle> findAllByChartIdOrderByIdxAsc(Long ChartId);
 
-    /** progressIndex 기준 현재 봉 (currentPrice 계산) */
+    /**
+     * 특정 차트의 현재 progressIndex에 해당하는 캔들 조회
+     *
+     * 새로고침 후 currentPrice 복구에 사용한다.
+     */
     Optional<TrainingSessionCandle> findByChartIdAndIdx(Long ChartId, Integer idx);
 
     /** visibleOnly 옵션 (치팅 방지 강화용) */

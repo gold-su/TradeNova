@@ -87,6 +87,26 @@ public class TrainingChartProgressController {
         return ResponseEntity.ok(progressService.advance(userId, chartId, req.steps()));
     }
 
+    /**
+     * 현재 차트 진행 상태 조회
+     *
+     * GET /api/training/charts/{chartId}/progress
+     *
+     * 페이지를 새로고침하거나 진행 중 세션을 복구할 때
+     * 현재가, 현금, 보유 수량, 평균 단가를 다시 가져온다.
+     */
+    @GetMapping("/progress")
+    public ResponseEntity<SessionProgressResponse> getProgress(
+            Authentication authentication,
+            @PathVariable Long chartId
+    ) {
+        Long userId = extractUserId(authentication);
+
+        return ResponseEntity.ok(
+                progressService.getProgress(userId, chartId)
+        );
+    }
+
     private Long extractUserId(Authentication authentication) {
         Object p = authentication.getPrincipal();
         return (p instanceof Long) ? (Long) p : Long.valueOf(p.toString());

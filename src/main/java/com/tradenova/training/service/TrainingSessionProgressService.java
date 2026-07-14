@@ -4,16 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.entity.PaperPosition;
 import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.training.dto.SessionProgressResponse;
 import com.tradenova.training.dto.TradeResponse;
-import com.tradenova.training.entity.TrainingChartStatus;
-import com.tradenova.training.entity.TrainingSession;
-import com.tradenova.training.entity.TrainingSessionChart;
-import com.tradenova.training.entity.TrainingStatus;
+import com.tradenova.training.entity.*;
+import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,6 +37,8 @@ public class TrainingSessionProgressService {
 
     private final TrainingEventService eventService;
     private final ObjectMapper objectMapper; // payload 만들 때 편함
+
+    private final TrainingSessionCandleRepository candleRepo;
 
     /**
      * 한 봉(candle)만 진행시키는 API
@@ -207,17 +208,135 @@ public class TrainingSessionProgressService {
             );
         }
 
+
+        int finalMaxIndex =
+                Math.max(0, chart.getBars() - 1);
+
+        int remainingBars =
+                Math.max(
+                        0,
+                        finalMaxIndex - chart.getProgressIndex()
+                );
+
+        boolean atLastBar =
+                chart.getProgressIndex() >= finalMaxIndex;
+
         // 11) 프론트로 내려줄 진행 결과 응답 DTO 생성
         return new SessionProgressResponse(
-                chart.getId(),              // chartId
-                chart.getProgressIndex(),   // 현재 진행 인덱스
-                currentPrice,           // 현재가
-                chart.getSession().getStatus().name(),   // 세션 상태(IN_PROGRESS / COMPLETED)
+                chart.getId(),
+                chart.getProgressIndex(),
+                finalMaxIndex,
+                remainingBars,
+                atLastBar,
+                currentPrice,
+                chart.getStatus().name(),
+                chart.getSession().getStatus().name(),
                 cashBalance,
                 positionQty,
                 avgPrice,
-                executedAutoExit,         // 이번 진행에서 자동청산 발생 여부
-                autoExitReason            // 자동청산 사유(STOP_LOSS / TAKE_PROFIT / null)
+                executedAutoExit,
+                autoExitReason
+        );
+    }
+
+    /**
+     * 현재 차트 진행 상태 조회
+     *
+     * 사용처:
+     * - 훈련 페이지 새로고침
+     * - 진행 중 세션 복구
+     * - 차트 변경 시 계좌/포지션 최신화
+     */
+    @Transactional(readOnly = true)
+    public SessionProgressResponse getProgress(
+            Long userId,
+            Long chartId
+    ) {
+        // 1. 차트 조회 및 소유권 검증
+        TrainingSessionChart chart =
+                chartRepo.findByIdAndSession_User_Id(chartId, userId)
+                        .orElseThrow(()->
+                                new CustomException(
+                                        ErrorCode.TRAINING_CHART_NOT_FOUND
+                                )
+                        );
+        // 2. 현재 진행 위치 계산
+        int progressIndex =
+                chart.getProgressIndex() == null
+                        ? 0
+                        : chart.getProgressIndex();
+
+        int maxIndex = Math.max(0, chart.getBars() - 1);
+
+        // 방어적으로 범위를 보정
+        int safeProgressIndex =
+                Math.min(Math.max(progressIndex, 0), maxIndex);
+
+        int remainingBars =
+                Math.max(0, maxIndex - safeProgressIndex);
+
+        boolean atLastBar =
+                safeProgressIndex >= maxIndex;
+
+        // 3. 현재 공개된 마지막 캔들의 종가 조회
+        TrainingSessionCandle currentCandle =
+                candleRepo.findByChartIdAndIdx(
+                        chart.getId(),
+                        safeProgressIndex
+                )
+                        .orElseThrow(()->
+                                new CustomException(
+                                        ErrorCode.CANDLES_EMPTY
+                                )
+                        );
+
+        BigDecimal currentPrice =
+                BigDecimal.valueOf(currentCandle.getC());
+
+        // 4. 계좌 상태 조회
+        PaperAccount account =
+                chart.getSession().getAccount();
+
+        BigDecimal cashBalance =
+                account.getCashBalance() == null
+                        ? BigDecimal.ZERO
+                        : account.getCashBalance();
+
+        // 5. 현재 차트 종목의 포지션 조회
+        PaperPosition position =
+                positionRepo
+                        .findByAccountIdAndSymbolId(
+                                account.getId(),
+                                chart.getSymbol().getId()
+                        )
+                        .orElse(null);
+
+        BigDecimal positionQty =
+                position == null || position.getQuantity() == null
+                        ? BigDecimal.ZERO
+                        : position.getQuantity();
+
+        BigDecimal avgPrice =
+                position == null || position.getAvgPrice() == null
+                ? BigDecimal.ZERO
+                : position.getAvgPrice();
+
+        // 6. 현재 상태 반환
+        // 조회 API이므로 autoExited=false, reason=null
+        return new SessionProgressResponse(
+                chart.getId(),
+                safeProgressIndex,
+                maxIndex,
+                remainingBars,
+                atLastBar,
+                currentPrice,
+                chart.getStatus().name(),
+                chart.getSession().getStatus().name(),
+                cashBalance,
+                positionQty,
+                avgPrice,
+                false,
+                null
         );
     }
 }
