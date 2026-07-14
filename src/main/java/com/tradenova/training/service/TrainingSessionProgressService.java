@@ -101,11 +101,20 @@ public class TrainingSessionProgressService {
         chartRepo.flush();
 
         // 6) chart가 마지막 봉까지 가면(옵션) 세션까지 종료할지?
-        //    MVP에서는 "세션 종료는 세션 정책으로 따로" 가도 되는데,
-        //    지금은 단순하게 chart가 끝까지 가면 세션도 끝내는 걸로 처리해도 됨.
+        /*
+         * 마지막 봉에 도달하면 차트만 완료한다.
+         *
+         * 중요:
+         * 세션은 여기서 자동 완료하지 않는다.
+         *
+         * 이유:
+         * - 사용자가 마지막 봉 이후 매매 기록을 복기해야 함
+         * - 차트/세션 AI 리뷰를 생성해야 함
+         * - 스냅샷과 메모를 작성할 수 있어야 함
+         * - 사용자가 직접 '훈련 종료'를 눌렀을 때 세션을 완료해야 함
+         */
         if (nextIdx >= maxIdx) {
             chart.complete();
-            completeSessionIfAllChartsCompleted(chart.getSession().getId());
         }
 
         // 7) 자동청산 체크 (반환: autoExited 여부 + reason + currentPrice)
@@ -210,17 +219,5 @@ public class TrainingSessionProgressService {
                 executedAutoExit,         // 이번 진행에서 자동청산 발생 여부
                 autoExitReason            // 자동청산 사유(STOP_LOSS / TAKE_PROFIT / null)
         );
-    }
-
-    private void completeSessionIfAllChartsCompleted(Long sessionId) {
-        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdOrderByChartIndexAsc(sessionId);
-
-        boolean allCompleted = charts.stream()
-                .allMatch(c -> c.getStatus() == TrainingChartStatus.COMPLETED);
-
-        if (allCompleted) {
-            TrainingSession session = charts.get(0).getSession();
-            session.setStatus(TrainingStatus.COMPLETED);
-        }
     }
 }
