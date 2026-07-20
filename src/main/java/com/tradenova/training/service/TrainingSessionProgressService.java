@@ -167,7 +167,7 @@ public class TrainingSessionProgressService {
         }
 
         // 자동청산 결과를 progress payload에 반영
-        progressPayload.putPOJO("autoExited", executedAutoExit);
+        progressPayload.put("autoExited", executedAutoExit);
         progressPayload.putPOJO("autoExitReason", autoExitReason == null ? null : autoExitReason.name());
         progressPayload.putPOJO("currentPrice", currentPrice); // 혹시 autoExit 후 체결가로 바뀌었다면 최종값 반영
 
@@ -246,20 +246,24 @@ public class TrainingSessionProgressService {
      * - 훈련 페이지 새로고침
      * - 진행 중 세션 복구
      * - 차트 변경 시 계좌/포지션 최신화
+     *
+     * 이 메서드는 DB 상태를 변경하지 않는다.
      */
     @Transactional(readOnly = true)
     public SessionProgressResponse getProgress(
             Long userId,
             Long chartId
     ) {
+
         // 1. 차트 조회 및 소유권 검증
         TrainingSessionChart chart =
                 chartRepo.findByIdAndSession_User_Id(chartId, userId)
-                        .orElseThrow(()->
+                        .orElseThrow(() ->
                                 new CustomException(
                                         ErrorCode.TRAINING_CHART_NOT_FOUND
                                 )
                         );
+
         // 2. 현재 진행 위치 계산
         int progressIndex =
                 chart.getProgressIndex() == null
@@ -280,11 +284,12 @@ public class TrainingSessionProgressService {
 
         // 3. 현재 공개된 마지막 캔들의 종가 조회
         TrainingSessionCandle currentCandle =
-                candleRepo.findByChartIdAndIdx(
-                        chart.getId(),
-                        safeProgressIndex
-                )
-                        .orElseThrow(()->
+                candleRepo
+                        .findByChartIdAndIdx(
+                                chart.getId(),
+                                safeProgressIndex
+                        )
+                        .orElseThrow(() ->
                                 new CustomException(
                                         ErrorCode.CANDLES_EMPTY
                                 )
@@ -318,8 +323,8 @@ public class TrainingSessionProgressService {
 
         BigDecimal avgPrice =
                 position == null || position.getAvgPrice() == null
-                ? BigDecimal.ZERO
-                : position.getAvgPrice();
+                        ? BigDecimal.ZERO
+                        : position.getAvgPrice();
 
         // 6. 현재 상태 반환
         // 조회 API이므로 autoExited=false, reason=null
