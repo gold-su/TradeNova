@@ -1,13 +1,14 @@
 spring:
   datasource:
-    username: tradenova_app
-    password: novaLo048679@!#
+    url: ${DB_URL:jdbc:mysql://localhost:3306/tradenova}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
 tradenova:
   jwt:
-    secret: ThisIsASecretKeyForTradeNovaJwtToken1234
+    secret: ${JWT_SECRET}
     access-token-validity-in-seconds: 3600000
 
 kis:
-  appkey: PSnBVk1TkpF1adgiBltS39y3R3tYojFjIapj
-  appsecret: jsN5KmvKN8LZy/C1evlkOOSnG3w07+feQywkL4mlCOXttI0SSsidVJQaXTA6AmxXBJwsfzWxXu81HkHIPFvQFqcDG4wimOi8V58HGOTo7rDOs/Q8xzwMWF7z2GXGzuBy5NXJZddGnrDuxw7CN75RLymUw2fGu649C22p4Cao/cbWKh01q+c=
+  app-key: ${KIS_APP_KEY}
+  app-secret: ${KIS_APP_SECRET}
