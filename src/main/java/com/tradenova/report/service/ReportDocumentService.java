@@ -1,11 +1,16 @@
 package com.tradenova.report.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.report.dto.ReportDocumentResponse;
 import com.tradenova.report.dto.ReportDraftUpsertRequest;
 import com.tradenova.report.entity.ReportDocument;
 import com.tradenova.report.entity.ReportKind;
+import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.repository.ReportDocumentRepository;
+import com.tradenova.report.repository.TrainingEventRepository;
+import com.tradenova.training.repository.TrainingSessionChartRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,12 +29,18 @@ public class ReportDocumentService {
 
     private static final int SCHEMA_V1 = 1;
 
+    private final TrainingSessionChartRepository chartRepository;
+    private final TrainingEventRepository eventRepository;
+
     /**
      * Draft 조회
      * - 없으면 null 반환(프론트에서 "초안 없음" 처리)
      */
     @Transactional(readOnly = true)
     public ReportDocumentResponse getDraft(Long userId, Long chartId) {
+
+        validateOwnedChart(userId, chartId);
+
         // userId + chartId + kind = DRAFT 조건으로 Draft 문서 1개 조회
         return repo.findByUserIdAndChartIdAndKind(userId, chartId, ReportKind.DRAFT)
                 .map(this::toRes) // 엔티티 -> DTO 변환
@@ -44,6 +55,8 @@ public class ReportDocumentService {
      */
     @Transactional
     public ReportDocumentResponse upsertDraft(Long userId, Long chartId, ReportDraftUpsertRequest req) {
+
+        validateOwnedChart(userId, chartId);
 
         // userId, chartId, kind = DRAFT 들로 기존 Draft 조회
         ReportDocument doc = repo.findTopByUserIdAndChartIdAndKind(userId, chartId, ReportKind.DRAFT)
@@ -76,6 +89,21 @@ public class ReportDocumentService {
      */
     @Transactional
     public ReportDocumentResponse createSnapshot(Long userId, Long chartId,Long linkedEventId, JsonNode payloadJson) {
+
+        validateOwnedChart(userId, chartId);
+
+        if (linkedEventId != null) {
+
+            TrainingEvent event = eventRepository
+                    .findByIdAndUserId(linkedEventId, userId)
+                    .orElseThrow(() ->
+                            new CustomException(ErrorCode.TRAINING_EVENT_NOT_FOUND));
+
+            if (!event.getChartId().equals(chartId)) {
+                throw new CustomException(ErrorCode.TRAINING_EVENT_NOT_FOUND);
+            }
+        }
+
         // Version 가져오기 + 1
         int nextVersion = repo.findMaxVersionByUserIdAndChartIdAndKind(userId, chartId, ReportKind.SNAPSHOT)
                 .map(v -> v + 1)
@@ -103,11 +131,20 @@ public class ReportDocumentService {
      */
     @Transactional(readOnly = true)
     public List<ReportDocumentResponse> listSnapshots(Long userId, Long chartId) {
+
+        validateOwnedChart(userId, chartId);
+
         // 스냅샷 목록 가져오기 후 반환
         return repo.findAllByUserIdAndChartIdAndKindOrderByCreatedAtDesc(userId, chartId, ReportKind.SNAPSHOT)
                 .stream()
                 .map(this::toRes)
                 .toList();
+    }
+
+    private void validateOwnedChart(Long userId, Long chartId) {
+        chartRepository.findByIdAndSession_User_Id(chartId, userId)
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
     }
 
     // 엔티티 -> DTO 변환 메서드

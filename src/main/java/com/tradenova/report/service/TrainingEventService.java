@@ -7,6 +7,7 @@ import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.repository.TrainingEventRepository;
+import com.tradenova.training.repository.TrainingSessionChartRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,8 @@ public class TrainingEventService {
 
     // TrainingEvent DB 접근용 repo
     private final TrainingEventRepository repo;
+
+    private final TrainingSessionChartRepository chartRepository;
 
     /**
      * 이벤트 1건 추가 (append)
@@ -36,6 +39,8 @@ public class TrainingEventService {
         if (type == null || title == null || chartId == null || title.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_TRAINING_EVENT);
         }
+
+        validateOwnedChart(userId, chartId);
         
         // training_event 테이블에 INSERT
         TrainingEvent saved = repo.save(
@@ -89,6 +94,13 @@ public class TrainingEventService {
         TrainingEvent e = repo.findByIdAndUserId(eventId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_EVENT_NOT_FOUND));
         return toRes(e);
+    }
+
+
+    private void validateOwnedChart(Long userId, Long chartId) {
+        chartRepository.findByIdAndSession_User_Id(chartId, userId)
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
     }
 
     /**
