@@ -19,6 +19,7 @@ import com.tradenova.training.repository.TrainingTradeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.tradenova.training.dto.AutoExitReason;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -308,6 +309,8 @@ public class TrainingTradeService {
                         .build()
         );
 
+
+
         // ===== 응답 스냅샷 구성 =====
         // 포지션이 0이 되면(삭제됨) 응답에서는 0,0으로 내려줘야 프론트가 깔끔하게 초기화 가능
         BigDecimal outQty = (remain.compareTo(BigDecimal.ZERO) == 0) ? BigDecimal.ZERO : remain;
@@ -350,6 +353,159 @@ public class TrainingTradeService {
                 price,
                 // candleTime: 거래가 발생한 캔들 시간
                 currentCandle.getT()
+        );
+    }
+
+
+    /**
+     * 자동청산 전용 전량매도
+     *
+     * 일반 sellAll과 다르게
+     * - 자동청산 판정에서 결정한 체결가를 그대로 사용
+     * - 자동청산이 발생한 candleTime을 그대로 저장
+     */
+    @Transactional
+    public TradeResponse sellAllAtPrice(
+            Long userId,
+            Long chartId,
+            BigDecimal executedPrice,
+            Long candleTime,
+            AutoExitReason reason
+    ) {
+
+        // 1. 차트 조회 + 소유권 검증
+        TrainingSessionChart chart =
+                chartRepo.findByIdAndSession_User_Id(chartId, userId)
+                        .orElseThrow(() ->
+                                new CustomException(
+                                        ErrorCode.TRAINING_CHART_NOT_FOUND
+                                )
+                        );
+
+        // 2. 세션 상태 검증
+        if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
+            throw new CustomException(
+                    ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS
+            );
+        }
+
+        // 3. 차트 상태 검증
+        if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
+            throw new CustomException(
+                    ErrorCode.TRAINING_CHART_ALREADY_COMPLETED
+            );
+        }
+
+        // 4. 계좌 / 종목 조회
+        PaperAccount acc = chart.getSession().getAccount();
+        Long symbolId = chart.getSymbol().getId();
+
+        // 5. 현재 포지션 조회
+        PaperPosition pos =
+                positionRepo
+                        .findByAccountIdAndSymbolId(
+                                acc.getId(),
+                                symbolId
+                        )
+                        .orElse(null);
+
+        // 포지션이 없으면 실제 거래는 만들지 않음
+        if (pos == null ||
+                pos.getQuantity() == null ||
+                pos.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+
+            return new TradeResponse(
+                    chart.getId(),
+                    null,
+                    acc.getCashBalance(),
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    executedPrice,
+                    candleTime
+            );
+        }
+
+        // 6. 전량매도 수량
+        BigDecimal qty = pos.getQuantity();
+
+        // 7. 매도대금 계산
+        BigDecimal proceeds =
+                executedPrice.multiply(qty);
+
+        // 8. 현금 잔고 증가
+        acc.setCashBalance(
+                acc.getCashBalance().add(proceeds)
+        );
+
+        // 9. 전량청산이므로 포지션 삭제
+        positionRepo.delete(pos);
+
+        // 10. 계좌 저장
+        accountRepo.save(acc);
+
+        // 11. 거래 기록 저장
+        TrainingTrade trade =
+                tradeRepo.save(
+                        TrainingTrade.builder()
+                                .chartId(chart.getId())
+                                .accountId(acc.getId())
+                                .symbolId(symbolId)
+                                .side(TradeSide.SELL)
+                                .price(executedPrice)
+                                .qty(qty)
+                                .candleTime(candleTime)
+                                .build()
+                );
+
+        // 12. TRADE 이벤트 저장
+        ObjectNode payload =
+                objectMapper.createObjectNode();
+
+        payload.put("side", "SELL");
+        payload.put("sellAll", true);
+        payload.put("autoExit", true);
+
+        payload.put(
+                "autoExitReason",
+                reason == null
+                        ? "UNKNOWN"
+                        : reason.name()
+        );
+
+        payload.putPOJO("tradeId", trade.getId());
+        payload.putPOJO("qty", qty);
+        payload.putPOJO("executedPrice", executedPrice);
+        payload.putPOJO("candleTime", candleTime);
+        payload.putPOJO("cashBalance", acc.getCashBalance());
+        payload.putPOJO("positionQty", BigDecimal.ZERO);
+        payload.putPOJO("avgPrice", BigDecimal.ZERO);
+
+        String reasonName =
+                reason == null
+                        ? "UNKNOWN"
+                        : reason.name();
+
+        eventService.append(
+                userId,
+                chart.getId(),
+                Type.TRADE,
+                chart.getSymbol().getName()
+                        + " "
+                        + qty
+                        + "주 자동청산 · "
+                        + reasonName,
+                payload
+        );
+
+        // 13. 프론트 응답
+        return new TradeResponse(
+                chart.getId(),
+                trade.getId(),
+                acc.getCashBalance(),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                executedPrice,
+                candleTime
         );
     }
 

@@ -9,6 +9,7 @@ import com.tradenova.paper.entity.PaperPosition;
 import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.service.TrainingEventService;
+import com.tradenova.training.dto.AutoExitReason;
 import com.tradenova.training.dto.SessionProgressResponse;
 import com.tradenova.training.dto.TradeResponse;
 import com.tradenova.training.entity.*;
@@ -49,209 +50,430 @@ public class TrainingSessionProgressService {
     }
 
 
-    /**
-     * N 봉을 한 번에 진행시키는 메서드
-     * - userId로 세션 소유권 검증
-     * - progressIndex 증가
-     * - 종료 조건 체크
-     * - 자동청산(리스크 룰) 검사
-     */
+/**
+ * N개의 봉을 한 번에 진행한다.
+ *
+ * - 차트/세션 상태 검증
+ * - 요청한 steps만큼 봉을 하나씩 진행
+ * - 각 봉마다 손절/익절 조건 검사
+ * - 자동청산 발생 시 해당 봉에서 진행 중단
+ * - 최종 계좌/포지션 상태와 진행 결과 반환
+ */
     @Transactional
-    public SessionProgressResponse advance(Long userId, Long chartId, int steps){
+    public SessionProgressResponse advance(
+            Long userId,
+            Long chartId,
+            int steps
+    ) {
 
-        // 1) 세션 조회 + 소유권 검증
-        //      - 남의 세션 접근 방지
-        TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND)); // 없으면 새 에러코드 추천
+        // 차트 조회 + 사용자 소유권 검증 + 동시 수정 방지를 위한 Lock
+        TrainingSessionChart chart =
+                chartRepo.findForUpdateByIdAndUserId(chartId, userId)
+                        .orElseThrow(() ->
+                                new CustomException(
+                                        ErrorCode.TRAINING_CHART_NOT_FOUND
+                                )
+                        );
 
-        // 2) 세션 상태 검사 (정책: 세션이 완료면 차트 진행 금지)
-        if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
-            throw new CustomException(ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS);
+        // 세션이 진행 중이 아니면 차트를 진행할 수 없음
+        if (chart.getSession().getStatus()
+                != TrainingStatus.IN_PROGRESS) {
+
+            throw new CustomException(
+                    ErrorCode.TRAINING_SESSION_NOT_IN_PROGRESS
+            );
         }
 
-        // 차트가 COMPLETED 상태면 에러
-        if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
-            throw new CustomException(ErrorCode.TRAINING_CHART_ALREADY_COMPLETED);
+        // 이미 마지막 봉까지 진행된 차트인지 확인
+        if (chart.getStatus()
+                == TrainingChartStatus.COMPLETED) {
+
+            throw new CustomException(
+                    ErrorCode.TRAINING_CHART_ALREADY_COMPLETED
+            );
         }
-        
-        // 3) steps 검증
-        //    - 0 이하로 넘기는 건 의미 없으므로 거부
-        // 스펙: 1 ~ 500
+
+        // 한 번에 진행 가능한 봉 수는 1 ~ 500
         if (steps < 1 || steps > 500) {
-            throw new CustomException(ErrorCode.INVALID_ADVANCE_STEPS);
+            throw new CustomException(
+                    ErrorCode.INVALID_ADVANCE_STEPS
+            );
         }
 
-        // 4) idx 범위 계산
-        //    예: bars = 100 -> maxIdx = 99
-        int maxIdx = Math.max(0, chart.getBars() - 1);
-        //    - 아직 한 번도 진행 안 했으면 null -> 0으로 처리
+
+        // 마지막 캔들 인덱스
+        // 예: bars = 100이면 idx는 0 ~ 99이므로 maxIdx = 99
+        int maxIdx =
+                Math.max(0, chart.getBars() - 1);
+
+
+        // progressIndex가 null이면 0부터 시작
+        // 조건 ? A : B = 조건이 참이면 A, 아니면 B
         int rawProgressIndex =
                 chart.getProgressIndex() == null
                         ? 0
                         : chart.getProgressIndex();
 
-        /*
-         * DB 데이터가 잘못되어도 진행 인덱스가
-         * 0 미만 또는 maxIdx 초과가 되지 않게 보정한다.
-         */
-        int cur = Math.min(Math.max(rawProgressIndex, 0), maxIdx);
-        //    다음 progressIndex 계산
-        //    - cur + steps 만큼 앞으로 가되
-        //    - 마지막 캔들(maxIdx)을 넘지 않도록 보정
-        int nextIdx = Math.min(cur + steps, maxIdx);
 
-        /*
-         * 실제로 진행된 봉 수
-         *
-         * 예:
-         * 현재 idx = 97
-         * 마지막 idx = 99
-         * 요청 steps = 10
-         *
-         * 실제 진행은 2봉이므로 advancedSteps = 2
-         */
-        int advancedSteps = nextIdx - cur;
-
-        // 5) 진행 반영
-        chart.setProgressIndex(nextIdx);
-
-        // currentPrice는 아래에서 계산되니 일단 나중에 put해도 됨
-
-        // 여기서 flush 한번 걸어주면 이후 로직에서 progressIndex 기준 조회가 안정적
-        // (candle 조회/autoExit/거래 로직이 같은 트랜잭션에서 일관되게 동작)
-        chartRepo.flush();
-
-        // 6) 자동청산 체크 (반환: autoExited 여부 + reason + currentPrice)
-        //    - stop loss / take profit 조건 충족 여부 판단
-        //    - 지금 단계에서는 "실제 매도"가 아니라
-        //    - autoExited 여부와 사유만 계산
-        TrainingAutoExitService.AutoExitResult r =
-                autoExitService.checkAndAutoExit(chart.getId(), chart);
-
-        // 7) 현재가 (progressIndex 기준 close 가격)
-        BigDecimal currentPrice = r.currentPrice();
-
-        // progress 이벤트 로그 payload
-        ObjectNode progressPayload  = objectMapper.createObjectNode();
-        progressPayload.putPOJO("requestedSteps", steps);
-        progressPayload.putPOJO("advancedSteps", advancedSteps);
-        progressPayload.putPOJO("fromIndex", cur);
-        progressPayload.putPOJO("toIndex", nextIdx);
-        progressPayload .putPOJO("progressIndex", chart.getProgressIndex());
-        progressPayload .putPOJO("bars", chart.getBars());
-        // 가격 추가
-        progressPayload .putPOJO("currentPrice", currentPrice);
-
-        // 8) 스냅샷 구성
-        Long accountId = chart.getSession().getAccount().getId();
-        Long symbolId = chart.getSymbol().getId();
-
-        PaperPosition pos = positionRepo.findByAccountIdAndSymbolId(accountId, symbolId)
-                .orElse(null);
-
-        BigDecimal positionQty =
-                pos == null || pos.getQuantity() == null
-                        ? BigDecimal.ZERO
-                        : pos.getQuantity();
-
-        BigDecimal avgPrice =
-                pos == null || pos.getAvgPrice() == null
-                        ? BigDecimal.ZERO
-                        : pos.getAvgPrice();
-
-        BigDecimal cashBalance =
-                chart.getSession().getAccount().getCashBalance() == null
-                        ? BigDecimal.ZERO
-                        : chart.getSession().getAccount().getCashBalance();
+        // 현재 인덱스를 0 ~ maxIdx 범위 안으로 보정
+        int cur =
+                Math.min(
+                        Math.max(rawProgressIndex, 0),
+                        maxIdx
+                );
 
 
-        // 9) 자동청산
-        //     - 룰은 발동했는데 포지션이 0이면, 팔 게 없으니 자동청산 실행은 스킵(UX 깔끔)
+        // 사용자가 요청한 목표 위치
+        // 마지막 봉(maxIdx)을 넘어가지 않도록 제한
+        int targetIdx =
+                Math.min(
+                        cur + steps,
+                        maxIdx
+                );
+
+
+        // 실제로 도달한 최종 위치
+        // 자동청산이 중간에 발생할 수 있으므로 targetIdx와 따로 관리
+        int finalIdx = cur;
+
         boolean executedAutoExit = false;
-        var autoExitReason = r.reason();
 
-        // WARNING 이벤트는 바로 저장하지 말고, payload만 준비
+        AutoExitReason autoExitReason = null;
+
+        TradeResponse autoExitTrade = null;
+
         ObjectNode autoExitPayload = null;
         String autoExitSummary = null;
 
-        if (r.autoExited() && positionQty.compareTo(BigDecimal.ZERO) > 0) {
-            TradeResponse sellAllResult = tradeService.sellAll(userId, chart.getId());
 
-            // sellAll 결과로 스냅샷 갱신
-            cashBalance =
-                    sellAllResult.cashBalance() == null
-                            ? BigDecimal.ZERO
-                            : sellAllResult.cashBalance();
+        // 현재 위치의 캔들을 조회해서 시작 현재가를 구함
+        TrainingSessionCandle initialCandle =
+                candleRepo
+                        .findByChartIdAndIdx(
+                                chart.getId(),
+                                cur
+                        )
+                        .orElseThrow(() ->
+                                new CustomException(
+                                        ErrorCode.CANDLES_EMPTY
+                                )
+                        );
 
-            positionQty =
-                    sellAllResult.positionQty() == null
-                            ? BigDecimal.ZERO
-                            : sellAllResult.positionQty();
 
-            avgPrice =
-                    sellAllResult.avgPrice() == null
-                            ? BigDecimal.ZERO
-                            : sellAllResult.avgPrice();
+        // valueOf(): 숫자를 BigDecimal로 변환
+        BigDecimal currentPrice =
+                BigDecimal.valueOf(
+                        initialCandle.getC()
+                );
 
-            // 체결가도 sellAllResult.executedPrice()를 써도 되지만,
-            // 여기선 progress에서 계산한 currentPrice와 동일하게 맞춰도 OK
+
+        /*
+         * 요청한 위치로 한 번에 점프하지 않고
+         * 한 봉씩 진행하면서 자동청산 조건을 검사한다.
+         *
+         * 예:
+         * cur = 10, targetIdx = 20이면
+         * 11 -> 12 -> ... -> 20 순서로 검사
+         */
+        for (int idx = cur + 1;
+             idx <= targetIdx;
+             idx++) {
+
+            // 현재 진행할 봉 조회
+            TrainingSessionCandle candle =
+                    candleRepo
+                            .findByChartIdAndIdx(
+                                    chart.getId(),
+                                    idx
+                            )
+                            .orElseThrow(() ->
+                                    new CustomException(
+                                            ErrorCode.CANDLES_EMPTY
+                                    )
+                            );
+
+
+            // 실제로 현재 봉까지 진행
+            chart.setProgressIndex(idx);
+            finalIdx = idx;
+
+
+            // 현재 봉 종가를 현재가로 사용
             currentPrice =
-                    sellAllResult.executedPrice() == null
-                            ? currentPrice
-                            : sellAllResult.executedPrice();
+                    BigDecimal.valueOf(
+                            candle.getC()
+                    );
+
+
+            // 현재 봉의 high/low/open을 기준으로 손절·익절 여부 검사
+            TrainingAutoExitService.AutoExitResult decision =
+                    autoExitService.checkAndAutoExit(
+                            chart.getId(),
+                            candle
+                    );
+
+
+            // 자동청산 조건이 아니면 다음 봉으로 진행
+            if (!decision.autoExited()) {
+                continue;
+            }
+
+
+            Long accountId =
+                    chart.getSession()
+                            .getAccount()
+                            .getId();
+
+            Long symbolId =
+                    chart.getSymbol()
+                            .getId();
+
+
+            // 현재 종목의 보유 포지션 조회
+            PaperPosition position =
+                    positionRepo
+                            .findByAccountIdAndSymbolId(
+                                    accountId,
+                                    symbolId
+                            )
+                            .orElse(null);
+
+
+            /*
+             * 손절/익절 가격에는 도달했어도
+             * 실제 보유 포지션이 없으면 청산할 수 없으므로 계속 진행
+             *
+             * compareTo(BigDecimal.ZERO) <= 0
+             * → 수량 <= 0
+             */
+            if (position == null ||
+                    position.getQuantity() == null ||
+                    position.getQuantity()
+                            .compareTo(BigDecimal.ZERO) <= 0) {
+
+                continue;
+            }
+
+
+            // WARNING 이벤트에 기록할 청산 수량
+            BigDecimal exitQty =
+                    position.getQuantity();
+
+
+            // STOP_LOSS 또는 TAKE_PROFIT
+            autoExitReason =
+                    decision.reason();
+
+
+            /*
+             * 실제 자동청산 실행
+             *
+             * AutoExitService가 계산한 체결가와
+             * 자동청산이 발생한 캔들 시간을 넘겨준다.
+             */
+            autoExitTrade =
+                    tradeService.sellAllAtPrice(
+                            userId,
+                            chart.getId(),
+                            decision.executedPrice(),
+                            candle.getT(),
+                            autoExitReason
+                    );
+
+
+            // 자동청산이 발생한 경우 실제 체결가를 현재가로 사용
+            currentPrice =
+                    autoExitTrade.executedPrice();
 
             executedAutoExit = true;
 
+
+            // enum의 이름을 문자열로 변환
+            // 예: STOP_LOSS -> "STOP_LOSS"
             String reasonName =
                     autoExitReason == null
                             ? "UNKNOWN"
                             : autoExitReason.name();
 
+
+            // 자동청산 WARNING 이벤트 payload
+            autoExitPayload =
+                    objectMapper.createObjectNode();
+
+            autoExitPayload.put(
+                    "reason",
+                    reasonName
+            );
+
+            autoExitPayload.putPOJO(
+                    "tradeId",
+                    autoExitTrade.tradeId()
+            );
+
+            autoExitPayload.putPOJO(
+                    "qty",
+                    exitQty
+            );
+
+            autoExitPayload.putPOJO(
+                    "executedPrice",
+                    autoExitTrade.executedPrice()
+            );
+
+            autoExitPayload.putPOJO(
+                    "candleTime",
+                    candle.getT()
+            );
+
+            autoExitPayload.put(
+                    "chartId",
+                    chart.getId()
+            );
+
+            autoExitSummary =
+                    "자동청산 발생: "
+                            + reasonName;
+
+
             /*
-             * 자동청산 WARNING 이벤트에 저장할 payload 생성
+             * 최초 자동청산이 발생한 봉에서 진행 중단
              *
-             * autoExitPayload는 처음에 null이므로
-             * 실제 자동청산이 실행되는 시점에 ObjectNode를 생성해야 한다.
+             * break는 for문 자체를 종료한다.
              */
-            autoExitPayload = objectMapper.createObjectNode();
-
-            autoExitPayload.put("reason", reasonName);
-            autoExitPayload.putPOJO("executedPrice", currentPrice);
-            autoExitPayload.put("chartId", chart.getId());
-
-            autoExitSummary = "자동청산 발생: " + reasonName;
-
-
+            break;
         }
 
-        // 자동청산 결과를 progress payload에 반영
-        progressPayload.put("autoExited", executedAutoExit);
-        progressPayload.putPOJO(
-                "autoExitReason",
-                executedAutoExit && autoExitReason != null
-                        ? autoExitReason.name()
-                        : null
-        );
-        progressPayload.putPOJO("currentPrice", currentPrice); // 혹시 autoExit 후 체결가로 바뀌었다면 최종값 반영
 
-        // 10) chart가 마지막 봉까지 가면(옵션) 세션까지 종료할지?
-        /*
-         * 마지막 봉에 도달하면 차트만 완료한다.
-         *
-         * 중요:
-         * 세션은 여기서 자동 완료하지 않는다.
-         *
-         * 이유:
-         * - 사용자가 마지막 봉 이후 매매 기록을 복기해야 함
-         * - 차트/세션 AI 리뷰를 생성해야 함
-         * - 스냅샷과 메모를 작성할 수 있어야 함
-         * - 사용자가 직접 '훈련 종료'를 눌렀을 때 세션을 완료해야 함
-         */
-        if (nextIdx >= maxIdx) {
+        // 실제로 도달한 최종 위치 저장
+        chart.setProgressIndex(finalIdx);
+
+
+        // 실제 진행된 봉 개수
+        // 자동청산으로 중간에 멈추면 요청한 steps보다 작을 수 있음
+        int advancedSteps =
+                finalIdx - cur;
+
+
+        // 실제 마지막 봉까지 도달한 경우에만 차트 완료
+        if (finalIdx >= maxIdx) {
             chart.complete();
         }
 
-        // 1) 먼저 progress 저장
+
+        // 현재 엔티티 변경사항을 DB에 반영
+        // commit은 아니고 트랜잭션 안에서 SQL을 미리 실행하는 것
+        chartRepo.flush();
+
+
+        // ==========================
+        // 최종 계좌 / 포지션 스냅샷
+        // ==========================
+
+        PaperAccount account =
+                chart.getSession()
+                        .getAccount();
+
+        Long accountId =
+                account.getId();
+
+        Long symbolId =
+                chart.getSymbol()
+                        .getId();
+
+
+        // 자동청산까지 모두 끝난 후 최종 포지션을 다시 조회
+        PaperPosition finalPosition =
+                positionRepo
+                        .findByAccountIdAndSymbolId(
+                                accountId,
+                                symbolId
+                        )
+                        .orElse(null);
+
+
+        // 최종 보유 수량
+        BigDecimal positionQty =
+                finalPosition == null ||
+                        finalPosition.getQuantity() == null
+                        ? BigDecimal.ZERO
+                        : finalPosition.getQuantity();
+
+
+        // 최종 평균 매수가
+        BigDecimal avgPrice =
+                finalPosition == null ||
+                        finalPosition.getAvgPrice() == null
+                        ? BigDecimal.ZERO
+                        : finalPosition.getAvgPrice();
+
+
+        // 최종 현금 잔액
+        BigDecimal cashBalance =
+                account.getCashBalance() == null
+                        ? BigDecimal.ZERO
+                        : account.getCashBalance();
+
+
+        // ==========================
+        // PROGRESS 이벤트
+        // ==========================
+
+        ObjectNode progressPayload =
+                objectMapper.createObjectNode();
+
+        // 요청한 봉 수
+        progressPayload.putPOJO(
+                "requestedSteps",
+                steps
+        );
+
+        // 실제 진행한 봉 수
+        progressPayload.putPOJO(
+                "advancedSteps",
+                advancedSteps
+        );
+
+        progressPayload.putPOJO(
+                "fromIndex",
+                cur
+        );
+
+        // 자동청산 시 targetIdx가 아닌 실제 도착 위치 저장
+        progressPayload.putPOJO(
+                "toIndex",
+                finalIdx
+        );
+
+        progressPayload.putPOJO(
+                "progressIndex",
+                finalIdx
+        );
+
+        progressPayload.putPOJO(
+                "bars",
+                chart.getBars()
+        );
+
+        progressPayload.putPOJO(
+                "currentPrice",
+                currentPrice
+        );
+
+        progressPayload.put(
+                "autoExited",
+                executedAutoExit
+        );
+
+        progressPayload.putPOJO(
+                "autoExitReason",
+                executedAutoExit &&
+                        autoExitReason != null
+                        ? autoExitReason.name()
+                        : null
+        );
+
+
+        // 차트 진행 이벤트 저장
         eventService.append(
                 userId,
                 chart.getId(),
@@ -260,7 +482,8 @@ public class TrainingSessionProgressService {
                 progressPayload
         );
 
-        // 2) 그 다음 warning 저장
+
+        // 실제 자동청산이 발생했다면 WARNING 이벤트도 저장
         if (executedAutoExit) {
             eventService.append(
                     userId,
@@ -272,35 +495,42 @@ public class TrainingSessionProgressService {
         }
 
 
-        int finalMaxIndex =
-                Math.max(0, chart.getBars() - 1);
-
+        // 앞으로 남은 봉 개수
         int remainingBars =
                 Math.max(
                         0,
-                        finalMaxIndex - chart.getProgressIndex()
+                        maxIdx - finalIdx
                 );
 
-        boolean atLastBar =
-                chart.getProgressIndex() >= finalMaxIndex;
 
-        // 11) 프론트로 내려줄 진행 결과 응답 DTO 생성
+        // 마지막 봉 도달 여부
+        boolean atLastBar =
+                finalIdx >= maxIdx;
+
+
+        // 최종 진행 상태를 프론트에 반환
         return new SessionProgressResponse(
                 chart.getId(),
-                chart.getProgressIndex(),
-                finalMaxIndex,
+                finalIdx,
+                maxIdx,
                 remainingBars,
                 atLastBar,
                 currentPrice,
                 chart.getStatus().name(),
-                chart.getSession().getStatus().name(),
+                chart.getSession()
+                        .getStatus()
+                        .name(),
                 cashBalance,
                 positionQty,
                 avgPrice,
                 executedAutoExit,
-                executedAutoExit ? autoExitReason : null
+                executedAutoExit
+                        ? autoExitReason
+                        : null
         );
     }
+
+
 
     /**
      * 현재 차트 진행 상태 조회
