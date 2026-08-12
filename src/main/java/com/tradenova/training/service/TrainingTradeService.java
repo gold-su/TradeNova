@@ -395,6 +395,26 @@ public class TrainingTradeService {
                                 )
                         );
 
+        return sellAllAtPriceLocked(
+                userId,
+                chart,
+                executedPrice,
+                candleTime,
+                reason
+        );
+    }
+
+    /**
+     * chart row lock을 이미 획득한 트랜잭션에서 지정 가격으로 전량 청산한다.
+     * advance의 자동청산과 마지막 봉 강제청산이 chart를 다시 조회하지 않고 같은 lock을 사용하게 한다.
+     */
+    TradeResponse sellAllAtPriceLocked(
+            Long userId,
+            TrainingSessionChart chart,
+            BigDecimal executedPrice,
+            Long candleTime,
+            AutoExitReason reason
+    ) {
         // 2. 세션 상태 검증
         if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
             throw new CustomException(
