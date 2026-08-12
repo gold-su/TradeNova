@@ -272,9 +272,9 @@ public class TrainingSessionProgressService {
              * 자동청산이 발생한 캔들 시간을 넘겨준다.
              */
             autoExitTrade =
-                    tradeService.sellAllAtPrice(
+                    tradeService.sellAllAtPriceLocked(
                             userId,
-                            chart.getId(),
+                            chart,
                             decision.executedPrice(),
                             candle.getT(),
                             autoExitReason
@@ -354,8 +354,55 @@ public class TrainingSessionProgressService {
                 finalIdx - cur;
 
 
-        // 실제 마지막 봉까지 도달한 경우에만 차트 완료
+        /*
+         * 마지막 봉에 도달했고 손절/익절 청산이 이미 발생하지 않았다면
+         * 마지막 봉의 종가로 남은 포지션을 전량 청산한다.
+         * advance 트랜잭션이 chart lock을 이미 보유하므로 lock 재조회는 하지 않는다.
+         */
         if (finalIdx >= maxIdx) {
+            if (!executedAutoExit) {
+                TrainingSessionCandle lastCandle =
+                        candleRepo.findByChartIdAndIdx(chart.getId(), finalIdx)
+                                .orElseThrow(() -> new CustomException(ErrorCode.CANDLES_EMPTY));
+
+                BigDecimal exitPrice = BigDecimal.valueOf(lastCandle.getC());
+                PaperPosition endPosition = positionRepo
+                        .findByAccountIdAndSymbolId(
+                                chart.getSession().getAccount().getId(),
+                                chart.getSymbol().getId()
+                        )
+                        .orElse(null);
+
+                if (endPosition != null &&
+                        endPosition.getQuantity() != null &&
+                        endPosition.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal exitQty = endPosition.getQuantity();
+                    autoExitReason = AutoExitReason.END_OF_CHART;
+                    autoExitTrade = tradeService.sellAllAtPriceLocked(
+                            userId,
+                            chart,
+                            exitPrice,
+                            lastCandle.getT(),
+                            autoExitReason
+                    );
+
+                    if (autoExitTrade.tradeId() != null) {
+                        currentPrice = autoExitTrade.executedPrice();
+                        executedAutoExit = true;
+
+                        autoExitPayload = objectMapper.createObjectNode();
+                        autoExitPayload.put("reason", autoExitReason.name());
+                        autoExitPayload.putPOJO("tradeId", autoExitTrade.tradeId());
+                        autoExitPayload.putPOJO("qty", exitQty);
+                        autoExitPayload.putPOJO("executedPrice", autoExitTrade.executedPrice());
+                        autoExitPayload.putPOJO("candleTime", lastCandle.getT());
+                        autoExitPayload.put("chartId", chart.getId());
+                        autoExitSummary = "마지막 봉 강제청산 발생: " + autoExitReason.name();
+                    }
+                }
+            }
+
+            // 잔여 포지션 청산이 완료된 뒤에 차트를 완료 상태로 변경한다.
             chart.complete();
         }
 

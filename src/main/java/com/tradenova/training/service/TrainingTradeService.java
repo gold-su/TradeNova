@@ -57,7 +57,7 @@ public class TrainingTradeService {
 
         // chartId + userId(세션 소유자) 조건으로 차트를 조회
         // - session.user.id까지 조건에 포함해서 "남의 차트는 조회 자체가 안 되게" 막음(보안/치팅 방지)
-        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+        TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 // 없으면 404 성격의 커스텀 예외(차트 없음 또는 남의 차트)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
@@ -224,10 +224,23 @@ public class TrainingTradeService {
     @Transactional
     public TradeResponse sell(Long userId, Long chartId, BigDecimal qty, boolean sellAll) {
 
-        // chartId + (chart.session.user.id == userId) 조건으로 차트 조회
-        // - 남의 차트 접근을 구조적으로 차단 (없으면 404 성격)
-        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+        // chart lock을 먼저 획득해 같은 chart의 거래와 NEXT/ADVANCE를 직렬화한다.
+        TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
+
+        return sellLocked(userId, chart, qty, sellAll);
+    }
+
+    /**
+     * chart row lock이 이미 획득된 트랜잭션에서 매도를 실행한다.
+     * sellAll이 public sell을 self-invocation하며 chart를 다시 조회하지 않도록 공통 로직을 분리했다.
+     */
+    private TradeResponse sellLocked(
+            Long userId,
+            TrainingSessionChart chart,
+            BigDecimal qty,
+            boolean sellAll
+    ) {
 
         // 세션이 진행 중이 아니면 매도 금지 (종료 세션 조작 방지)
         if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
@@ -375,13 +388,33 @@ public class TrainingTradeService {
 
         // 1. 차트 조회 + 소유권 검증
         TrainingSessionChart chart =
-                chartRepo.findByIdAndSession_User_Id(chartId, userId)
+                chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                         .orElseThrow(() ->
                                 new CustomException(
                                         ErrorCode.TRAINING_CHART_NOT_FOUND
                                 )
                         );
 
+        return sellAllAtPriceLocked(
+                userId,
+                chart,
+                executedPrice,
+                candleTime,
+                reason
+        );
+    }
+
+    /**
+     * chart row lock을 이미 획득한 트랜잭션에서 지정 가격으로 전량 청산한다.
+     * advance의 자동청산과 마지막 봉 강제청산이 chart를 다시 조회하지 않고 같은 lock을 사용하게 한다.
+     */
+    TradeResponse sellAllAtPriceLocked(
+            Long userId,
+            TrainingSessionChart chart,
+            BigDecimal executedPrice,
+            Long candleTime,
+            AutoExitReason reason
+    ) {
         // 2. 세션 상태 검증
         if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
             throw new CustomException(
@@ -518,7 +551,7 @@ public class TrainingTradeService {
     public TradeResponse sellAll(Long userId, Long chartId) {
 
         // chartId + userId 조건으로 차트 조회(소유권 검증 포함)
-        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+        TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
         // 세션이 진행 중이 아니면 거래 금지
@@ -560,7 +593,7 @@ public class TrainingTradeService {
             );
         }
 
-        return sell(userId, chart.getId(), pos.getQuantity(), true);
+        return sellLocked(userId, chart, pos.getQuantity(), true);
     }
 
     /**
