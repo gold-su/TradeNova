@@ -1,8 +1,11 @@
 package com.tradenova.paper.repository;
 
 import com.tradenova.paper.entity.PaperAccount;
-import com.tradenova.paper.entity.PaperPosition;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -14,6 +17,13 @@ public interface PaperAccountRepository extends JpaRepository<PaperAccount, Long
     
     //이 계좌 ID가 정말 이 유저 소유가 맞는지 확인하면서 가져오기
     Optional<PaperAccount> findByIdAndUserId(Long id, Long userId);
+
+    /**
+     * 거래 중 동일 계좌의 현금 잔고 변경을 직렬화하기 위한 row lock 조회.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from PaperAccount a where a.id = :accountId")
+    Optional<PaperAccount> findForUpdateById(@Param("accountId") Long accountId);
 
     //이 유저의 기본 계좌를 하나 가져오기
     Optional<PaperAccount> findByUserIdAndIsDefaultTrue(Long userId);
