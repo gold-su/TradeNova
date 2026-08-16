@@ -219,47 +219,6 @@ public class TrainingSessionProgressService {
             }
 
 
-            Long accountId =
-                    chart.getSession()
-                            .getAccount()
-                            .getId();
-
-            Long symbolId =
-                    chart.getSymbol()
-                            .getId();
-
-
-            // 현재 종목의 보유 포지션 조회
-            PaperPosition position =
-                    positionRepo
-                            .findByAccountIdAndSymbolId(
-                                    accountId,
-                                    symbolId
-                            )
-                            .orElse(null);
-
-
-            /*
-             * 손절/익절 가격에는 도달했어도
-             * 실제 보유 포지션이 없으면 청산할 수 없으므로 계속 진행
-             *
-             * compareTo(BigDecimal.ZERO) <= 0
-             * → 수량 <= 0
-             */
-            if (position == null ||
-                    position.getQuantity() == null ||
-                    position.getQuantity()
-                            .compareTo(BigDecimal.ZERO) <= 0) {
-
-                continue;
-            }
-
-
-            // WARNING 이벤트에 기록할 청산 수량
-            BigDecimal exitQty =
-                    position.getQuantity();
-
-
             // STOP_LOSS 또는 TAKE_PROFIT
             autoExitReason =
                     decision.reason();
@@ -271,14 +230,20 @@ public class TrainingSessionProgressService {
              * AutoExitService가 계산한 체결가와
              * 자동청산이 발생한 캔들 시간을 넘겨준다.
              */
-            autoExitTrade =
-                    tradeService.sellAllAtPriceLocked(
+            TrainingTradeService.LockedSellResult lockedSell =
+                    tradeService.sellAllAtPriceLockedResult(
                             userId,
                             chart,
                             decision.executedPrice(),
                             candle.getT(),
                             autoExitReason
                     );
+
+            autoExitTrade = lockedSell.response();
+            if (autoExitTrade.tradeId() == null) {
+                continue;
+            }
+            BigDecimal exitQty = lockedSell.executedQty();
 
 
             // 자동청산이 발생한 경우 실제 체결가를 현재가로 사용
@@ -366,39 +331,30 @@ public class TrainingSessionProgressService {
                                 .orElseThrow(() -> new CustomException(ErrorCode.CANDLES_EMPTY));
 
                 BigDecimal exitPrice = BigDecimal.valueOf(lastCandle.getC());
-                PaperPosition endPosition = positionRepo
-                        .findByAccountIdAndSymbolId(
-                                chart.getSession().getAccount().getId(),
-                                chart.getSymbol().getId()
-                        )
-                        .orElse(null);
+                autoExitReason = AutoExitReason.END_OF_CHART;
+                TrainingTradeService.LockedSellResult lockedSell =
+                        tradeService.sellAllAtPriceLockedResult(
+                                userId,
+                                chart,
+                                exitPrice,
+                                lastCandle.getT(),
+                                autoExitReason
+                        );
+                autoExitTrade = lockedSell.response();
 
-                if (endPosition != null &&
-                        endPosition.getQuantity() != null &&
-                        endPosition.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal exitQty = endPosition.getQuantity();
-                    autoExitReason = AutoExitReason.END_OF_CHART;
-                    autoExitTrade = tradeService.sellAllAtPriceLocked(
-                            userId,
-                            chart,
-                            exitPrice,
-                            lastCandle.getT(),
-                            autoExitReason
-                    );
+                if (autoExitTrade.tradeId() != null) {
+                    BigDecimal exitQty = lockedSell.executedQty();
+                    currentPrice = autoExitTrade.executedPrice();
+                    executedAutoExit = true;
 
-                    if (autoExitTrade.tradeId() != null) {
-                        currentPrice = autoExitTrade.executedPrice();
-                        executedAutoExit = true;
-
-                        autoExitPayload = objectMapper.createObjectNode();
-                        autoExitPayload.put("reason", autoExitReason.name());
-                        autoExitPayload.putPOJO("tradeId", autoExitTrade.tradeId());
-                        autoExitPayload.putPOJO("qty", exitQty);
-                        autoExitPayload.putPOJO("executedPrice", autoExitTrade.executedPrice());
-                        autoExitPayload.putPOJO("candleTime", lastCandle.getT());
-                        autoExitPayload.put("chartId", chart.getId());
-                        autoExitSummary = "마지막 봉 강제청산 발생: " + autoExitReason.name();
-                    }
+                    autoExitPayload = objectMapper.createObjectNode();
+                    autoExitPayload.put("reason", autoExitReason.name());
+                    autoExitPayload.putPOJO("tradeId", autoExitTrade.tradeId());
+                    autoExitPayload.putPOJO("qty", exitQty);
+                    autoExitPayload.putPOJO("executedPrice", autoExitTrade.executedPrice());
+                    autoExitPayload.putPOJO("candleTime", lastCandle.getT());
+                    autoExitPayload.put("chartId", chart.getId());
+                    autoExitSummary = "마지막 봉 강제청산 발생: " + autoExitReason.name();
                 }
             }
 
@@ -456,7 +412,9 @@ public class TrainingSessionProgressService {
 
         // 최종 현금 잔액
         BigDecimal cashBalance =
-                account.getCashBalance() == null
+                autoExitTrade != null
+                        ? autoExitTrade.cashBalance()
+                        : account.getCashBalance() == null
                         ? BigDecimal.ZERO
                         : account.getCashBalance();
 

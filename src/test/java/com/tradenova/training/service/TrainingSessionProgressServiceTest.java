@@ -28,7 +28,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -73,13 +72,16 @@ class TrainingSessionProgressServiceTest {
                 .thenReturn(noAutoExit(105.0), noAutoExit(110.0));
         when(positionRepo.findByAccountIdAndSymbolId(10L, 20L))
                 .thenReturn(Optional.of(position), Optional.empty());
-        when(tradeService.sellAllAtPriceLocked(
+        when(tradeService.sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(110.0), 300L, AutoExitReason.END_OF_CHART
         )).thenAnswer(invocation -> {
             fixture.account().setCashBalance(new BigDecimal("1220.00"));
-            return new TradeResponse(
-                    1L, 99L, fixture.account().getCashBalance(), BigDecimal.ZERO,
-                    BigDecimal.ZERO, BigDecimal.valueOf(110.0), 300L
+            return new TrainingTradeService.LockedSellResult(
+                    new TradeResponse(
+                            1L, 99L, fixture.account().getCashBalance(), BigDecimal.ZERO,
+                            BigDecimal.ZERO, BigDecimal.valueOf(110.0), 300L
+                    ),
+                    new BigDecimal("2")
             );
         });
 
@@ -92,7 +94,7 @@ class TrainingSessionProgressServiceTest {
         assertThat(response.positionQty()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(response.autoExited()).isTrue();
         assertThat(response.reason()).isEqualTo(AutoExitReason.END_OF_CHART);
-        verify(tradeService).sellAllAtPriceLocked(
+        verify(tradeService).sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(110.0), 300L, AutoExitReason.END_OF_CHART
         );
     }
@@ -108,6 +110,15 @@ class TrainingSessionProgressServiceTest {
         when(candleRepo.findByChartIdAndIdx(1L, 1)).thenReturn(Optional.of(last));
         when(autoExitService.checkAndAutoExit(1L, last)).thenReturn(noAutoExit(110.0));
         when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
+        when(tradeService.sellAllAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(110.0), 200L, AutoExitReason.END_OF_CHART
+        )).thenReturn(new TrainingTradeService.LockedSellResult(
+                new TradeResponse(
+                        1L, null, fixture.account().getCashBalance(), BigDecimal.ZERO,
+                        BigDecimal.ZERO, BigDecimal.valueOf(110.0), 200L
+                ),
+                BigDecimal.ZERO
+        ));
 
         SessionProgressResponse response = service.next(7L, 1L);
 
@@ -115,7 +126,9 @@ class TrainingSessionProgressServiceTest {
         assertThat(response.positionQty()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(response.autoExited()).isFalse();
         assertThat(response.reason()).isNull();
-        verify(tradeService, never()).sellAllAtPriceLocked(any(), any(), any(), any(), any());
+        verify(tradeService).sellAllAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(110.0), 200L, AutoExitReason.END_OF_CHART
+        );
     }
 
     @Test
@@ -135,11 +148,14 @@ class TrainingSessionProgressServiceTest {
         );
         when(positionRepo.findByAccountIdAndSymbolId(10L, 20L))
                 .thenReturn(Optional.of(position), Optional.empty());
-        when(tradeService.sellAllAtPriceLocked(
+        when(tradeService.sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS
-        )).thenReturn(new TradeResponse(
-                1L, 88L, new BigDecimal("1190.00"), BigDecimal.ZERO,
-                BigDecimal.ZERO, BigDecimal.valueOf(95.0), 200L
+        )).thenReturn(new TrainingTradeService.LockedSellResult(
+                new TradeResponse(
+                        1L, 88L, new BigDecimal("1190.00"), BigDecimal.ZERO,
+                        BigDecimal.ZERO, BigDecimal.valueOf(95.0), 200L
+                ),
+                new BigDecimal("2")
         ));
 
         SessionProgressResponse response = service.advance(7L, 1L, 3);
@@ -148,7 +164,7 @@ class TrainingSessionProgressServiceTest {
         assertThat(response.atLastBar()).isFalse();
         assertThat(response.chartStatus()).isEqualTo(TrainingChartStatus.IN_PROGRESS.name());
         assertThat(response.reason()).isEqualTo(AutoExitReason.STOP_LOSS);
-        verify(tradeService).sellAllAtPriceLocked(
+        verify(tradeService).sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS
         );
         verify(candleRepo, never()).findByChartIdAndIdx(1L, 2);
