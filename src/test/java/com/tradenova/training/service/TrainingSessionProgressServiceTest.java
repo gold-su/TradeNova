@@ -2,7 +2,6 @@ package com.tradenova.training.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradenova.paper.entity.PaperAccount;
-import com.tradenova.paper.entity.PaperPosition;
 import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.symbol.entity.Symbol;
@@ -28,6 +27,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -59,7 +59,6 @@ class TrainingSessionProgressServiceTest {
     @Test
     void advanceToLastBarLiquidatesRemainingPositionAtCloseBeforeCompletion() {
         Fixture fixture = fixture(3, 0);
-        PaperPosition position = position(fixture.account(), fixture.symbol(), "2");
         TrainingSessionCandle first = candle(fixture.chart().getId(), 0, 100L, 100.0);
         TrainingSessionCandle middle = candle(fixture.chart().getId(), 1, 200L, 105.0);
         TrainingSessionCandle last = candle(fixture.chart().getId(), 2, 300L, 110.0);
@@ -70,8 +69,7 @@ class TrainingSessionProgressServiceTest {
         when(candleRepo.findByChartIdAndIdx(1L, 2)).thenReturn(Optional.of(last));
         when(autoExitService.checkAndAutoExit(eq(1L), any()))
                 .thenReturn(noAutoExit(105.0), noAutoExit(110.0));
-        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L))
-                .thenReturn(Optional.of(position), Optional.empty());
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
         when(tradeService.sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(110.0), 300L, AutoExitReason.END_OF_CHART
         )).thenAnswer(invocation -> {
@@ -97,6 +95,7 @@ class TrainingSessionProgressServiceTest {
         verify(tradeService).sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(110.0), 300L, AutoExitReason.END_OF_CHART
         );
+        verify(positionRepo).findByAccountIdAndSymbolId(10L, 20L);
     }
 
     @Test
@@ -129,12 +128,12 @@ class TrainingSessionProgressServiceTest {
         verify(tradeService).sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(110.0), 200L, AutoExitReason.END_OF_CHART
         );
+        verify(positionRepo).findByAccountIdAndSymbolId(10L, 20L);
     }
 
     @Test
     void stopLossDuringAdvanceStopsAtTriggerAndDoesNotAlsoLiquidateAtEndOfChart() {
         Fixture fixture = fixture(4, 0);
-        PaperPosition position = position(fixture.account(), fixture.symbol(), "2");
         TrainingSessionCandle first = candle(1L, 0, 100L, 100.0);
         TrainingSessionCandle trigger = candle(1L, 1, 200L, 90.0);
 
@@ -146,8 +145,7 @@ class TrainingSessionProgressServiceTest {
                         true, AutoExitReason.STOP_LOSS, BigDecimal.valueOf(90.0), BigDecimal.valueOf(95.0)
                 )
         );
-        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L))
-                .thenReturn(Optional.of(position), Optional.empty());
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
         when(tradeService.sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS
         )).thenReturn(new TrainingTradeService.LockedSellResult(
@@ -167,6 +165,7 @@ class TrainingSessionProgressServiceTest {
         verify(tradeService).sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS
         );
+        verify(positionRepo).findByAccountIdAndSymbolId(10L, 20L);
         verify(candleRepo, never()).findByChartIdAndIdx(1L, 2);
         verify(candleRepo, never()).findByChartIdAndIdx(1L, 3);
     }
@@ -185,16 +184,6 @@ class TrainingSessionProgressServiceTest {
                 .l(close)
                 .c(close)
                 .v(1.0)
-                .build();
-    }
-
-    private static PaperPosition position(PaperAccount account, Symbol symbol, String quantity) {
-        return PaperPosition.builder()
-                .id(30L)
-                .account(account)
-                .symbolId(symbol.getId())
-                .quantity(new BigDecimal(quantity))
-                .avgPrice(new BigDecimal("100.00"))
                 .build();
     }
 
