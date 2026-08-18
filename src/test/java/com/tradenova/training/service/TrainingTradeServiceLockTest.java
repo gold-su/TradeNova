@@ -15,22 +15,31 @@ import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.entity.TrainingSessionChart;
 import com.tradenova.training.entity.TrainingStatus;
 import com.tradenova.training.entity.TrainingTrade;
+import com.tradenova.training.entity.TrainingRiskRuleHistory;
+import com.tradenova.training.repository.TrainingRiskRuleHistoryRepository;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +48,7 @@ class TrainingTradeServiceLockTest {
     @Mock private TrainingSessionChartRepository chartRepo;
     @Mock private TrainingSessionCandleRepository candleRepo;
     @Mock private TrainingTradeRepository tradeRepo;
+    @Mock private TrainingRiskRuleHistoryRepository riskHistoryRepo;
     @Mock private PaperAccountRepository accountRepo;
     @Mock private PaperPositionRepository positionRepo;
     @Mock private TrainingEventService eventService;
@@ -51,6 +61,7 @@ class TrainingTradeServiceLockTest {
                 chartRepo,
                 candleRepo,
                 tradeRepo,
+                riskHistoryRepo,
                 accountRepo,
                 positionRepo,
                 eventService,
@@ -79,10 +90,15 @@ class TrainingTradeServiceLockTest {
         order.verify(chartRepo).findForUpdateByIdAndUserId(1L, 7L);
         order.verify(accountRepo).findForUpdateById(10L);
         order.verify(positionRepo).findByAccountIdAndSymbolId(10L, 20L);
+
+        ArgumentCaptor<TrainingTrade> tradeCaptor = ArgumentCaptor.forClass(TrainingTrade.class);
+        verify(tradeRepo).save(tradeCaptor.capture());
+        assertThat(tradeCaptor.getValue().getRiskRuleHistoryId()).isNull();
     }
 
-    @Test
-    void automaticExitWithExistingChartLockStillLocksAccountBeforePosition() {
+    @ParameterizedTest
+    @EnumSource(AutoExitReason.class)
+    void automaticExitWithExistingChartLockUsesLatestRiskHistory(AutoExitReason reason) {
         Fixture fixture = fixture();
         PaperPosition position = PaperPosition.builder()
                 .id(30L)
@@ -93,6 +109,8 @@ class TrainingTradeServiceLockTest {
                 .build();
         when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(fixture.lockedAccount()));
         when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.of(position));
+        when(riskHistoryRepo.findTopByChartIdOrderByIdDesc(1L))
+                .thenReturn(Optional.of(TrainingRiskRuleHistory.builder().id(70L).build()));
         when(tradeRepo.save(any(TrainingTrade.class))).thenAnswer(invocation -> {
             TrainingTrade trade = invocation.getArgument(0);
             trade.setId(51L);
@@ -104,7 +122,7 @@ class TrainingTradeServiceLockTest {
                 fixture.chart(),
                 new BigDecimal("110.00"),
                 100L,
-                AutoExitReason.TAKE_PROFIT
+                reason
         );
 
         assertThat(response.cashBalance()).isEqualByComparingTo("1220.00");
@@ -112,6 +130,49 @@ class TrainingTradeServiceLockTest {
         InOrder order = inOrder(accountRepo, positionRepo);
         order.verify(accountRepo).findForUpdateById(10L);
         order.verify(positionRepo).findByAccountIdAndSymbolId(10L, 20L);
+
+        ArgumentCaptor<TrainingTrade> tradeCaptor = ArgumentCaptor.forClass(TrainingTrade.class);
+        verify(tradeRepo).save(tradeCaptor.capture());
+        assertThat(tradeCaptor.getValue().getRiskRuleHistoryId()).isEqualTo(70L);
+    }
+
+    @Test
+    void sameCandleTradesKeepTheLatestHistoryThatExistedAtEachTransaction() {
+        Fixture fixture = fixture();
+        AtomicReference<PaperPosition> savedPosition = new AtomicReference<>();
+        List<TrainingTrade> savedTrades = new ArrayList<>();
+
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
+        when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(fixture.lockedAccount()));
+        when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(fixture.candle()));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L))
+                .thenReturn(Optional.empty())
+                .thenAnswer(invocation -> Optional.of(savedPosition.get()));
+        when(positionRepo.save(any(PaperPosition.class))).thenAnswer(invocation -> {
+            PaperPosition position = invocation.getArgument(0);
+            savedPosition.set(position);
+            return position;
+        });
+        when(riskHistoryRepo.findTopByChartIdOrderByIdDesc(1L))
+                .thenReturn(Optional.of(TrainingRiskRuleHistory.builder().id(70L).build()))
+                .thenReturn(Optional.of(TrainingRiskRuleHistory.builder().id(71L).build()));
+        when(tradeRepo.save(any(TrainingTrade.class))).thenAnswer(invocation -> {
+            TrainingTrade trade = invocation.getArgument(0);
+            trade.setId(50L + savedTrades.size());
+            savedTrades.add(trade);
+            return trade;
+        });
+
+        service.buy(7L, 1L, BigDecimal.ONE);
+        service.sell(7L, 1L, BigDecimal.ONE, false);
+
+        assertThat(savedTrades).hasSize(2);
+        assertThat(savedTrades.get(0).getSide().name()).isEqualTo("BUY");
+        assertThat(savedTrades.get(0).getCandleTime()).isEqualTo(100L);
+        assertThat(savedTrades.get(0).getRiskRuleHistoryId()).isEqualTo(70L);
+        assertThat(savedTrades.get(1).getSide().name()).isEqualTo("SELL");
+        assertThat(savedTrades.get(1).getCandleTime()).isEqualTo(100L);
+        assertThat(savedTrades.get(1).getRiskRuleHistoryId()).isEqualTo(71L);
     }
 
     private static Fixture fixture() {

@@ -15,6 +15,7 @@ import com.tradenova.training.dto.TrainingTradeItemResponse;
 import com.tradenova.training.entity.*;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
+import com.tradenova.training.repository.TrainingRiskRuleHistoryRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class TrainingTradeService {
     private final TrainingSessionCandleRepository candleRepo;
     // 훈련 매매 기록(TrainingTrader) 조회용
     private final TrainingTradeRepository tradeRepo;
+    private final TrainingRiskRuleHistoryRepository riskHistoryRepo;
     // 페이퍼 계좌/포지션 관련 (현금/보유수량 갱신)
     private final PaperAccountRepository accountRepo;
     private final PaperPositionRepository positionRepo;
@@ -161,6 +163,7 @@ public class TrainingTradeService {
         // ===== 거래 로그 기록(훈련 트레이드) =====
 
         // TradeNova 훈련 거래(로그) 저장
+        Long riskRuleHistoryId = findLatestRiskHistoryId(chart.getId());
         TrainingTrade trade = tradeRepo.save(
                 TrainingTrade.builder()
                         // 어느 차트에서 발생한 거래인지(차트 단위 로그)
@@ -169,6 +172,7 @@ public class TrainingTradeService {
                         .accountId(acc.getId())
                         // 어떤 종목인지
                         .symbolId(symbolId)
+                        .riskRuleHistoryId(riskRuleHistoryId)
                         // 매수/매도 구분 (여긴 BUY)
                         .side(TradeSide.BUY)
                         // 체결 가격
@@ -187,6 +191,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", pos.getQuantity());
         payload.putPOJO("avgPrice", pos.getAvgPrice());
+        payload.putPOJO("riskRuleHistoryId", trade.getRiskRuleHistoryId());
 
         eventService.append(
                 userId,
@@ -324,6 +329,7 @@ public class TrainingTradeService {
 
         // ===== 트레이드 로그 저장 =====
 
+        Long riskRuleHistoryId = findLatestRiskHistoryId(chart.getId());
         TrainingTrade trade = tradeRepo.save(
                 TrainingTrade.builder()
                         // 어느 차트에서 발생한 거래인지
@@ -332,6 +338,7 @@ public class TrainingTradeService {
                         .accountId(acc.getId())
                         // 어떤 종목인지
                         .symbolId(symbolId)
+                        .riskRuleHistoryId(riskRuleHistoryId)
                         // 매도
                         .side(TradeSide.SELL)
                         // 체결가
@@ -358,6 +365,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", outQty);
         payload.putPOJO("avgPrice", outAvg);
+        payload.putPOJO("riskRuleHistoryId", trade.getRiskRuleHistoryId());
 
         String summary = sellAll
                 ? chart.getSymbol().getName() + " " + qty + "주 전량 매도"
@@ -513,12 +521,14 @@ public class TrainingTradeService {
         accountRepo.save(acc);
 
         // 11. 거래 기록 저장
+        Long riskRuleHistoryId = findLatestRiskHistoryId(chart.getId());
         TrainingTrade trade =
                 tradeRepo.save(
                         TrainingTrade.builder()
                                 .chartId(chart.getId())
                                 .accountId(acc.getId())
                                 .symbolId(symbolId)
+                                .riskRuleHistoryId(riskRuleHistoryId)
                                 .side(TradeSide.SELL)
                                 .price(executedPrice)
                                 .qty(qty)
@@ -548,6 +558,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", BigDecimal.ZERO);
         payload.putPOJO("avgPrice", BigDecimal.ZERO);
+        payload.putPOJO("riskRuleHistoryId", trade.getRiskRuleHistoryId());
 
         String reasonName =
                 reason == null
@@ -707,6 +718,12 @@ public class TrainingTradeService {
         Long accountId = chart.getSession().getAccount().getId();
         return accountRepo.findForUpdateById(accountId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAPER_ACCOUNT_NOT_FOUND));
+    }
+
+    private Long findLatestRiskHistoryId(Long chartId) {
+        return riskHistoryRepo.findTopByChartIdOrderByIdDesc(chartId)
+                .map(TrainingRiskRuleHistory::getId)
+                .orElse(null);
     }
 
     private BigDecimal validateStockQty(BigDecimal qty) {
