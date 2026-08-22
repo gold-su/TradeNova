@@ -1,11 +1,13 @@
 package com.tradenova.training.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.entity.PaperPosition;
 import com.tradenova.paper.repository.PaperAccountRepository;
 import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.service.TrainingEventService;
+import com.tradenova.report.entity.Type;
 import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.training.dto.AutoExitReason;
 import com.tradenova.training.dto.TradeResponse;
@@ -38,7 +40,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -94,6 +100,11 @@ class TrainingTradeServiceLockTest {
         ArgumentCaptor<TrainingTrade> tradeCaptor = ArgumentCaptor.forClass(TrainingTrade.class);
         verify(tradeRepo).save(tradeCaptor.capture());
         assertThat(tradeCaptor.getValue().getRiskRuleHistoryId()).isNull();
+
+        ArgumentCaptor<JsonNode> payloadCaptor = ArgumentCaptor.forClass(JsonNode.class);
+        verify(eventService).append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().path("tradeId").asLong()).isEqualTo(50L);
+        assertThat(payloadCaptor.getValue().path("riskRuleHistoryId").isNull()).isTrue();
     }
 
     @ParameterizedTest
@@ -134,6 +145,11 @@ class TrainingTradeServiceLockTest {
         ArgumentCaptor<TrainingTrade> tradeCaptor = ArgumentCaptor.forClass(TrainingTrade.class);
         verify(tradeRepo).save(tradeCaptor.capture());
         assertThat(tradeCaptor.getValue().getRiskRuleHistoryId()).isEqualTo(70L);
+
+        ArgumentCaptor<JsonNode> payloadCaptor = ArgumentCaptor.forClass(JsonNode.class);
+        verify(eventService).append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().path("tradeId").asLong()).isEqualTo(51L);
+        assertThat(payloadCaptor.getValue().path("riskRuleHistoryId").asLong()).isEqualTo(70L);
     }
 
     @Test
@@ -173,6 +189,61 @@ class TrainingTradeServiceLockTest {
         assertThat(savedTrades.get(1).getSide().name()).isEqualTo("SELL");
         assertThat(savedTrades.get(1).getCandleTime()).isEqualTo(100L);
         assertThat(savedTrades.get(1).getRiskRuleHistoryId()).isEqualTo(71L);
+
+        ArgumentCaptor<JsonNode> payloadCaptor = ArgumentCaptor.forClass(JsonNode.class);
+        verify(eventService, times(2))
+                .append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), payloadCaptor.capture());
+        assertThat(payloadCaptor.getAllValues().get(0).path("tradeId").asLong()).isEqualTo(50L);
+        assertThat(payloadCaptor.getAllValues().get(1).path("tradeId").asLong()).isEqualTo(51L);
+    }
+
+    @Test
+    void sellAllCreatesOneCanonicalTradeEventWhenPositionExists() {
+        Fixture fixture = fixture();
+        PaperPosition position = PaperPosition.builder()
+                .id(30L)
+                .account(fixture.lockedAccount())
+                .symbolId(20L)
+                .quantity(new BigDecimal("2"))
+                .avgPrice(new BigDecimal("90.00"))
+                .build();
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
+        when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(fixture.lockedAccount()));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.of(position));
+        when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(fixture.candle()));
+        when(riskHistoryRepo.findTopByChartIdOrderByIdDesc(1L))
+                .thenReturn(Optional.of(TrainingRiskRuleHistory.builder().id(70L).build()));
+        when(tradeRepo.save(any(TrainingTrade.class))).thenAnswer(invocation -> {
+            TrainingTrade trade = invocation.getArgument(0);
+            trade.setId(52L);
+            return trade;
+        });
+
+        TradeResponse response = service.sellAll(7L, 1L);
+
+        assertThat(response.tradeId()).isEqualTo(52L);
+        ArgumentCaptor<JsonNode> payloadCaptor = ArgumentCaptor.forClass(JsonNode.class);
+        verify(eventService).append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().path("tradeId").asLong()).isEqualTo(52L);
+        assertThat(payloadCaptor.getValue().path("sellAll").asBoolean()).isTrue();
+        assertThat(payloadCaptor.getValue().path("riskRuleHistoryId").asLong()).isEqualTo(70L);
+    }
+
+    @Test
+    void sellAllWithoutPositionCreatesNeitherTradeNorTradeEvent() {
+        Fixture fixture = fixture();
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
+        when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(fixture.lockedAccount()));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
+        when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(fixture.candle()));
+
+        TradeResponse response = service.sellAll(7L, 1L);
+
+        assertThat(response.tradeId()).isNull();
+        verify(tradeRepo, never()).save(any(TrainingTrade.class));
+        verify(eventService, never()).append(
+                eq(7L), eq(1L), eq(Type.TRADE), anyString(), any(JsonNode.class)
+        );
     }
 
     private static Fixture fixture() {

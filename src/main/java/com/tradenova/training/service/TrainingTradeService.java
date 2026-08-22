@@ -185,6 +185,7 @@ public class TrainingTradeService {
         );
 
         ObjectNode payload = objectMapper.createObjectNode();
+        payload.putPOJO("tradeId", trade.getId());
         payload.putPOJO("side", "BUY");
         payload.putPOJO("qty", qty);
         payload.putPOJO("executedPrice", price);
@@ -358,6 +359,7 @@ public class TrainingTradeService {
         BigDecimal outAvg = (remain.compareTo(BigDecimal.ZERO) == 0) ? BigDecimal.ZERO : pos.getAvgPrice();
 
         ObjectNode payload = objectMapper.createObjectNode();
+        payload.putPOJO("tradeId", trade.getId());
         payload.put("side", "SELL");
         payload.put("sellAll", sellAll);
         payload.putPOJO("qty", qty);
