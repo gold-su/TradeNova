@@ -23,6 +23,12 @@ import java.util.List;
 @Component
 public class PromptBuilder {
 
+    private final SessionAiDeterministicContextFormatter deterministicContextFormatter;
+
+    public PromptBuilder(SessionAiDeterministicContextFormatter deterministicContextFormatter) {
+        this.deterministicContextFormatter = deterministicContextFormatter;
+    }
+
     /**
      * 시스템 프롬프트 생성
      *
@@ -174,6 +180,14 @@ public class PromptBuilder {
         - snapshot이 없더라도 이벤트/거래/차트 상태만으로 최대한 평가해라
         - 실제 거래 여부와 계획이 얼마나 일치하는지 중요하게 보라
 
+        deterministic evidence rules:
+        - backend가 제공한 통계와 episode 계산값을 다시 계산하거나 수정하지 마라
+        - evidence가 없는 성향, 감정, 원인을 사실처럼 단정하지 마라
+        - OPEN episode를 CLOSED performance 통계와 혼동하지 마라
+        - inactive/refreshed chart도 과거 훈련 evidence일 수 있으므로 현재 chart와 구분해라
+        - riskRuleHistoryId는 당시 risk-plan snapshot reference이며 exit reason 자체가 아니다
+        - deterministic fact와 사용자 작성 snapshot의 의견/계획을 명확히 구분해라
+
         PnL 해석:
         - finalPnL은 참고 지표로만 사용하고 결과만으로 판단하지 마라
         - 동일한 행동이라도 finalPnL 결과에 따라 평가를 조정하되,
@@ -186,21 +200,23 @@ public class PromptBuilder {
      */
     public String buildSessionUserPrompt(SessionAiAnalysisRequest req) {
         return """
-            [세션 기본 정보]
-            sessionId: %s
-            accountId: %s
-            mode: %s
-            sessionStatus: %s
-            totalChartCount: %s
-            completedChartCount: %s
-            totalTradeCount: %s
+            [Deterministic Session Facts]
+            %s
+
+            [Calculated Trade Statistics]
+            %s
+
+            [Chart / Episode Evidence]
+            %s
+
+            [기존 차트 요약]
+            %s
+
+            [User-authored Snapshots]
+            %s
+
+            [Event / Note Context]
             totalEventCount: %s
-
-            [차트 요약]
-            %s
-
-            [세션 스냅샷 요약]
-            %s
 
             위 데이터를 보고 아래 항목을 평가해라:
             1) 여러 차트 중 선택과 관망의 적절성
@@ -215,17 +231,26 @@ public class PromptBuilder {
             - 실제 거래 여부와 계획 메모가 얼마나 연결되는지
             - 세션 전체적으로 충동성이 있었는지
             """.formatted(
-                req.sessionId(),
-                req.accountId(),
-                req.mode(),
-                req.sessionStatus(),
-                req.totalChartCount(),
-                req.completedChartCount(),
-                req.totalTradeCount(),
-                req.totalEventCount(),
+                sessionFacts(req),
+                deterministicContextFormatter.formatStatistics(req.deterministicContext()),
+                deterministicContextFormatter.formatChartEvidence(req.deterministicContext()),
                 chartBlock(req.charts()),
-                snapshotBlock(req.snapshots())
+                snapshotBlock(req.snapshots()),
+                req.totalEventCount()
         );
+    }
+
+    private String sessionFacts(SessionAiAnalysisRequest req) {
+        if (req.deterministicContext() != null) {
+            return deterministicContextFormatter.formatSessionFacts(req.deterministicContext());
+        }
+        return "sessionId=" + req.sessionId()
+                + ", accountId=" + req.accountId()
+                + ", mode=" + req.mode()
+                + ", status=" + req.sessionStatus()
+                + ", totalChartCount=" + req.totalChartCount()
+                + ", completedChartCount=" + req.completedChartCount()
+                + ", totalTradeCount=" + req.totalTradeCount();
     }
 
     // 세션 내 모든 차트의 요약 정보를 문자열로 변환
