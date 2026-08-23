@@ -186,6 +186,8 @@ public class PromptBuilder {
         - OPEN episode를 CLOSED performance 통계와 혼동하지 마라
         - inactive/refreshed chart도 과거 훈련 evidence일 수 있으므로 현재 chart와 구분해라
         - riskRuleHistoryId는 당시 risk-plan snapshot reference이며 exit reason 자체가 아니다
+        - entry/exit risk plan의 변경은 관찰 가능한 사실로만 설명해라
+        - snapshot 또는 note evidence가 없으면 risk plan 변경 원인이나 사용자의 심리를 추정하지 마라
         - deterministic fact와 사용자 작성 snapshot의 의견/계획을 명확히 구분해라
 
         PnL 해석:

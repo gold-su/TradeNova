@@ -1,6 +1,7 @@
 package com.tradenova.report.service;
 
 import com.tradenova.report.dto.ChartAiDeterministicContext;
+import com.tradenova.report.dto.RiskPlanAiContext;
 import com.tradenova.report.dto.SessionAiDeterministicContext;
 import com.tradenova.report.dto.TradeEpisodeAiContext;
 import com.tradenova.training.analytics.SessionTradeStatistics;
@@ -85,16 +86,27 @@ public class SessionAiDeterministicContextFormatter {
                         .append(", returnPct=").append(value(episode.returnPct()))
                         .append(", holdingBars=").append(value(episode.holdingBars()))
                         .append(", remainingQty=").append(value(episode.remainingQty()))
-                        .append(", firstEntryRiskHistoryId=")
-                        .append(value(episode.firstEntryRiskRuleHistoryId()))
-                        .append(", lastExitRiskHistoryId=")
-                        .append(value(episode.lastExitRiskRuleHistoryId()))
+                        .append(", entryRiskPlan=").append(formatRiskPlan(episode.entryRiskPlan()))
+                        .append(", exitRiskPlan=").append(formatRiskPlan(episode.exitRiskPlan()))
                         .append(", tradeRefs={entry:").append(compactIds(episode.entryTradeIds()))
                         .append(",exit:").append(compactIds(episode.exitTradeIds())).append("}")
                         .append('\n');
             }
         }
         return builder.toString();
+    }
+
+    private String formatRiskPlan(RiskPlanAiContext plan) {
+        if (plan == null) {
+            return "none";
+        }
+        return "{historyId=" + plan.riskRuleHistoryId()
+                + ",stopLoss=" + value(plan.stopLossPrice())
+                + ",takeProfit=" + value(plan.takeProfitPrice())
+                + ",autoExit=" + plan.autoExitEnabled()
+                + ",progressIndex=" + value(plan.progressIndex())
+                + ",candleTime=" + value(plan.candleTime())
+                + "}";
     }
 
     private String compactIds(List<Long> ids) {

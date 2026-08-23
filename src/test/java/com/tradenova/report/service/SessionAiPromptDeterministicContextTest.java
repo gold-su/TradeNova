@@ -1,6 +1,7 @@
 package com.tradenova.report.service;
 
 import com.tradenova.report.dto.ChartAiDeterministicContext;
+import com.tradenova.report.dto.RiskPlanAiContext;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiDeterministicContext;
 import com.tradenova.report.dto.SessionSnapshotSummary;
@@ -53,8 +54,9 @@ class SessionAiPromptDeterministicContextTest {
         assertTrue(prompt.contains("state=CLOSED"));
         assertTrue(prompt.contains("state=OPEN"));
         assertTrue(prompt.contains("active=false, refreshed=true"));
-        assertTrue(prompt.contains("firstEntryRiskHistoryId=700"));
-        assertTrue(prompt.contains("lastExitRiskHistoryId=800"));
+        assertTrue(prompt.contains("entryRiskPlan={historyId=700,stopLoss=95,takeProfit=120"));
+        assertTrue(prompt.contains("exitRiskPlan={historyId=800,stopLoss=98,takeProfit=130,autoExit=false"));
+        assertTrue(prompt.contains("entryRiskPlan=none"));
         assertTrue(prompt.contains("tradeRefs={entry:[101..102;count=2],exit:[103]}"));
         assertFalse(prompt.contains("101, 102"));
         assertTrue(prompt.contains("[User-authored Snapshots]"));
@@ -74,6 +76,7 @@ class SessionAiPromptDeterministicContextTest {
         assertTrue(prompt.contains("다시 계산하거나 수정하지 마라"));
         assertTrue(prompt.contains("OPEN episode"));
         assertTrue(prompt.contains("riskRuleHistoryId"));
+        assertTrue(prompt.contains("변경 원인이나 사용자의 심리를 추정하지 마라"));
     }
 
     private SessionAiDeterministicContext contextWithClosedAndOpenEpisodes() {
@@ -96,7 +99,13 @@ class SessionAiPromptDeterministicContextTest {
                 true,
                 BigDecimal.ZERO,
                 700L,
-                800L
+                800L,
+                new RiskPlanAiContext(
+                        700L, BigDecimal.valueOf(95), BigDecimal.valueOf(120), true, 10, 1_000L
+                ),
+                new RiskPlanAiContext(
+                        800L, BigDecimal.valueOf(98), BigDecimal.valueOf(130), false, 20, 2_000L
+                )
         );
         TradeEpisodeAiContext open = new TradeEpisodeAiContext(
                 2,

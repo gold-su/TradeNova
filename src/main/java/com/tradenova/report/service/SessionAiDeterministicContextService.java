@@ -3,6 +3,7 @@ package com.tradenova.report.service;
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.report.dto.ChartAiDeterministicContext;
+import com.tradenova.report.dto.RiskPlanAiContext;
 import com.tradenova.report.dto.SessionAiDeterministicContext;
 import com.tradenova.report.dto.TradeEpisodeAiContext;
 import com.tradenova.training.analytics.SessionTradeStatistics;
@@ -10,9 +11,12 @@ import com.tradenova.training.analytics.SessionTradeStatisticsCalculator;
 import com.tradenova.training.analytics.TradeEpisode;
 import com.tradenova.training.analytics.TradeEpisodeAnalysisResult;
 import com.tradenova.training.analytics.TradeEpisodeAnalysisService;
+import com.tradenova.training.analytics.TradeEpisodeDataException;
 import com.tradenova.training.entity.TrainingChartStatus;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.entity.TrainingSessionChart;
+import com.tradenova.training.entity.TrainingRiskRuleHistory;
+import com.tradenova.training.repository.TrainingRiskRuleHistoryRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingSessionRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +24,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Ownership-checked boundary that prepares deterministic facts for session AI.
@@ -34,6 +43,7 @@ public class SessionAiDeterministicContextService {
     private final TrainingSessionChartRepository chartRepository;
     private final TradeEpisodeAnalysisService episodeAnalysisService;
     private final SessionTradeStatisticsCalculator statisticsCalculator;
+    private final TrainingRiskRuleHistoryRepository riskHistoryRepository;
 
     @Transactional(readOnly = true)
     public SessionAiDeterministicContext build(Long userId, Long sessionId) {
@@ -48,12 +58,22 @@ public class SessionAiDeterministicContextService {
         }
 
         List<TradeEpisodeAnalysisResult> episodeResults = new ArrayList<>(charts.size());
-        List<ChartAiDeterministicContext> chartContexts = new ArrayList<>(charts.size());
 
         for (TrainingSessionChart chart : charts) {
             TradeEpisodeAnalysisResult result = episodeAnalysisService.analyzeChart(chart.getId());
             episodeResults.add(result);
-            chartContexts.add(toChartContext(chart, result));
+        }
+
+        Map<Long, TrainingRiskRuleHistory> riskHistories = loadRiskHistories(episodeResults);
+        List<ChartAiDeterministicContext> chartContexts = new ArrayList<>(charts.size());
+        for (int index = 0; index < charts.size(); index++) {
+            chartContexts.add(toChartContext(
+                    session,
+                    userId,
+                    charts.get(index),
+                    episodeResults.get(index),
+                    riskHistories
+            ));
         }
 
         SessionTradeStatistics statistics = statisticsCalculator.calculate(episodeResults);
@@ -85,11 +105,14 @@ public class SessionAiDeterministicContextService {
     }
 
     private ChartAiDeterministicContext toChartContext(
+            TrainingSession session,
+            Long userId,
             TrainingSessionChart chart,
-            TradeEpisodeAnalysisResult result
+            TradeEpisodeAnalysisResult result,
+            Map<Long, TrainingRiskRuleHistory> riskHistories
     ) {
         List<TradeEpisodeAiContext> episodes = result.episodes().stream()
-                .map(this::toEpisodeContext)
+                .map(episode -> toEpisodeContext(session, userId, chart, episode, riskHistories))
                 .toList();
         int tradeCount = episodes.stream().mapToInt(episode -> episode.allTradeIds().size()).sum();
 
@@ -114,7 +137,13 @@ public class SessionAiDeterministicContextService {
         );
     }
 
-    private TradeEpisodeAiContext toEpisodeContext(TradeEpisode episode) {
+    private TradeEpisodeAiContext toEpisodeContext(
+            TrainingSession session,
+            Long userId,
+            TrainingSessionChart chart,
+            TradeEpisode episode,
+            Map<Long, TrainingRiskRuleHistory> riskHistories
+    ) {
         return new TradeEpisodeAiContext(
                 episode.episodeIndex(),
                 episode.entryTradeIds(),
@@ -134,7 +163,71 @@ public class SessionAiDeterministicContextService {
                 episode.closed(),
                 episode.remainingQty(),
                 episode.firstEntryRiskRuleHistoryId(),
-                episode.lastExitRiskRuleHistoryId()
+                episode.lastExitRiskRuleHistoryId(),
+                resolveRiskPlan(
+                        episode.firstEntryRiskRuleHistoryId(), session, userId, chart, riskHistories
+                ),
+                resolveRiskPlan(
+                        episode.lastExitRiskRuleHistoryId(), session, userId, chart, riskHistories
+                )
+        );
+    }
+
+    private Map<Long, TrainingRiskRuleHistory> loadRiskHistories(
+            List<TradeEpisodeAnalysisResult> episodeResults
+    ) {
+        Set<Long> historyIds = new HashSet<>();
+        episodeResults.stream()
+                .flatMap(result -> result.episodes().stream())
+                .forEach(episode -> {
+                    if (episode.firstEntryRiskRuleHistoryId() != null) {
+                        historyIds.add(episode.firstEntryRiskRuleHistoryId());
+                    }
+                    if (episode.lastExitRiskRuleHistoryId() != null) {
+                        historyIds.add(episode.lastExitRiskRuleHistoryId());
+                    }
+                });
+
+        if (historyIds.isEmpty()) {
+            return Map.of();
+        }
+        return riskHistoryRepository.findAllByIdIn(historyIds).stream()
+                .collect(Collectors.toMap(
+                        TrainingRiskRuleHistory::getId,
+                        Function.identity(),
+                        (first, ignored) -> first
+                ));
+    }
+
+    private RiskPlanAiContext resolveRiskPlan(
+            Long historyId,
+            TrainingSession session,
+            Long userId,
+            TrainingSessionChart chart,
+            Map<Long, TrainingRiskRuleHistory> riskHistories
+    ) {
+        if (historyId == null) {
+            return null;
+        }
+        TrainingRiskRuleHistory history = riskHistories.get(historyId);
+        if (history == null) {
+            throw new TradeEpisodeDataException("Missing risk history id=" + historyId);
+        }
+        if (!userId.equals(history.getUserId())
+                || !session.getId().equals(history.getSessionId())
+                || !session.getAccount().getId().equals(history.getAccountId())
+                || !chart.getId().equals(history.getChartId())) {
+            throw new TradeEpisodeDataException(
+                    "Risk history id=" + historyId + " does not belong to its episode context"
+            );
+        }
+        return new RiskPlanAiContext(
+                history.getId(),
+                history.getStopLossPrice(),
+                history.getTakeProfitPrice(),
+                history.isAutoExitEnabled(),
+                history.getProgressIndex(),
+                history.getCandleTime()
         );
     }
 }
