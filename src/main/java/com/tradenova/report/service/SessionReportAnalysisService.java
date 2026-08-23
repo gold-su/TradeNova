@@ -58,6 +58,7 @@ public class SessionReportAnalysisService {
     private final AiAnalysisService aiAnalysisService;
     private final TrainingEventService trainingEventService;
     private final ObjectMapper objectMapper;
+    private final SessionAiDeterministicContextService deterministicContextService;
 
     @Transactional
     public TrainingEventResponse analyzeSession(Long userId, Long sessionId) {
@@ -151,6 +152,10 @@ public class SessionReportAnalysisService {
                 .filter(c -> "COMPLETED".equals(c.getStatus().name()))
                 .count();
 
+        // Backend-calculated canonical episode/statistics context for the LLM.
+        SessionAiDeterministicContext deterministicContext =
+                deterministicContextService.build(userId, sessionId);
+
         // AI 요청 DTO 생성
         SessionAiAnalysisRequest request = new SessionAiAnalysisRequest(
                 session.getId(),
@@ -162,7 +167,8 @@ public class SessionReportAnalysisService {
                 trades.size(),
                 events.size(),
                 chartSummaries,
-                snapshotSummaries
+                snapshotSummaries,
+                deterministicContext
         );
 
         // 7) AI 분석 실행
