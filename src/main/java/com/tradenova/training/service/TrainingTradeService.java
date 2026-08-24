@@ -192,7 +192,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", pos.getQuantity());
         payload.putPOJO("avgPrice", pos.getAvgPrice());
-        payload.putPOJO("riskRuleHistoryId", trade.getRiskRuleHistoryId());
+        putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         eventService.append(
                 userId,
@@ -367,7 +367,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", outQty);
         payload.putPOJO("avgPrice", outAvg);
-        payload.putPOJO("riskRuleHistoryId", trade.getRiskRuleHistoryId());
+        putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         String summary = sellAll
                 ? chart.getSymbol().getName() + " " + qty + "주 전량 매도"
@@ -560,7 +560,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", BigDecimal.ZERO);
         payload.putPOJO("avgPrice", BigDecimal.ZERO);
-        payload.putPOJO("riskRuleHistoryId", trade.getRiskRuleHistoryId());
+        putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         String reasonName =
                 reason == null
@@ -754,4 +754,14 @@ public class TrainingTradeService {
         return qty;
     }
 
+    private void putRiskRuleHistoryId(
+            ObjectNode payload,
+            Long riskRuleHistoryId
+    ) {
+        if (riskRuleHistoryId == null) {
+            payload.putNull("riskRuleHistoryId");
+        } else {
+            payload.put("riskRuleHistoryId", riskRuleHistoryId);
+        }
+    }
 }
