@@ -12,6 +12,12 @@ import java.time.OffsetDateTime;
 @Entity
 @Table(
         name = "training_session_chart",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_session_chart_session_symbol",
+                        columnNames = {"session_id", "symbol_id"}
+                )
+        },
         indexes = {
                 @Index(name = "idx_session_chart_session", columnList = "session_id"),
                 @Index(name = "idx_session_chart_symbol", columnList = "symbol_id"),
