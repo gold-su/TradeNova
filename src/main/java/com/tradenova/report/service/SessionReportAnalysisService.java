@@ -59,6 +59,7 @@ public class SessionReportAnalysisService {
     private final TrainingEventService trainingEventService;
     private final ObjectMapper objectMapper;
     private final SessionAiDeterministicContextService deterministicContextService;
+    private final SessionQualitativeEvidenceResolver qualitativeEvidenceResolver;
 
     @Transactional
     public TrainingEventResponse analyzeSession(Long userId, Long sessionId) {
@@ -155,6 +156,9 @@ public class SessionReportAnalysisService {
         // Backend-calculated canonical episode/statistics context for the LLM.
         SessionAiDeterministicContext deterministicContext =
                 deterministicContextService.build(userId, sessionId);
+        SessionQualitativeEvidenceContext qualitativeEvidence = qualitativeEvidenceResolver.resolve(
+                deterministicContext, snapshots, events
+        );
 
         // AI 요청 DTO 생성
         SessionAiAnalysisRequest request = new SessionAiAnalysisRequest(
@@ -168,7 +172,8 @@ public class SessionReportAnalysisService {
                 events.size(),
                 chartSummaries,
                 snapshotSummaries,
-                deterministicContext
+                deterministicContext,
+                qualitativeEvidence
         );
 
         // 7) AI 분석 실행

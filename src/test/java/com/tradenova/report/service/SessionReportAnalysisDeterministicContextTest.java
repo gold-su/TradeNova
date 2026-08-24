@@ -6,6 +6,7 @@ import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.report.dto.AiAnalysisResponse;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiDeterministicContext;
+import com.tradenova.report.dto.SessionQualitativeEvidenceContext;
 import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.entity.ReportDocument;
 import com.tradenova.report.entity.ReportKind;
@@ -54,6 +55,7 @@ class SessionReportAnalysisDeterministicContextTest {
         AiAnalysisService aiAnalysisService = mock(AiAnalysisService.class);
         TrainingEventService eventService = mock(TrainingEventService.class);
         SessionAiDeterministicContextService contextService = mock(SessionAiDeterministicContextService.class);
+        SessionQualitativeEvidenceResolver evidenceResolver = mock(SessionQualitativeEvidenceResolver.class);
         ObjectMapper objectMapper = new ObjectMapper();
         SessionReportAnalysisService service = new SessionReportAnalysisService(
                 sessionRepository,
@@ -65,7 +67,8 @@ class SessionReportAnalysisDeterministicContextTest {
                 aiAnalysisService,
                 eventService,
                 objectMapper,
-                contextService
+                contextService,
+                evidenceResolver
         );
         TrainingSession session = session();
         TrainingSessionChart chart = chart(session);
@@ -91,6 +94,8 @@ class SessionReportAnalysisDeterministicContextTest {
                 .summary("note")
                 .build();
         SessionAiDeterministicContext deterministicContext = deterministicContext();
+        SessionQualitativeEvidenceContext qualitativeContext =
+                new SessionQualitativeEvidenceContext(5L, List.of());
         TrainingEventResponse expected = new TrainingEventResponse(
                 99L, 10L, "AI", "세션 AI 리뷰", objectMapper.createObjectNode(), Instant.EPOCH
         );
@@ -105,6 +110,8 @@ class SessionReportAnalysisDeterministicContextTest {
         when(documentRepository.findAllByUserIdAndChartIdInAndKindOrderByCreatedAtDesc(
                 1L, List.of(10L), ReportKind.SNAPSHOT)).thenReturn(List.of(snapshot));
         when(contextService.build(1L, 5L)).thenReturn(deterministicContext);
+        when(evidenceResolver.resolve(deterministicContext, List.of(snapshot), List.of(note)))
+                .thenReturn(qualitativeContext);
         when(aiAnalysisService.analyzeSession(any(SessionAiAnalysisRequest.class)))
                 .thenReturn(new AiAnalysisResponse(80, "summary", List.of("warning"), List.of("strength")));
         when(eventService.append(eq(1L), eq(10L), eq(Type.AI), eq("세션 AI 리뷰"), any(ObjectNode.class)))
@@ -119,6 +126,7 @@ class SessionReportAnalysisDeterministicContextTest {
         verify(aiAnalysisService).analyzeSession(requestCaptor.capture());
         SessionAiAnalysisRequest request = requestCaptor.getValue();
         assertSame(deterministicContext, request.deterministicContext());
+        assertSame(qualitativeContext, request.qualitativeEvidenceContext());
         assertEquals(1, request.totalEventCount());
         assertEquals(1, request.snapshots().size());
         assertEquals("support held", request.snapshots().get(0).thesis());

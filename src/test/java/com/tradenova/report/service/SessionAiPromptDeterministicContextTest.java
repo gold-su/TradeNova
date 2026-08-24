@@ -6,12 +6,18 @@ import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiDeterministicContext;
 import com.tradenova.report.dto.SessionSnapshotSummary;
 import com.tradenova.report.dto.TradeEpisodeAiContext;
+import com.tradenova.report.dto.ChartQualitativeEvidenceContext;
+import com.tradenova.report.dto.EvidenceTimelineAnchor;
+import com.tradenova.report.dto.NoteAiEvidence;
+import com.tradenova.report.dto.SessionQualitativeEvidenceContext;
+import com.tradenova.report.dto.SnapshotAiEvidence;
 import com.tradenova.training.analytics.SessionTradeStatistics;
 import com.tradenova.training.analytics.TradeEpisodeReference;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,7 +44,8 @@ class SessionAiPromptDeterministicContextTest {
                 List.of(new SessionSnapshotSummary(
                         10L, 2, "support held", "pullback", "planned exit", "risk note", "memo"
                 )),
-                contextWithClosedAndOpenEpisodes()
+                contextWithClosedAndOpenEpisodes(),
+                qualitativeContext()
         );
 
         String prompt = promptBuilder.buildSessionUserPrompt(request);
@@ -59,9 +66,11 @@ class SessionAiPromptDeterministicContextTest {
         assertTrue(prompt.contains("entryRiskPlan=none"));
         assertTrue(prompt.contains("tradeRefs={entry:[101..102;count=2],exit:[103]}"));
         assertFalse(prompt.contains("101, 102"));
-        assertTrue(prompt.contains("[User-authored Snapshots]"));
-        assertTrue(prompt.contains("thesis=support held"));
-        assertTrue(prompt.contains("[Event / Note Context]"));
+        assertTrue(prompt.contains("[User-authored Qualitative Evidence]"));
+        assertTrue(prompt.contains("thesis:support held"));
+        assertTrue(prompt.contains("NOTE#90"));
+        assertTrue(prompt.contains("timeline=UNRESOLVED"));
+        assertTrue(prompt.contains("[Automatic Event Context"));
         assertTrue(prompt.contains("totalEventCount: 7"));
     }
 
@@ -77,6 +86,26 @@ class SessionAiPromptDeterministicContextTest {
         assertTrue(prompt.contains("OPEN episode"));
         assertTrue(prompt.contains("riskRuleHistoryId"));
         assertTrue(prompt.contains("변경 원인이나 사용자의 심리를 추정하지 마라"));
+        assertTrue(prompt.contains("시간적으로 뒤에 작성된 NOTE"));
+        assertTrue(prompt.contains("자동 TRADE/WARNING/PROGRESS/AI event"));
+    }
+
+    private SessionQualitativeEvidenceContext qualitativeContext() {
+        EvidenceTimelineAnchor linked = new EvidenceTimelineAnchor(
+                10, 1_000L, 101L, new TradeEpisodeReference(10L, 1), 700L, "LINKED_EVENT"
+        );
+        SnapshotAiEvidence snapshot = new SnapshotAiEvidence(
+                80L, 1, Instant.ofEpochSecond(2), 70L,
+                "support held", "pullback", "planned exit", "risk note", "memo", linked
+        );
+        NoteAiEvidence note = new NoteAiEvidence(
+                90L, Instant.ofEpochSecond(3), "wait", null,
+                new EvidenceTimelineAnchor(null, null, null, null, null, "UNRESOLVED")
+        );
+        return new SessionQualitativeEvidenceContext(
+                1L, List.of(new ChartQualitativeEvidenceContext(
+                        10L, false, true, List.of(snapshot), List.of(note)))
+        );
     }
 
     private SessionAiDeterministicContext contextWithClosedAndOpenEpisodes() {

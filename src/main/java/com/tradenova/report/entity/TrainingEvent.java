@@ -47,6 +47,11 @@ public class TrainingEvent {
     @Column(nullable=false, length=20)
     private Type type;
 
+    /** Legacy rows are null and must not be assumed to be user-authored. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origin", length = 10)
+    private EventOrigin origin;
+
     // UI 한 줄 로그(사람이 읽는 문자열) - 화면에 바로 띄우기
     /**
      * "10봉 진행"
