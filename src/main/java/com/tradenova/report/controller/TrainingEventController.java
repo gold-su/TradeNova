@@ -54,7 +54,7 @@ public class TrainingEventController {
         Type type = (req.type() == null) ? Type.NOTE : req.type();
 
         return ResponseEntity.ok(
-                trainingEventService.append(
+                trainingEventService.appendUserAuthored(
                         userId,
                         chartId,
                         type,

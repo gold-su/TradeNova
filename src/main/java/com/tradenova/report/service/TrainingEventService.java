@@ -5,6 +5,7 @@ import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.entity.TrainingEvent;
+import com.tradenova.report.entity.EventOrigin;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.repository.TrainingEventRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
@@ -35,6 +36,24 @@ public class TrainingEventService {
                                         String title,          // 사실상 "한 줄 로그 문자열" (엔티티에서는 summary)
                                         JsonNode payloadJson   // 상세 데이터(유연하게 JSON으로 저장)
     ) {
+        return appendWithOrigin(userId, chartId, type, title, payloadJson, EventOrigin.SYSTEM);
+    }
+
+    @Transactional
+    public TrainingEventResponse appendUserAuthored(Long userId,
+                                                    Long chartId,
+                                                    Type type,
+                                                    String title,
+                                                    JsonNode payloadJson) {
+        return appendWithOrigin(userId, chartId, type, title, payloadJson, EventOrigin.USER);
+    }
+
+    private TrainingEventResponse appendWithOrigin(Long userId,
+                                                    Long chartId,
+                                                    Type type,
+                                                    String title,
+                                                    JsonNode payloadJson,
+                                                    EventOrigin origin) {
         // 입력값 방어
         if (type == null || title == null || chartId == null || title.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_TRAINING_EVENT);
@@ -48,6 +67,7 @@ public class TrainingEventService {
                         .userId(userId)          // 이벤트 발생한 사용자
                         .chartId(chartId)        // 어떤 차트에서 발생했는지
                         .type(type)              // 이벤트 종류
+                        .origin(origin)
                         .summary(title)          // 화면에 바로 뿌릴 한 줄 로그
                         .payloadJson(payloadJson)// 상세 데이터 JSON
                         .build()

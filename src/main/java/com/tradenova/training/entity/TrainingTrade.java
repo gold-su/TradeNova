@@ -17,7 +17,8 @@ import java.time.OffsetDateTime;
 @Table(name = "training_trade",
         indexes = {
                 @Index(name="idx_trade_chart", columnList="chart_id"),
-                @Index(name="idx_trade_account", columnList="account_id")
+                @Index(name="idx_trade_account", columnList="account_id"),
+                @Index(name="idx_trade_risk_history", columnList="risk_rule_history_id")
         }
 )
 public class TrainingTrade {
@@ -49,6 +50,13 @@ public class TrainingTrade {
      */
     @Column(name="symbol_id", nullable=false)
     private Long symbolId;
+
+    /**
+     * 거래 시점에 적용 가능했던 최신 리스크 계획 snapshot.
+     * 리스크 룰을 한 번도 저장하지 않은 거래는 null이다.
+     */
+    @Column(name = "risk_rule_history_id")
+    private Long riskRuleHistoryId;
 
     /**
      * 매수(BUY)인지 매도(SELL)인지 구분
