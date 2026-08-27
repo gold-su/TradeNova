@@ -194,7 +194,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", pos.getQuantity());
         payload.putPOJO("avgPrice", pos.getAvgPrice());
-        payload.putPOJO("riskRuleHistoryId", trade.getRiskRuleHistoryId());
+        putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         eventService.append(
                 userId,
@@ -353,8 +353,8 @@ public class TrainingTradeService {
                         .build()
         );
 
-        // The closing trade keeps the plan that was active immediately before the
-        // close. Only after that canonical evidence is saved do we end the live plan.
+        // Keep the pre-close plan on the canonical SELL trade. Only after that
+        // evidence is saved do we transition the live plan for the next episode.
         if (remain.compareTo(BigDecimal.ZERO) == 0) {
             riskRuleLifecycleService.disableAfterPositionClosed(
                     userId, chart, currentCandle.getT()
@@ -377,7 +377,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", outQty);
         payload.putPOJO("avgPrice", outAvg);
-        payload.putPOJO("riskRuleHistoryId", trade.getRiskRuleHistoryId());
+        putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         String summary = sellAll
                 ? chart.getSymbol().getName() + " " + qty + "주 전량 매도"
@@ -548,8 +548,8 @@ public class TrainingTradeService {
                                 .build()
                 );
 
-        // Preserve the pre-close plan on the SELL trade, then append the disabled
-        // post-close state for the next episode.
+        // STOP_LOSS, TAKE_PROFIT and END_OF_CHART share this full-close path.
+        // Save their pre-close plan reference before appending the disabled state.
         riskRuleLifecycleService.disableAfterPositionClosed(
                 userId, chart, candleTime
         );
@@ -576,7 +576,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", BigDecimal.ZERO);
         payload.putPOJO("avgPrice", BigDecimal.ZERO);
-        payload.putPOJO("riskRuleHistoryId", trade.getRiskRuleHistoryId());
+        putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         String reasonName =
                 reason == null
@@ -770,4 +770,14 @@ public class TrainingTradeService {
         return qty;
     }
 
+    private void putRiskRuleHistoryId(
+            ObjectNode payload,
+            Long riskRuleHistoryId
+    ) {
+        if (riskRuleHistoryId == null) {
+            payload.putNull("riskRuleHistoryId");
+        } else {
+            payload.put("riskRuleHistoryId", riskRuleHistoryId);
+        }
+    }
 }
