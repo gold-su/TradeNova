@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,6 +59,7 @@ class TrainingTradeServiceLockTest {
     @Mock private PaperAccountRepository accountRepo;
     @Mock private PaperPositionRepository positionRepo;
     @Mock private TrainingEventService eventService;
+    @Mock private TrainingRiskRuleLifecycleService riskRuleLifecycleService;
 
     private TrainingTradeService service;
 
@@ -70,6 +72,7 @@ class TrainingTradeServiceLockTest {
                 riskHistoryRepo,
                 accountRepo,
                 positionRepo,
+                riskRuleLifecycleService,
                 eventService,
                 new ObjectMapper()
         );
@@ -105,6 +108,31 @@ class TrainingTradeServiceLockTest {
         verify(eventService).append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), payloadCaptor.capture());
         assertThat(payloadCaptor.getValue().path("tradeId").asLong()).isEqualTo(50L);
         assertThat(payloadCaptor.getValue().path("riskRuleHistoryId").isNull()).isTrue();
+    }
+
+    @Test
+    void newEpisodeBuyReferencesLatestDisabledHistory() {
+        Fixture fixture = fixture();
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
+        when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(fixture.lockedAccount()));
+        when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(fixture.candle()));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
+        when(riskHistoryRepo.findTopByChartIdOrderByIdDesc(1L))
+                .thenReturn(Optional.of(TrainingRiskRuleHistory.builder()
+                        .id(71L)
+                        .autoExitEnabled(false)
+                        .build()));
+        when(tradeRepo.save(any(TrainingTrade.class))).thenAnswer(invocation -> {
+            TrainingTrade trade = invocation.getArgument(0);
+            trade.setId(54L);
+            return trade;
+        });
+
+        service.buy(7L, 1L, BigDecimal.ONE);
+
+        ArgumentCaptor<TrainingTrade> tradeCaptor = ArgumentCaptor.forClass(TrainingTrade.class);
+        verify(tradeRepo).save(tradeCaptor.capture());
+        assertThat(tradeCaptor.getValue().getRiskRuleHistoryId()).isEqualTo(71L);
     }
 
     @ParameterizedTest
@@ -150,6 +178,13 @@ class TrainingTradeServiceLockTest {
         verify(eventService).append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), payloadCaptor.capture());
         assertThat(payloadCaptor.getValue().path("tradeId").asLong()).isEqualTo(51L);
         assertThat(payloadCaptor.getValue().path("riskRuleHistoryId").asLong()).isEqualTo(70L);
+        verify(riskRuleLifecycleService).disableAfterPositionClosed(7L, fixture.chart(), 100L);
+        InOrder closeOrder = inOrder(tradeRepo, riskRuleLifecycleService, eventService);
+        closeOrder.verify(tradeRepo).save(any(TrainingTrade.class));
+        closeOrder.verify(riskRuleLifecycleService)
+                .disableAfterPositionClosed(7L, fixture.chart(), 100L);
+        closeOrder.verify(eventService)
+                .append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), any(JsonNode.class));
     }
 
     @Test
@@ -195,6 +230,7 @@ class TrainingTradeServiceLockTest {
                 .append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), payloadCaptor.capture());
         assertThat(payloadCaptor.getAllValues().get(0).path("tradeId").asLong()).isEqualTo(50L);
         assertThat(payloadCaptor.getAllValues().get(1).path("tradeId").asLong()).isEqualTo(51L);
+        verify(riskRuleLifecycleService).disableAfterPositionClosed(7L, fixture.chart(), 100L);
     }
 
     @Test
@@ -227,6 +263,7 @@ class TrainingTradeServiceLockTest {
         assertThat(payloadCaptor.getValue().path("tradeId").asLong()).isEqualTo(52L);
         assertThat(payloadCaptor.getValue().path("sellAll").asBoolean()).isTrue();
         assertThat(payloadCaptor.getValue().path("riskRuleHistoryId").asLong()).isEqualTo(70L);
+        verify(riskRuleLifecycleService).disableAfterPositionClosed(7L, fixture.chart(), 100L);
     }
 
     @Test
@@ -241,6 +278,63 @@ class TrainingTradeServiceLockTest {
 
         assertThat(response.tradeId()).isNull();
         verify(tradeRepo, never()).save(any(TrainingTrade.class));
+        verify(eventService, never()).append(
+                eq(7L), eq(1L), eq(Type.TRADE), anyString(), any(JsonNode.class)
+        );
+        verify(riskRuleLifecycleService, never())
+                .disableAfterPositionClosed(any(), any(), any());
+    }
+
+    @Test
+    void partialSellKeepsTheCurrentRiskRuleEnabled() {
+        Fixture fixture = fixture();
+        PaperPosition position = PaperPosition.builder()
+                .id(30L)
+                .account(fixture.lockedAccount())
+                .symbolId(20L)
+                .quantity(new BigDecimal("2"))
+                .avgPrice(new BigDecimal("90.00"))
+                .build();
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
+        when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(fixture.lockedAccount()));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.of(position));
+        when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(fixture.candle()));
+        when(tradeRepo.save(any(TrainingTrade.class))).thenAnswer(invocation -> {
+            TrainingTrade trade = invocation.getArgument(0);
+            trade.setId(53L);
+            return trade;
+        });
+
+        TradeResponse response = service.sell(7L, 1L, BigDecimal.ONE, false);
+
+        assertThat(response.positionQty()).isEqualByComparingTo(BigDecimal.ONE);
+        verify(riskRuleLifecycleService, never())
+                .disableAfterPositionClosed(any(), any(), any());
+    }
+
+    @Test
+    void lifecycleFailurePropagatesBeforeTradeEventIsAppended() {
+        Fixture fixture = fixture();
+        PaperPosition position = PaperPosition.builder()
+                .id(30L)
+                .account(fixture.lockedAccount())
+                .symbolId(20L)
+                .quantity(BigDecimal.ONE)
+                .avgPrice(new BigDecimal("90.00"))
+                .build();
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
+        when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(fixture.lockedAccount()));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.of(position));
+        when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(fixture.candle()));
+        when(tradeRepo.save(any(TrainingTrade.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        RuntimeException failure = new RuntimeException("history insert failed");
+        org.mockito.Mockito.doThrow(failure)
+                .when(riskRuleLifecycleService)
+                .disableAfterPositionClosed(7L, fixture.chart(), 100L);
+
+        assertThatThrownBy(() -> service.sell(7L, 1L, BigDecimal.ONE, false))
+                .isSameAs(failure);
+
         verify(eventService, never()).append(
                 eq(7L), eq(1L), eq(Type.TRADE), anyString(), any(JsonNode.class)
         );

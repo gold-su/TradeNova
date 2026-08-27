@@ -41,6 +41,8 @@ public class TrainingTradeService {
     private final PaperAccountRepository accountRepo;
     private final PaperPositionRepository positionRepo;
 
+    private final TrainingRiskRuleLifecycleService riskRuleLifecycleService;
+
     private final TrainingEventService eventService;
     private final ObjectMapper objectMapper;
 
@@ -351,6 +353,14 @@ public class TrainingTradeService {
                         .build()
         );
 
+        // Keep the pre-close plan on the canonical SELL trade. Only after that
+        // evidence is saved do we transition the live plan for the next episode.
+        if (remain.compareTo(BigDecimal.ZERO) == 0) {
+            riskRuleLifecycleService.disableAfterPositionClosed(
+                    userId, chart, currentCandle.getT()
+            );
+        }
+
 
 
         // ===== 응답 스냅샷 구성 =====
@@ -537,6 +547,12 @@ public class TrainingTradeService {
                                 .candleTime(candleTime)
                                 .build()
                 );
+
+        // STOP_LOSS, TAKE_PROFIT and END_OF_CHART share this full-close path.
+        // Save their pre-close plan reference before appending the disabled state.
+        riskRuleLifecycleService.disableAfterPositionClosed(
+                userId, chart, candleTime
+        );
 
         // 12. TRADE 이벤트 저장
         ObjectNode payload =
