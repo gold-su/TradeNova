@@ -31,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -74,6 +76,7 @@ public class TrainingSessionService {
     private final ReportDocumentRepository reportDocumentRepository;
     // AI 이벤트 조회
     private final TrainingEventRepository trainingEventRepository;
+    private final TrainingTradeService trainingTradeService;
     /**
      * 세션 생성 (RANDOM)
      */
@@ -97,8 +100,8 @@ public class TrainingSessionService {
         }
 
         // 중복 없이 chartCount 개수를 만들 수 있는지 확인
-        if (candidates.size() < chartCount) {
-            throw new CustomException(ErrorCode.TRAINING_SESSION_CREATE_FAILED);
+        if (distinctSymbolCount(candidates) < chartCount) {
+            throw new CustomException(ErrorCode.TRAINING_SYMBOL_CANDIDATES_EXHAUSTED);
         }
 
         // 1) 유저 조회(혹시나 principal user가 detached인 경우 대비)
@@ -275,14 +278,26 @@ public class TrainingSessionService {
             Set<Long> usedSymbolIds,
             boolean refreshed
     ) {
+        List<Symbol> eligibleCandidates = candidates.stream()
+                .filter(symbol -> !usedSymbolIds.contains(symbol.getId()))
+                .collect(java.util.stream.Collectors.collectingAndThen(
+                        java.util.stream.Collectors.toMap(
+                                Symbol::getId,
+                                symbol -> symbol,
+                                (first, ignored) -> first,
+                                LinkedHashMap::new
+                        ),
+                        map -> new ArrayList<>(map.values())
+                ));
+
+        if (eligibleCandidates.isEmpty()) {
+            throw new CustomException(ErrorCode.TRAINING_SYMBOL_CANDIDATES_EXHAUSTED);
+        }
+        Collections.shuffle(eligibleCandidates);
+
         for (int attempt = 1; attempt <= MAX_TRIES_PER_CHART; attempt++) {
-
-            Symbol picked = pickRandom(candidates);
-
-            // 이미 이 세션에서 사용한 종목이면 다시 뽑기
-            if (usedSymbolIds.contains(picked.getId())) {
-                continue;
-            }
+            // Every eligible symbol is tried before cycling to another random date.
+            Symbol picked = eligibleCandidates.get((attempt - 1) % eligibleCandidates.size());
 
             //  랜덤 기간 생성
             LocalDate endDate = randomDate(LocalDate.of(2018, 1, 1), LocalDate.now().minusDays(30));
@@ -370,7 +385,7 @@ public class TrainingSessionService {
     @Transactional
     public SessionFinishResponse finishSession(Long userId, Long sessionId) {
         // 1. 세션 조회 + 권한 체크
-        TrainingSession session = sessionRepo.findByIdAndUserId(sessionId, userId)
+        TrainingSession session = sessionRepo.findForUpdateByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
         // 이미 종료한 세션 에러
@@ -378,12 +393,24 @@ public class TrainingSessionService {
             throw new CustomException(ErrorCode.TRAINING_SESSION_ALREADY_COMPLETED);
         }
 
-        // 2. 차트 전부 가져오기
-        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(session.getId());
+        // Lock every chart in a deterministic order before taking the shared account lock.
+        List<TrainingSessionChart> charts =
+                chartRepo.findAllForUpdateBySessionIdAndUserIdOrderByIdAsc(session.getId(), userId);
+
+        PaperAccount lockedAccount = charts.isEmpty()
+                ? null
+                : paperAccountRepository.findForUpdateById(session.getAccount().getId())
+                        .orElseThrow(() -> new CustomException(ErrorCode.PAPER_ACCOUNT_NOT_FOUND));
 
         // 3. 카운터 변수
         int completedBefore = 0; // 이미 끝난 차트
         int forceCompleted = 0; // 강제로 끝낸 차트
+
+        // Liquidate every remaining position first. No chart/session status changes
+        // happen until all close trades have succeeded.
+        for (TrainingSessionChart chart : charts) {
+            trainingTradeService.sellAllForSessionFinishLocked(userId, chart, lockedAccount);
+        }
 
         // 4. 차트 돌면서 처리
         for (TrainingSessionChart chart : charts) {
@@ -656,13 +683,12 @@ public class TrainingSessionService {
         // 3) 플랜/횟수 제한은 다음 단계에서 붙일 예정
         // 지금은 구조만 먼저 완성
 
-        // 4) 현재 세션의 활성 차트들 조회
-        List<TrainingSessionChart> activeCharts =
-                chartRepo.findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(session.getId());
+        // 4) DB invariant is session-wide, including inactive charts retained as refresh history.
+        List<TrainingSessionChart> sessionCharts =
+                chartRepo.findAllBySession_IdOrderByChartIndexAsc(session.getId());
 
-        // 5) 현재 차트를 제외한 종목은 중복 방지
-        Set<Long> usedSymbolIds = activeCharts.stream()
-                .filter(c -> !c.getId().equals(currentChart.getId()))
+        // 5) A refresh cannot reuse its own previous symbol or any symbol used earlier in the session.
+        Set<Long> usedSymbolIds = sessionCharts.stream()
                 .map(c -> c.getSymbol().getId())
                 .collect(java.util.stream.Collectors.toSet());
 
@@ -671,6 +697,10 @@ public class TrainingSessionService {
 
         if (candidates.isEmpty()) {
             throw new CustomException(ErrorCode.SYMBOL_NOT_FOUND);
+        }
+
+        if (candidates.stream().map(Symbol::getId).noneMatch(id -> !usedSymbolIds.contains(id))) {
+            throw new CustomException(ErrorCode.TRAINING_SYMBOL_CANDIDATES_EXHAUSTED);
         }
 
         // 7) 기존 차트 비활성화
@@ -689,10 +719,8 @@ public class TrainingSessionService {
 
     // ===== helpers =====
 
-    // 후보 리스트에서 랜덤 1개 선택
-    private static Symbol pickRandom(List<Symbol> list) {
-        int idx = ThreadLocalRandom.current().nextInt(list.size());
-        return list.get(idx);
+    private static long distinctSymbolCount(List<Symbol> symbols) {
+        return symbols.stream().map(Symbol::getId).distinct().count();
     }
 
     // from~to 사이 날짜를 랜덤으로 뽑기 (LocalDate)

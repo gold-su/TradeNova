@@ -23,6 +23,20 @@ public interface TrainingSessionChartRepository extends JpaRepository<TrainingSe
      */
     List<TrainingSessionChart> findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(Long sessionId);
 
+    /** Lock every current and historical chart before a session-wide close. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select c
+        from TrainingSessionChart c
+        where c.session.id = :sessionId
+          and c.session.user.id = :userId
+        order by c.id asc
+    """)
+    List<TrainingSessionChart> findAllForUpdateBySessionIdAndUserIdOrderByIdAsc(
+            @Param("sessionId") Long sessionId,
+            @Param("userId") Long userId
+    );
+
     /**
      * 특정 세션의 특정 index에 있는 현재 활성 차트 조회
      * - refresh 시 같은 자리의 active 차트를 찾는 용도

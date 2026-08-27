@@ -15,6 +15,7 @@ import com.tradenova.training.dto.TrainingTradeItemResponse;
 import com.tradenova.training.entity.*;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
+import com.tradenova.training.repository.TrainingRiskRuleHistoryRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -35,9 +36,12 @@ public class TrainingTradeService {
     private final TrainingSessionCandleRepository candleRepo;
     // 훈련 매매 기록(TrainingTrader) 조회용
     private final TrainingTradeRepository tradeRepo;
+    private final TrainingRiskRuleHistoryRepository riskHistoryRepo;
     // 페이퍼 계좌/포지션 관련 (현금/보유수량 갱신)
     private final PaperAccountRepository accountRepo;
     private final PaperPositionRepository positionRepo;
+
+    private final TrainingRiskRuleLifecycleService riskRuleLifecycleService;
 
     private final TrainingEventService eventService;
     private final ObjectMapper objectMapper;
@@ -57,7 +61,7 @@ public class TrainingTradeService {
 
         // chartId + userId(세션 소유자) 조건으로 차트를 조회
         // - session.user.id까지 조건에 포함해서 "남의 차트는 조회 자체가 안 되게" 막음(보안/치팅 방지)
-        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+        TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 // 없으면 404 성격의 커스텀 예외(차트 없음 또는 남의 차트)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
@@ -83,8 +87,8 @@ public class TrainingTradeService {
 
         // ===== 거래에 필요한 기본 정보 준비 =====
 
-        // 이 차트가 속한 세션의 모의투자 계좌(PaperAccount) 가져오기
-        PaperAccount acc = chart.getSession().getAccount();
+        // chart lock 다음에 account lock을 획득해 동일 계좌의 잔고 변경을 직렬화한다.
+        PaperAccount acc = getAccountForUpdate(chart);
 
         // 이번 거래 대상 종목 ID 가져오기 (차트에 연결된 종목)
         Long symbolId = chart.getSymbol().getId();
@@ -161,6 +165,7 @@ public class TrainingTradeService {
         // ===== 거래 로그 기록(훈련 트레이드) =====
 
         // TradeNova 훈련 거래(로그) 저장
+        Long riskRuleHistoryId = findLatestRiskHistoryId(chart.getId());
         TrainingTrade trade = tradeRepo.save(
                 TrainingTrade.builder()
                         // 어느 차트에서 발생한 거래인지(차트 단위 로그)
@@ -169,6 +174,7 @@ public class TrainingTradeService {
                         .accountId(acc.getId())
                         // 어떤 종목인지
                         .symbolId(symbolId)
+                        .riskRuleHistoryId(riskRuleHistoryId)
                         // 매수/매도 구분 (여긴 BUY)
                         .side(TradeSide.BUY)
                         // 체결 가격
@@ -181,12 +187,14 @@ public class TrainingTradeService {
         );
 
         ObjectNode payload = objectMapper.createObjectNode();
+        payload.putPOJO("tradeId", trade.getId());
         payload.putPOJO("side", "BUY");
         payload.putPOJO("qty", qty);
         payload.putPOJO("executedPrice", price);
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", pos.getQuantity());
         payload.putPOJO("avgPrice", pos.getAvgPrice());
+        putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         eventService.append(
                 userId,
@@ -224,10 +232,23 @@ public class TrainingTradeService {
     @Transactional
     public TradeResponse sell(Long userId, Long chartId, BigDecimal qty, boolean sellAll) {
 
-        // chartId + (chart.session.user.id == userId) 조건으로 차트 조회
-        // - 남의 차트 접근을 구조적으로 차단 (없으면 404 성격)
-        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+        // chart lock을 먼저 획득해 같은 chart의 거래와 NEXT/ADVANCE를 직렬화한다.
+        TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
+
+        return sellLocked(userId, chart, qty, sellAll);
+    }
+
+    /**
+     * chart row lock이 이미 획득된 트랜잭션에서 매도를 실행한다.
+     * sellAll이 public sell을 self-invocation하며 chart를 다시 조회하지 않도록 공통 로직을 분리했다.
+     */
+    private TradeResponse sellLocked(
+            Long userId,
+            TrainingSessionChart chart,
+            BigDecimal qty,
+            boolean sellAll
+    ) {
 
         // 세션이 진행 중이 아니면 매도 금지 (종료 세션 조작 방지)
         if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
@@ -239,18 +260,39 @@ public class TrainingTradeService {
             throw new CustomException(ErrorCode.TRAINING_CHART_ALREADY_COMPLETED);
         }
 
-        // 매도 수량 검증 (null/0 이하/소수점 금지 등 기존 정책 적용)
-        qty = validateStockQty(qty);
+        if (!sellAll) {
+            qty = validateStockQty(qty);
+        }
 
-        // 이 차트가 속한 세션의 계좌 가져오기
-        PaperAccount acc = chart.getSession().getAccount();
+        // chart lock 다음에 account lock을 획득한다.
+        PaperAccount acc = getAccountForUpdate(chart);
         // 차트에 연결된 종목 ID 가져오기
         Long symbolId = chart.getSymbol().getId();
 
         // 계좌+종목 기준으로 현재 포지션 조회
         // - 없으면 팔 게 없으므로 "보유 수량 부족" 에러로 처리
-        PaperPosition pos = positionRepo.findByAccountIdAndSymbolId(acc.getId(), symbolId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INSUFFICIENT_POSITION_QTY));
+        PaperPosition pos = positionRepo.findByAccountIdAndSymbolId(acc.getId(), symbolId).orElse(null);
+
+        if (pos == null || pos.getQuantity() == null ||
+                pos.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            if (sellAll) {
+                TrainingSessionCandle currentCandle = getCurrentCandle(chart);
+                BigDecimal price = BigDecimal.valueOf(currentCandle.getC());
+                return new TradeResponse(
+                        chart.getId(),
+                        null,
+                        acc.getCashBalance(),
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        price,
+                        currentCandle.getT()
+                );
+            }
+            throw new CustomException(ErrorCode.INSUFFICIENT_POSITION_QTY);
+        }
+
+        // SELL ALL은 account lock 획득 후 조회한 최신 포지션 전체를 매도한다.
+        qty = sellAll ? pos.getQuantity() : qty;
 
         // 보유 수량 < 매도 수량이면 매도 불가
         if (pos.getQuantity().compareTo(qty) < 0) {
@@ -290,6 +332,7 @@ public class TrainingTradeService {
 
         // ===== 트레이드 로그 저장 =====
 
+        Long riskRuleHistoryId = findLatestRiskHistoryId(chart.getId());
         TrainingTrade trade = tradeRepo.save(
                 TrainingTrade.builder()
                         // 어느 차트에서 발생한 거래인지
@@ -298,6 +341,7 @@ public class TrainingTradeService {
                         .accountId(acc.getId())
                         // 어떤 종목인지
                         .symbolId(symbolId)
+                        .riskRuleHistoryId(riskRuleHistoryId)
                         // 매도
                         .side(TradeSide.SELL)
                         // 체결가
@@ -309,6 +353,14 @@ public class TrainingTradeService {
                         .build()
         );
 
+        // Keep the pre-close plan on the canonical SELL trade. Only after that
+        // evidence is saved do we transition the live plan for the next episode.
+        if (remain.compareTo(BigDecimal.ZERO) == 0) {
+            riskRuleLifecycleService.disableAfterPositionClosed(
+                    userId, chart, currentCandle.getT()
+            );
+        }
+
 
 
         // ===== 응답 스냅샷 구성 =====
@@ -317,6 +369,7 @@ public class TrainingTradeService {
         BigDecimal outAvg = (remain.compareTo(BigDecimal.ZERO) == 0) ? BigDecimal.ZERO : pos.getAvgPrice();
 
         ObjectNode payload = objectMapper.createObjectNode();
+        payload.putPOJO("tradeId", trade.getId());
         payload.put("side", "SELL");
         payload.put("sellAll", sellAll);
         payload.putPOJO("qty", qty);
@@ -324,6 +377,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", outQty);
         payload.putPOJO("avgPrice", outAvg);
+        putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         String summary = sellAll
                 ? chart.getSymbol().getName() + " " + qty + "주 전량 매도"
@@ -375,13 +429,81 @@ public class TrainingTradeService {
 
         // 1. 차트 조회 + 소유권 검증
         TrainingSessionChart chart =
-                chartRepo.findByIdAndSession_User_Id(chartId, userId)
+                chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                         .orElseThrow(() ->
                                 new CustomException(
                                         ErrorCode.TRAINING_CHART_NOT_FOUND
                                 )
                         );
 
+        return sellAllAtPriceLocked(
+                userId,
+                chart,
+                executedPrice,
+                candleTime,
+                reason
+        );
+    }
+
+    /**
+     * chart row lock을 이미 획득한 트랜잭션에서 지정 가격으로 전량 청산한다.
+     * advance의 자동청산과 마지막 봉 강제청산이 chart를 다시 조회하지 않고 같은 lock을 사용하게 한다.
+     */
+    TradeResponse sellAllAtPriceLocked(
+            Long userId,
+            TrainingSessionChart chart,
+            BigDecimal executedPrice,
+            Long candleTime,
+            AutoExitReason reason
+    ) {
+        return sellAllAtPriceLockedResult(
+                userId, chart, executedPrice, candleTime, reason
+        ).response();
+    }
+
+    LockedSellResult sellAllAtPriceLockedResult(
+            Long userId,
+            TrainingSessionChart chart,
+            BigDecimal executedPrice,
+            Long candleTime,
+            AutoExitReason reason
+    ) {
+        return sellAllAtPriceLockedResult(
+                userId, chart, executedPrice, candleTime, reason, null, false
+        );
+    }
+
+    /**
+     * Session-wide finish path. The caller already holds all chart locks and the
+     * shared account lock, so this method neither reacquires them nor rejects a
+     * legacy chart that was completed while its position remained open.
+     */
+    LockedSellResult sellAllForSessionFinishLocked(
+            Long userId,
+            TrainingSessionChart chart,
+            PaperAccount lockedAccount
+    ) {
+        TrainingSessionCandle candle = getCurrentCandle(chart);
+        return sellAllAtPriceLockedResult(
+                userId,
+                chart,
+                BigDecimal.valueOf(candle.getC()),
+                candle.getT(),
+                AutoExitReason.END_OF_SESSION,
+                lockedAccount,
+                true
+        );
+    }
+
+    private LockedSellResult sellAllAtPriceLockedResult(
+            Long userId,
+            TrainingSessionChart chart,
+            BigDecimal executedPrice,
+            Long candleTime,
+            AutoExitReason reason,
+            PaperAccount lockedAccount,
+            boolean allowCompletedChart
+    ) {
         // 2. 세션 상태 검증
         if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
             throw new CustomException(
@@ -390,14 +512,14 @@ public class TrainingTradeService {
         }
 
         // 3. 차트 상태 검증
-        if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
+        if (!allowCompletedChart && chart.getStatus() == TrainingChartStatus.COMPLETED) {
             throw new CustomException(
                     ErrorCode.TRAINING_CHART_ALREADY_COMPLETED
             );
         }
 
-        // 4. 계좌 / 종목 조회
-        PaperAccount acc = chart.getSession().getAccount();
+        // 4. chart lock 다음에 account lock을 획득한 계좌 / 종목 조회
+        PaperAccount acc = lockedAccount == null ? getAccountForUpdate(chart) : lockedAccount;
         Long symbolId = chart.getSymbol().getId();
 
         // 5. 현재 포지션 조회
@@ -414,14 +536,17 @@ public class TrainingTradeService {
                 pos.getQuantity() == null ||
                 pos.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
 
-            return new TradeResponse(
-                    chart.getId(),
-                    null,
-                    acc.getCashBalance(),
-                    BigDecimal.ZERO,
-                    BigDecimal.ZERO,
-                    executedPrice,
-                    candleTime
+            return new LockedSellResult(
+                    new TradeResponse(
+                            chart.getId(),
+                            null,
+                            acc.getCashBalance(),
+                            BigDecimal.ZERO,
+                            BigDecimal.ZERO,
+                            executedPrice,
+                            candleTime
+                    ),
+                    BigDecimal.ZERO
             );
         }
 
@@ -444,18 +569,26 @@ public class TrainingTradeService {
         accountRepo.save(acc);
 
         // 11. 거래 기록 저장
+        Long riskRuleHistoryId = findLatestRiskHistoryId(chart.getId());
         TrainingTrade trade =
                 tradeRepo.save(
                         TrainingTrade.builder()
                                 .chartId(chart.getId())
                                 .accountId(acc.getId())
                                 .symbolId(symbolId)
+                                .riskRuleHistoryId(riskRuleHistoryId)
                                 .side(TradeSide.SELL)
                                 .price(executedPrice)
                                 .qty(qty)
                                 .candleTime(candleTime)
                                 .build()
                 );
+
+        // STOP_LOSS, TAKE_PROFIT, END_OF_CHART and END_OF_SESSION share this path.
+        // Save their pre-close plan reference before appending the disabled state.
+        riskRuleLifecycleService.disableAfterPositionClosed(
+                userId, chart, candleTime
+        );
 
         // 12. TRADE 이벤트 저장
         ObjectNode payload =
@@ -479,6 +612,7 @@ public class TrainingTradeService {
         payload.putPOJO("cashBalance", acc.getCashBalance());
         payload.putPOJO("positionQty", BigDecimal.ZERO);
         payload.putPOJO("avgPrice", BigDecimal.ZERO);
+        putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         String reasonName =
                 reason == null
@@ -498,15 +632,21 @@ public class TrainingTradeService {
         );
 
         // 13. 프론트 응답
-        return new TradeResponse(
-                chart.getId(),
-                trade.getId(),
-                acc.getCashBalance(),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                executedPrice,
-                candleTime
+        return new LockedSellResult(
+                new TradeResponse(
+                        chart.getId(),
+                        trade.getId(),
+                        acc.getCashBalance(),
+                        BigDecimal.ZERO,
+                        BigDecimal.ZERO,
+                        executedPrice,
+                        candleTime
+                ),
+                qty
         );
+    }
+
+    record LockedSellResult(TradeResponse response, BigDecimal executedQty) {
     }
 
     /**
@@ -518,7 +658,7 @@ public class TrainingTradeService {
     public TradeResponse sellAll(Long userId, Long chartId) {
 
         // chartId + userId 조건으로 차트 조회(소유권 검증 포함)
-        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+        TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
         // 세션이 진행 중이 아니면 거래 금지
@@ -531,36 +671,7 @@ public class TrainingTradeService {
             throw new CustomException(ErrorCode.TRAINING_CHART_ALREADY_COMPLETED);
         }
 
-        // 세션 계좌 가져오기
-        PaperAccount acc = chart.getSession().getAccount();
-
-        // 종목 ID 가져오기
-        Long symbolId = chart.getSymbol().getId();
-
-        // 계좌+종목 포지션 조회 (없을 수도 있음)
-        PaperPosition pos = positionRepo.findByAccountIdAndSymbolId(acc.getId(), symbolId).orElse(null);
-
-        // 팔 게 없으면:
-        // - trade 로그를 만들 필요 없음
-        // - tradeId는 null로 내려주고
-        // - 현재 스냅샷(잔고/포지션=0/현재가)만 반환
-        if (pos == null || pos.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-            TrainingSessionCandle currentCandle = getCurrentCandle(chart);
-            BigDecimal price = BigDecimal.valueOf(currentCandle.getC());
-
-            return new TradeResponse(
-                    chart.getId(),
-                    null,           // tradeId 없음(거래 미발생)
-                    acc.getCashBalance(),
-                    BigDecimal.ZERO,
-                    BigDecimal.ZERO,
-                    price, // 현재가는 표시용으로 내려줌
-                    // 현재 캔들 시간
-                    getCurrentCandle(chart).getT()
-            );
-        }
-
-        return sell(userId, chart.getId(), pos.getQuantity(), true);
+        return sellLocked(userId, chart, null, true);
     }
 
     /**
@@ -657,6 +768,18 @@ public class TrainingTradeService {
 //        return BigDecimal.valueOf(candle.getC());
 //    }
 
+    private PaperAccount getAccountForUpdate(TrainingSessionChart chart) {
+        Long accountId = chart.getSession().getAccount().getId();
+        return accountRepo.findForUpdateById(accountId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAPER_ACCOUNT_NOT_FOUND));
+    }
+
+    private Long findLatestRiskHistoryId(Long chartId) {
+        return riskHistoryRepo.findTopByChartIdOrderByIdDesc(chartId)
+                .map(TrainingRiskRuleHistory::getId)
+                .orElse(null);
+    }
+
     private BigDecimal validateStockQty(BigDecimal qty) {
         // null이거나 0 이하이면 invalid
         if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) {
@@ -683,4 +806,14 @@ public class TrainingTradeService {
         return qty;
     }
 
+    private void putRiskRuleHistoryId(
+            ObjectNode payload,
+            Long riskRuleHistoryId
+    ) {
+        if (riskRuleHistoryId == null) {
+            payload.putNull("riskRuleHistoryId");
+        } else {
+            payload.put("riskRuleHistoryId", riskRuleHistoryId);
+        }
+    }
 }
