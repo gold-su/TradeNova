@@ -2,23 +2,18 @@ package com.tradenova.training.service;
 
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
-import com.tradenova.kis.service.KisMarketDataService;
-import com.tradenova.kis.dto.CandleDto;
-import com.tradenova.kis.util.KisMarketCodeMapper;
 import com.tradenova.training.dto.RiskRuleResponse;
 import com.tradenova.training.dto.RiskRuleUpsertRequest;
 import com.tradenova.training.entity.*;
+import com.tradenova.training.repository.TrainingRiskRuleHistoryRepository;
 import com.tradenova.training.repository.TrainingRiskRuleRepository;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
-import com.tradenova.training.repository.TrainingSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +23,7 @@ public class TrainingRiskRuleService {
     private final TrainingSessionChartRepository chartRepo;
     //리스크 룰 조회/저장
     private final TrainingRiskRuleRepository riskRepo;
+    private final TrainingRiskRuleHistoryRepository riskHistoryRepo;
     private final TrainingSessionCandleRepository candleRepo;
 
     /**
@@ -67,7 +63,7 @@ public class TrainingRiskRuleService {
     public RiskRuleResponse upsert(Long userId, Long chartId, RiskRuleUpsertRequest req) {
 
         // 1) 차트 조회 + 소유권 검증
-        TrainingSessionChart chart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+        TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
         // 2) 세션 상태 검증 (진행 중만 설정 가능)
@@ -84,8 +80,9 @@ public class TrainingRiskRuleService {
             throw new CustomException(ErrorCode.RISK_RULE_EMPTY_WHEN_ENABLED);
         }
 
-        // 4) 현재가 계산 (차트 기준)
-        BigDecimal currentPrice = getCurrentPrice(chart);
+        // 4) 변경 시점의 progress/candle을 이력에 같이 남긴다.
+        TrainingSessionCandle currentCandle = getCurrentCandle(chart);
+        BigDecimal currentPrice = BigDecimal.valueOf(currentCandle.getC());
 
         // 5) 손절/익절 가격 검증(정책)
         // 손절가는 현재가보다 "낮아야" 정상
@@ -117,6 +114,22 @@ public class TrainingRiskRuleService {
         // 8) 저장
         TrainingRiskRule saved = riskRepo.save(rule);
 
+        // 최신 row는 upsert하되, 저장 시점의 상태는 immutable history로 누적한다.
+        riskHistoryRepo.save(
+                TrainingRiskRuleHistory.builder()
+                        .riskRuleId(saved.getId())
+                        .userId(userId)
+                        .sessionId(chart.getSession().getId())
+                        .chartId(chart.getId())
+                        .accountId(accountId)
+                        .stopLossPrice(saved.getStopLossPrice())
+                        .takeProfitPrice(saved.getTakeProfitPrice())
+                        .autoExitEnabled(saved.isEnabled())
+                        .progressIndex(chart.getProgressIndex())
+                        .candleTime(currentCandle.getT())
+                        .build()
+        );
+
         // 9) 응답 반환
         return toResponse(saved);
     }
@@ -124,15 +137,13 @@ public class TrainingRiskRuleService {
     /**
      * 차트 progressIndex 기준 "안전한 현재가(close)" 구하기
      */
-    private BigDecimal getCurrentPrice(TrainingSessionChart chart) {
+    private TrainingSessionCandle getCurrentCandle(TrainingSessionChart chart) {
         int idx = (chart.getProgressIndex() == null) ? 0 : chart.getProgressIndex();
         int maxIdx = Math.max(0, chart.getBars() - 1);
         idx = Math.max(0, Math.min(idx, maxIdx));
 
-        TrainingSessionCandle candle = candleRepo.findByChartIdAndIdx(chart.getId(), idx)
+        return candleRepo.findByChartIdAndIdx(chart.getId(), idx)
                 .orElseThrow(() -> new CustomException(ErrorCode.CANDLES_EMPTY));
-
-        return BigDecimal.valueOf(candle.getC());
     }
 
     /**

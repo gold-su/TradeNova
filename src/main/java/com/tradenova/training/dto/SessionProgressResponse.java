@@ -42,7 +42,7 @@ public record SessionProgressResponse(
         // 이번 진행에서 자동청산 발생 여부
         boolean autoExited,
 
-        // STOP_LOSS / TAKE_PROFIT / null
+        // STOP_LOSS / TAKE_PROFIT / END_OF_CHART / null
         AutoExitReason reason
 ) {
 }
