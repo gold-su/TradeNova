@@ -340,6 +340,55 @@ class TrainingTradeServiceLockTest {
         );
     }
 
+    @Test
+    void sessionFinishUsesCurrentProgressCandleAndCanonicalEndOfSessionSell() {
+        Fixture fixture = fixture();
+        fixture.chart().setProgressIndex(1);
+        TrainingSessionCandle current = TrainingSessionCandle.builder()
+                .chartId(1L).idx(1).t(200L).c(123.45).build();
+        PaperPosition position = PaperPosition.builder().id(30L).account(fixture.lockedAccount())
+                .symbolId(20L).quantity(new BigDecimal("2")).avgPrice(new BigDecimal("90")).build();
+        when(candleRepo.findByChartIdAndIdx(1L, 1)).thenReturn(Optional.of(current));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.of(position));
+        when(riskHistoryRepo.findTopByChartIdOrderByIdDesc(1L))
+                .thenReturn(Optional.of(TrainingRiskRuleHistory.builder().id(70L).build()));
+        when(tradeRepo.save(any(TrainingTrade.class))).thenAnswer(invocation -> {
+            TrainingTrade trade = invocation.getArgument(0);
+            trade.setId(55L);
+            return trade;
+        });
+
+        TradeResponse response = service.liquidateForSessionFinish(7L, fixture.chart(), fixture.lockedAccount());
+
+        assertThat(response.executedPrice()).isEqualByComparingTo("123.45");
+        assertThat(response.candleTime()).isEqualTo(200L);
+        ArgumentCaptor<TrainingTrade> trade = ArgumentCaptor.forClass(TrainingTrade.class);
+        verify(tradeRepo).save(trade.capture());
+        assertThat(trade.getValue().getRiskRuleHistoryId()).isEqualTo(70L);
+        assertThat(trade.getValue().getPrice()).isEqualByComparingTo("123.45");
+        assertThat(trade.getValue().getCandleTime()).isEqualTo(200L);
+        ArgumentCaptor<JsonNode> payload = ArgumentCaptor.forClass(JsonNode.class);
+        verify(eventService).append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), payload.capture());
+        assertThat(payload.getValue().path("autoExitReason").asText()).isEqualTo("END_OF_SESSION");
+        assertThat(payload.getValue().path("riskRuleHistoryId").asLong()).isEqualTo(70L);
+        verify(riskRuleLifecycleService).disableAfterPositionClosed(7L, fixture.chart(), 200L);
+        verifyNoInteractions(accountRepo);
+    }
+
+    @Test
+    void sessionFinishWithoutPositionCreatesNoTradeEventOrLifecycleTransition() {
+        Fixture fixture = fixture();
+        when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(fixture.candle()));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
+
+        TradeResponse response = service.liquidateForSessionFinish(7L, fixture.chart(), fixture.lockedAccount());
+
+        assertThat(response.tradeId()).isNull();
+        verify(tradeRepo, never()).save(any());
+        verify(eventService, never()).append(anyLong(), anyLong(), any(), anyString(), any());
+        verifyNoInteractions(riskRuleLifecycleService, accountRepo);
+    }
+
     private static Fixture fixture() {
         PaperAccount chartAccount = PaperAccount.builder()
                 .id(10L)

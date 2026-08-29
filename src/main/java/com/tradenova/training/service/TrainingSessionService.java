@@ -76,6 +76,7 @@ public class TrainingSessionService {
     private final ReportDocumentRepository reportDocumentRepository;
     // AI 이벤트 조회
     private final TrainingEventRepository trainingEventRepository;
+    private final TrainingTradeService trainingTradeService;
     /**
      * 세션 생성 (RANDOM)
      */
@@ -384,7 +385,7 @@ public class TrainingSessionService {
     @Transactional
     public SessionFinishResponse finishSession(Long userId, Long sessionId) {
         // 1. 세션 조회 + 권한 체크
-        TrainingSession session = sessionRepo.findByIdAndUserId(sessionId, userId)
+        TrainingSession session = sessionRepo.findForUpdateByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
         // 이미 종료한 세션 에러
@@ -393,14 +394,26 @@ public class TrainingSessionService {
         }
 
         // 2. 차트 전부 가져오기
-        List<TrainingSessionChart> charts = chartRepo.findAllBySession_IdAndActiveTrueOrderByChartIndexAsc(session.getId());
+        List<TrainingSessionChart> charts = chartRepo.findAllForUpdateBySessionIdOrderByIdAsc(session.getId());
+
+        // Lock the shared account exactly once, after every chart lock and before liquidation.
+        PaperAccount account = paperAccountRepository.findForUpdateById(session.getAccount().getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.PAPER_ACCOUNT_NOT_FOUND));
+
+        // Liquidate before changing any chart/session state. A failure rolls the transaction back.
+        for (TrainingSessionChart chart : charts) {
+            trainingTradeService.liquidateForSessionFinish(userId, chart, account);
+        }
+        List<TrainingSessionChart> activeCharts = charts.stream()
+                .filter(TrainingSessionChart::isActive)
+                .toList();
 
         // 3. 카운터 변수
         int completedBefore = 0; // 이미 끝난 차트
         int forceCompleted = 0; // 강제로 끝낸 차트
 
         // 4. 차트 돌면서 처리
-        for (TrainingSessionChart chart : charts) {
+        for (TrainingSessionChart chart : activeCharts) {
             if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
                 completedBefore++;
                 continue;
@@ -435,14 +448,14 @@ public class TrainingSessionService {
         // 6. 세션 종료 이벤트 저장
         ObjectNode sessionPayload = objectMapper.createObjectNode();
         sessionPayload.put("sessionId", session.getId());
-        sessionPayload.put("totalCharts", charts.size());
+        sessionPayload.put("totalCharts", activeCharts.size());
         sessionPayload.put("completedBefore", completedBefore);
         sessionPayload.put("forceCompleted", forceCompleted);
         sessionPayload.put("finalCompletedCount", completedBefore + forceCompleted);
 
         // chartId 없는 세션 이벤트는 첫 차트 기준으로 남기거나
         // 정책상 chartId nullable 허용이 아니면 첫 차트 id를 대표로 사용
-        Long representativeChartId = charts.isEmpty() ? null : charts.get(0).getId();
+        Long representativeChartId = activeCharts.isEmpty() ? null : activeCharts.get(0).getId();
 
         if (representativeChartId != null) {
             trainingEventService.append(
@@ -458,7 +471,7 @@ public class TrainingSessionService {
         return new SessionFinishResponse(
                 session.getId(),
                 session.getStatus().name(),
-                charts.size(),
+                activeCharts.size(),
                 completedBefore + forceCompleted,
                 forceCompleted
         );

@@ -64,6 +64,7 @@ class TrainingSessionSymbolUniquenessTest {
     @Mock private TrainingTradeRepository tradeRepository;
     @Mock private ReportDocumentRepository reportDocumentRepository;
     @Mock private TrainingEventRepository trainingEventRepository;
+    @Mock private TrainingTradeService trainingTradeService;
 
     private TrainingSessionService service;
 
@@ -72,7 +73,7 @@ class TrainingSessionSymbolUniquenessTest {
         service = new TrainingSessionService(
                 new ObjectMapper(), sessionRepo, chartRepo, symbolRepository, userRepository,
                 marketDataService, paperAccountRepository, candleRepo, trainingEventService,
-                tradeRepository, reportDocumentRepository, trainingEventRepository
+                tradeRepository, reportDocumentRepository, trainingEventRepository, trainingTradeService
         );
         lenient().when(chartRepo.save(any(TrainingSessionChart.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

@@ -468,6 +468,21 @@ public class TrainingTradeService {
             Long candleTime,
             AutoExitReason reason
     ) {
+        return sellAllAtPriceLockedResult(
+                userId, chart, executedPrice, candleTime, reason,
+                null, false
+        );
+    }
+
+    private LockedSellResult sellAllAtPriceLockedResult(
+            Long userId,
+            TrainingSessionChart chart,
+            BigDecimal executedPrice,
+            Long candleTime,
+            AutoExitReason reason,
+            PaperAccount acc,
+            boolean sessionFinish
+    ) {
         // 2. 세션 상태 검증
         if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
             throw new CustomException(
@@ -476,14 +491,16 @@ public class TrainingTradeService {
         }
 
         // 3. 차트 상태 검증
-        if (chart.getStatus() == TrainingChartStatus.COMPLETED) {
+        if (!sessionFinish && chart.getStatus() == TrainingChartStatus.COMPLETED) {
             throw new CustomException(
                     ErrorCode.TRAINING_CHART_ALREADY_COMPLETED
             );
         }
 
         // 4. chart lock 다음에 account lock을 획득한 계좌 / 종목 조회
-        PaperAccount acc = getAccountForUpdate(chart);
+        if (acc == null) {
+            acc = getAccountForUpdate(chart);
+        }
         Long symbolId = chart.getSymbol().getId();
 
         // 5. 현재 포지션 조회
@@ -608,6 +625,27 @@ public class TrainingTradeService {
                 ),
                 qty
         );
+    }
+
+    /**
+     * Uses the canonical full-close path after finishSession has locked the session,
+     * every chart, and the shared account in that order.
+     */
+    TradeResponse liquidateForSessionFinish(
+            Long userId,
+            TrainingSessionChart chart,
+            PaperAccount lockedAccount
+    ) {
+        TrainingSessionCandle candle = getCurrentCandle(chart);
+        return sellAllAtPriceLockedResult(
+                userId,
+                chart,
+                BigDecimal.valueOf(candle.getC()),
+                candle.getT(),
+                AutoExitReason.END_OF_SESSION,
+                lockedAccount,
+                true
+        ).response();
     }
 
     record LockedSellResult(TradeResponse response, BigDecimal executedQty) {
