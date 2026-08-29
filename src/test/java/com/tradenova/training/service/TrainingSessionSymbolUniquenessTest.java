@@ -48,6 +48,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -114,7 +116,7 @@ class TrainingSessionSymbolUniquenessTest {
         TrainingSessionChart oldInactive = chart(13L, session, 0, symbol(3), false);
         Symbol fresh = symbol(4);
 
-        when(chartRepo.findByIdAndSession_User_Id(11L, 1L)).thenReturn(Optional.of(current));
+        when(chartRepo.findForUpdateByIdAndUserId(11L, 1L)).thenReturn(Optional.of(current));
         when(tradeRepository.existsByChartId(11L)).thenReturn(false);
         when(chartRepo.findAllBySession_IdOrderByChartIndexAsc(100L))
                 .thenReturn(List.of(current, oldInactive, otherActive));
@@ -150,7 +152,7 @@ class TrainingSessionSymbolUniquenessTest {
         TrainingSessionChart current = chart(11L, session, 0, symbol(1), true);
         TrainingSessionChart other = chart(12L, session, 1, symbol(2), true);
 
-        when(chartRepo.findByIdAndSession_User_Id(11L, 1L)).thenReturn(Optional.of(current));
+        when(chartRepo.findForUpdateByIdAndUserId(11L, 1L)).thenReturn(Optional.of(current));
         when(chartRepo.findAllBySession_IdOrderByChartIndexAsc(100L)).thenReturn(List.of(current, other));
         when(symbolRepository.findAllByActiveTrueOrderByIdAsc()).thenReturn(List.of(symbol(1), symbol(2)));
 
@@ -172,6 +174,39 @@ class TrainingSessionSymbolUniquenessTest {
                 .anyMatch(columns -> List.of(columns).equals(List.of("session_id", "symbol_id")));
 
         assertTrue(found);
+    }
+
+    @Test
+    void entityDeclaresOneActiveChartPerSessionSlotUniqueness() {
+        Table table = TrainingSessionChart.class.getAnnotation(Table.class);
+
+        boolean found = List.of(table.uniqueConstraints()).stream()
+                .filter(constraint -> constraint.name().equals("uk_session_chart_active_slot"))
+                .map(UniqueConstraint::columnNames)
+                .anyMatch(columns -> List.of(columns).equals(List.of("session_id", "active_chart_index")));
+
+        assertTrue(found);
+    }
+
+    @Test
+    void refreshRejectsTradedChartBeforeReleasingItsSlot() {
+        TrainingSession session = TrainingSession.builder()
+                .id(100L)
+                .status(TrainingStatus.IN_PROGRESS)
+                .build();
+        TrainingSessionChart current = chart(11L, session, 0, symbol(1), true);
+
+        when(chartRepo.findForUpdateByIdAndUserId(11L, 1L)).thenReturn(Optional.of(current));
+        when(tradeRepository.existsByChartId(11L)).thenReturn(true);
+
+        CustomException error = assertThrows(CustomException.class, () ->
+                service.refreshChart(1L, 11L, new ChartRefreshRequest(ChartRefreshType.RANDOM, null))
+        );
+
+        assertEquals(ErrorCode.CHART_REFRESH_NOT_ALLOWED_HAS_TRADES, error.getErrorCode());
+        assertTrue(current.isActive());
+        verify(chartRepo, never()).saveAndFlush(any());
+        verify(chartRepo, never()).save(any());
     }
 
     private TrainingSessionChart chart(

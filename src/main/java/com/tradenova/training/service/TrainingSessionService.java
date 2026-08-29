@@ -661,7 +661,7 @@ public class TrainingSessionService {
         }
 
         // 1) 현재 활성 차트 조회 + 소유권 체크
-        TrainingSessionChart currentChart = chartRepo.findByIdAndSession_User_Id(chartId, userId)
+        TrainingSessionChart currentChart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
         if (!currentChart.isActive()) {
@@ -705,6 +705,10 @@ public class TrainingSessionService {
 
         // 7) 기존 차트 비활성화
         currentChart.deactivate();
+        // Hibernate normally executes INSERTs before UPDATEs at flush time. Flush the
+        // released slot first so the replacement can claim the active-slot unique key.
+        // Any later failure still rolls this update back with the surrounding transaction.
+        chartRepo.saveAndFlush(currentChart);
 
         // 8) 같은 chartIndex에 새 차트 생성
         return createOneRandomChartWithCandles(

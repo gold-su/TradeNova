@@ -16,6 +16,10 @@ import java.time.OffsetDateTime;
                 @UniqueConstraint(
                         name = "uk_session_chart_session_symbol",
                         columnNames = {"session_id", "symbol_id"}
+                ),
+                @UniqueConstraint(
+                        name = "uk_session_chart_active_slot",
+                        columnNames = {"session_id", "active_chart_index"}
                 )
         },
         indexes = {
@@ -48,6 +52,16 @@ public class TrainingSessionChart {
     // 0~3 (Free/Pro/Premium에 따라 사용 개수 달라짐)
     @Column(name = "chart_index", nullable = false)
     private Integer chartIndex;
+
+    /**
+     * DB uniqueness key for the currently visible slot.
+     *
+     * MySQL unique indexes allow multiple NULL values, so historical charts use
+     * NULL while the active chart stores its chartIndex. This preserves refresh
+     * history while enforcing at most one active row per session slot.
+     */
+    @Column(name = "active_chart_index")
+    private Integer activeChartIndex;
 
     // 이 차트가 어떤 종목인지
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -112,9 +126,16 @@ public class TrainingSessionChart {
 
     public void deactivate() {
         this.active = false;
+        this.activeChartIndex = null;
     }
 
     public void markRefreshed() {
         this.refreshed = true;
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void synchronizeActiveChartIndex() {
+        this.activeChartIndex = active ? chartIndex : null;
     }
 }
