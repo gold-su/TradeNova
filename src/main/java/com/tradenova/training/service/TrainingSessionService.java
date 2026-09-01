@@ -246,7 +246,13 @@ public class TrainingSessionService {
     //=================================================
     //validate 분리
     private CandleRange resolveCandleRange(TrainingSessionCreateRequest request) {
-        if (request == null || request.mode() == null || request.accountId() == null) {
+        if (request == null) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        if (request.mode() == null) {
+            throw new CustomException(ErrorCode.INVALID_TRAINING_MODE);
+        }
+        if (request.accountId() == null) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
         if (request.chartCount() != null
