@@ -16,6 +16,8 @@ public record SessionProgressResponse(
         // 분석/훈련 구간 메타데이터
         Integer analysisBars,
         Integer trainingBars,
+        Integer trainingProgress,
+        Integer remainingTrainingBars,
 
         // 현재 공개된 마지막 캔들 인덱스
         Integer progressIndex,

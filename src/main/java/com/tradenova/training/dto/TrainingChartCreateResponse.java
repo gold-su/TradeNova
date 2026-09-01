@@ -14,6 +14,8 @@ public record TrainingChartCreateResponse (
         Integer bars,
         Integer analysisBars,
         Integer trainingBars,
+        Integer trainingProgress,
+        Integer remainingTrainingBars,
         Integer progressIndex,
         TrainingChartStatus status,
         LocalDate startDate,

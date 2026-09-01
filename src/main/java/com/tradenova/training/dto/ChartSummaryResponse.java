@@ -14,6 +14,8 @@ public record ChartSummaryResponse(
         Integer bars,
         Integer analysisBars,
         Integer trainingBars,
+        Integer trainingProgress,
+        Integer remainingTrainingBars,
         Integer progressIndex,
         TrainingChartStatus status,
         LocalDate startDate,

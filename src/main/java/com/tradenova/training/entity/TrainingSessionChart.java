@@ -123,6 +123,37 @@ public class TrainingSessionChart {
     @Column(name = "refreshed", nullable = false)
     private boolean refreshed = false;
 
+
+    /**
+     * Migration-safe analysis range. Old rows can be read before the manual
+     * migration has populated the new columns.
+     */
+    public Integer getAnalysisBars() {
+        if (analysisBars != null) {
+            return analysisBars;
+        }
+        return Math.min(60, bars == null ? 0 : bars);
+    }
+
+    /** Migration-safe training range for rows created with the legacy schema. */
+    public Integer getTrainingBars() {
+        if (trainingBars != null) {
+            return trainingBars;
+        }
+        return Math.max(0, (bars == null ? 0 : bars) - getAnalysisBars());
+    }
+
+    /** Number of training candles completed at the supplied raw chart index. */
+    public int trainingProgressAt(int rawProgressIndex) {
+        int progress = rawProgressIndex - getAnalysisBars() + 1;
+        return Math.min(getTrainingBars(), Math.max(0, progress));
+    }
+
+    /** Number of training candles remaining at the supplied raw chart index. */
+    public int remainingTrainingBarsAt(int rawProgressIndex) {
+        return getTrainingBars() - trainingProgressAt(rawProgressIndex);
+    }
+
     // ===== 편의 메서드 =====
     public void setProgressIndex(int progressIndex) {
         this.progressIndex = progressIndex;

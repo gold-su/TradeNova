@@ -176,6 +176,28 @@ class TrainingSessionProgressServiceTest {
         return new TrainingAutoExitService.AutoExitResult(false, null, BigDecimal.valueOf(close), null);
     }
 
+    @Test
+    void mapsRawProgressToTrainingProgressAndSupportsLegacyRows() {
+        TrainingSessionChart chart = TrainingSessionChart.builder()
+                .bars(300).analysisBars(200).trainingBars(100).build();
+
+        assertThat(chart.trainingProgressAt(199)).isZero();
+        assertThat(chart.remainingTrainingBarsAt(199)).isEqualTo(100);
+        assertThat(chart.trainingProgressAt(200)).isEqualTo(1);
+        assertThat(chart.remainingTrainingBarsAt(200)).isEqualTo(99);
+        assertThat(chart.trainingProgressAt(249)).isEqualTo(50);
+        assertThat(chart.remainingTrainingBarsAt(249)).isEqualTo(50);
+        assertThat(chart.trainingProgressAt(299)).isEqualTo(100);
+        assertThat(chart.remainingTrainingBarsAt(299)).isZero();
+
+        TrainingSessionChart legacy = TrainingSessionChart.builder().bars(100).build();
+        assertThat(legacy.getAnalysisBars()).isEqualTo(60);
+        assertThat(legacy.getTrainingBars()).isEqualTo(40);
+        TrainingSessionChart shortLegacy = TrainingSessionChart.builder().bars(50).build();
+        assertThat(shortLegacy.getAnalysisBars()).isEqualTo(50);
+        assertThat(shortLegacy.getTrainingBars()).isZero();
+    }
+
     private static TrainingSessionCandle candle(Long chartId, int idx, long time, double close) {
         return TrainingSessionCandle.builder()
                 .chartId(chartId)

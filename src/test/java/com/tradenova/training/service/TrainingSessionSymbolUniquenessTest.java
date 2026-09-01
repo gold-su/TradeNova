@@ -95,7 +95,7 @@ class TrainingSessionSymbolUniquenessTest {
         when(paperAccountRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(account));
         when(sessionRepo.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 30, 4));
+        service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 30, 4, 60));
 
         ArgumentCaptor<TrainingSessionChart> captor = ArgumentCaptor.forClass(TrainingSessionChart.class);
         org.mockito.Mockito.verify(chartRepo, org.mockito.Mockito.times(4)).save(captor.capture());
@@ -103,6 +103,67 @@ class TrainingSessionSymbolUniquenessTest {
                 .map(chart -> chart.getSymbol().getId())
                 .collect(java.util.stream.Collectors.toSet());
         assertEquals(4, symbolIds.size());
+    }
+
+    @Test
+    void defaultsToTwoHundredAnalysisAndOneHundredTrainingBars() {
+        User user = User.builder().id(1L).build();
+        PaperAccount account = PaperAccount.builder().id(10L).build();
+        when(symbolRepository.findAllByActiveTrueOrderByIdAsc()).thenReturn(List.of(symbol(1)));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(paperAccountRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(account));
+        when(sessionRepo.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(marketDataService.getCandles(any(Symbol.class), any(LocalDate.class), any(LocalDate.class), anyInt()))
+                .thenReturn(candles(300));
+
+        service.createSession(1L,
+                new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, null, null, 1, null));
+
+        ArgumentCaptor<TrainingSessionChart> chart = ArgumentCaptor.forClass(TrainingSessionChart.class);
+        verify(chartRepo).save(chart.capture());
+        assertEquals(200, chart.getValue().getAnalysisBars());
+        assertEquals(100, chart.getValue().getTrainingBars());
+        assertEquals(300, chart.getValue().getBars());
+        assertEquals(199, chart.getValue().getProgressIndex());
+        assertEquals(0, chart.getValue().getHiddenFutureBars());
+        verify(candleRepo).saveAll(org.mockito.ArgumentMatchers.argThat(rows -> {
+            List<?> candles = (List<?>) rows;
+            return candles.size() == 300;
+        }));
+    }
+
+    @Test
+    void rejectsPartialMismatchedAndOversizedExplicitRanges() {
+        assertInvalid(new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 200, null, 1, null));
+        assertInvalid(new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 200, 100, 1, 299));
+        assertInvalid(new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 400, 101, 1, null));
+        assertInvalid(new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 0, 100, 1, null));
+    }
+
+    @Test
+    void legacyTotalUsesSixtyBarAnalysisWindow() {
+        TrainingSessionCreateRequest legacy = new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 100, 1);
+        User user = User.builder().id(1L).build();
+        PaperAccount account = PaperAccount.builder().id(10L).build();
+        when(symbolRepository.findAllByActiveTrueOrderByIdAsc()).thenReturn(List.of(symbol(1)));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(paperAccountRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(account));
+        when(sessionRepo.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(marketDataService.getCandles(any(Symbol.class), any(LocalDate.class), any(LocalDate.class), anyInt()))
+                .thenReturn(candles(100));
+
+        service.createSession(1L, legacy);
+
+        ArgumentCaptor<TrainingSessionChart> chart = ArgumentCaptor.forClass(TrainingSessionChart.class);
+        verify(chartRepo).save(chart.capture());
+        assertEquals(60, chart.getValue().getAnalysisBars());
+        assertEquals(40, chart.getValue().getTrainingBars());
+        assertEquals(59, chart.getValue().getProgressIndex());
+    }
+
+    private void assertInvalid(TrainingSessionCreateRequest request) {
+        CustomException error = assertThrows(CustomException.class, () -> service.createSession(1L, request));
+        assertEquals(ErrorCode.INVALID_REQUEST, error.getErrorCode());
     }
 
     @Test
@@ -132,12 +193,34 @@ class TrainingSessionSymbolUniquenessTest {
     }
 
     @Test
+    void refreshPreservesDefaultAnalysisAndTrainingRanges() {
+        TrainingSession session = TrainingSession.builder().id(100L).status(TrainingStatus.IN_PROGRESS).build();
+        TrainingSessionChart current = TrainingSessionChart.builder()
+                .id(11L).session(session).chartIndex(0).symbol(symbol(1))
+                .bars(300).analysisBars(200).trainingBars(100).active(true).build();
+        when(chartRepo.findForUpdateByIdAndUserId(11L, 1L)).thenReturn(Optional.of(current));
+        when(chartRepo.findAllBySession_IdOrderByChartIndexAsc(100L)).thenReturn(List.of(current));
+        when(symbolRepository.findAllByActiveTrueOrderByIdAsc()).thenReturn(List.of(symbol(1), symbol(2)));
+        when(marketDataService.getCandles(any(Symbol.class), any(LocalDate.class), any(LocalDate.class), anyInt()))
+                .thenReturn(candles(300));
+
+        service.refreshChart(1L, 11L, new ChartRefreshRequest(ChartRefreshType.RANDOM, null));
+
+        ArgumentCaptor<TrainingSessionChart> replacement = ArgumentCaptor.forClass(TrainingSessionChart.class);
+        verify(chartRepo).save(replacement.capture());
+        assertEquals(200, replacement.getValue().getAnalysisBars());
+        assertEquals(100, replacement.getValue().getTrainingBars());
+        assertEquals(300, replacement.getValue().getBars());
+        assertEquals(199, replacement.getValue().getProgressIndex());
+    }
+
+    @Test
     void failsClearlyWhenInitialCandidatesCannotCoverChartCount() {
         when(symbolRepository.findAllByActiveTrueOrderByIdAsc())
                 .thenReturn(List.of(symbol(1), symbol(1), symbol(2)));
 
         CustomException error = assertThrows(CustomException.class, () ->
-                service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 30, 3))
+                service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 30, 3, 60))
         );
 
         assertEquals(ErrorCode.TRAINING_SYMBOL_CANDIDATES_EXHAUSTED, error.getErrorCode());
