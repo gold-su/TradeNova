@@ -75,9 +75,17 @@ public class TrainingSessionChart {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    // 공개할 봉 개수
+    // 전체 봉 개수 (분석 구간 + 훈련 구간)
     @Column(name = "bars", nullable = false)
     private Integer bars;
+
+    // 훈련 시작 전에 제공하는 분석 구간 봉 개수
+    @Column(name = "analysis_bars", nullable = false)
+    private Integer analysisBars;
+
+    // 사용자가 진행할 훈련 구간 봉 개수
+    @Column(name = "training_bars", nullable = false)
+    private Integer trainingBars;
 
     // 치팅 방지용: 미래 봉 숨김
     @Column(name = "hidden_future_bars", nullable = false)
@@ -114,6 +122,37 @@ public class TrainingSessionChart {
     @Builder.Default
     @Column(name = "refreshed", nullable = false)
     private boolean refreshed = false;
+
+
+    /**
+     * Migration-safe analysis range. Old rows can be read before the manual
+     * migration has populated the new columns.
+     */
+    public Integer getAnalysisBars() {
+        if (analysisBars != null) {
+            return analysisBars;
+        }
+        return Math.min(60, bars == null ? 0 : bars);
+    }
+
+    /** Migration-safe training range for rows created with the legacy schema. */
+    public Integer getTrainingBars() {
+        if (trainingBars != null) {
+            return trainingBars;
+        }
+        return Math.max(0, (bars == null ? 0 : bars) - getAnalysisBars());
+    }
+
+    /** Number of training candles completed at the supplied raw chart index. */
+    public int trainingProgressAt(int rawProgressIndex) {
+        int progress = rawProgressIndex - getAnalysisBars() + 1;
+        return Math.min(getTrainingBars(), Math.max(0, progress));
+    }
+
+    /** Number of training candles remaining at the supplied raw chart index. */
+    public int remainingTrainingBarsAt(int rawProgressIndex) {
+        return getTrainingBars() - trainingProgressAt(rawProgressIndex);
+    }
 
     // ===== 편의 메서드 =====
     public void setProgressIndex(int progressIndex) {

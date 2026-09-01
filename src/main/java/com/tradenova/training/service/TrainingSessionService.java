@@ -43,8 +43,10 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class TrainingSessionService {
 
-    private static final int MIN_BARS = 30;
-    private static final int MAX_BARS = 120;
+    private static final int DEFAULT_ANALYSIS_BARS = 200;
+    private static final int DEFAULT_TRAINING_BARS = 100;
+    private static final int LEGACY_ANALYSIS_BARS = 60;
+    private static final int MAX_BARS = 500;
 
     private static final int MAX_CHARTS = 4;
     private static final int DEFAULT_CHART_COUNT = 4;
@@ -52,8 +54,6 @@ public class TrainingSessionService {
     private static final int MAX_TRIES_PER_CHART = 15;
 
     private final ObjectMapper objectMapper;
-
-    private static final int DEFAULT_INITIAL_VISIBLE_BARS = 60;
 
     // 세션 저장/조회
     private final TrainingSessionRepository sessionRepo;
@@ -84,9 +84,10 @@ public class TrainingSessionService {
     public TrainingSessionCreateResponse createSession(Long userId, TrainingSessionCreateRequest req){
 
         // 0) validation 함수로 검증
-        validateCreateRequest(req);
+        CandleRange range = resolveCandleRange(req);
 
-        int bars = req.bars();
+        int analysisBars = range.analysisBars();
+        int trainingBars = range.trainingBars();
 
         // CHANGED: chartCount 지원 (없으면 기본 4)
         int chartCount = resolveChartCount(req);
@@ -134,7 +135,8 @@ public class TrainingSessionService {
             TrainingChartCreateResponse chartRes = createOneRandomChartWithCandles(
                     session,
                     candidates,
-                    bars,
+                    analysisBars,
+                    trainingBars,
                     chartIndex,
                     usedSymbolIds,
                     false
@@ -228,6 +230,10 @@ public class TrainingSessionService {
                         c.getSymbol().getName(),
                         c.getSymbol().getTrainingSector().name(),
                         c.getBars(),
+                        c.getAnalysisBars(),
+                        c.getTrainingBars(),
+                        c.trainingProgressAt(c.getProgressIndex()),
+                        c.remainingTrainingBarsAt(c.getProgressIndex()),
                         c.getProgressIndex(),
                         c.getStatus(),
                         c.getStartDate(),
@@ -239,23 +245,62 @@ public class TrainingSessionService {
 
     //=================================================
     //validate 분리
-    private void validateCreateRequest(TrainingSessionCreateRequest request) throws CustomException {
-        if(request == null) throw new CustomException(ErrorCode.INVALID_REQUEST);
-
-        if(request.mode() == null) throw new CustomException(ErrorCode.INVALID_TRAINING_MODE);
-
-        if(request.accountId() == null) throw new CustomException(ErrorCode.INVALID_REQUEST);
-
-        if (request.bars() == null || request.bars() < MIN_BARS || request.bars() > MAX_BARS) {
+    private CandleRange resolveCandleRange(TrainingSessionCreateRequest request) {
+        if (request == null) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        if (request.mode() == null) {
+            throw new CustomException(ErrorCode.INVALID_TRAINING_MODE);
+        }
+        if (request.accountId() == null) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        if (request.chartCount() != null
+                && (request.chartCount() < 1 || request.chartCount() > MAX_CHARTS)) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
-        // chartCount가 요청 DTO에 없으면 이 부분 컴파일 에러 날 수 있음
-        // 그 경우 resolveChartCount()에서 request.chartCount() 관련 코드만 삭제하면 됨.
-        if(request.chartCount() != null){
-            int c = request.chartCount();
-            if(c<1 || c>MAX_CHARTS) throw new CustomException(ErrorCode.INVALID_REQUEST);
+        boolean hasAnalysis = request.analysisBars() != null;
+        boolean hasTraining = request.trainingBars() != null;
+        if (hasAnalysis != hasTraining) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
+
+        int analysisBars;
+        int trainingBars;
+        if (!hasAnalysis) {
+            if (request.bars() == null) {
+                analysisBars = DEFAULT_ANALYSIS_BARS;
+                trainingBars = DEFAULT_TRAINING_BARS;
+            } else {
+                if (request.bars() < 1 || request.bars() > MAX_BARS) {
+                    throw new CustomException(ErrorCode.INVALID_REQUEST);
+                }
+                analysisBars = Math.min(LEGACY_ANALYSIS_BARS, request.bars());
+                trainingBars = request.bars() - analysisBars;
+            }
+        } else {
+            if (request.analysisBars() < 1 || request.trainingBars() < 1) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST);
+            }
+            analysisBars = request.analysisBars();
+            trainingBars = request.trainingBars();
+        }
+
+        final int total;
+        try {
+            total = Math.addExact(analysisBars, trainingBars);
+        } catch (ArithmeticException ex) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        if (total < 1 || total > MAX_BARS
+                || (request.bars() != null && request.bars() != total)) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        return new CandleRange(analysisBars, trainingBars);
+    }
+
+    private record CandleRange(int analysisBars, int trainingBars) {
     }
 
     private int resolveChartCount(TrainingSessionCreateRequest request){
@@ -273,11 +318,14 @@ public class TrainingSessionService {
     private TrainingChartCreateResponse createOneRandomChartWithCandles(
             TrainingSession session,
             List<Symbol> candidates,
-            int bars,
+            int analysisBars,
+            int trainingBars,
             int chartIndex,
             Set<Long> usedSymbolIds,
             boolean refreshed
     ) {
+        int bars = Math.addExact(analysisBars, trainingBars);
+
         List<Symbol> eligibleCandidates = candidates.stream()
                 .filter(symbol -> !usedSymbolIds.contains(symbol.getId()))
                 .collect(java.util.stream.Collectors.collectingAndThen(
@@ -320,8 +368,7 @@ public class TrainingSessionService {
             LocalDate finalEnd = millisToSeoulDate(sessionCandles.get(sessionCandles.size() - 1).t());
 
             //  초기 공개 progressIndex 계산
-            int initialVisibleBars = Math.min(DEFAULT_INITIAL_VISIBLE_BARS, bars);
-            int progressIndex = Math.max(0, initialVisibleBars - 1);
+            int progressIndex = analysisBars - 1;
 
             //  차트 생성
             TrainingSessionChart chart = chartRepo.save(
@@ -332,6 +379,8 @@ public class TrainingSessionService {
                             .startDate(finalStart)
                             .endDate(finalEnd)
                             .bars(bars)
+                            .analysisBars(analysisBars)
+                            .trainingBars(trainingBars)
                             .hiddenFutureBars(0)
                             .progressIndex(progressIndex)
                             .status(TrainingChartStatus.IN_PROGRESS)
@@ -371,6 +420,10 @@ public class TrainingSessionService {
                     picked.getName(),
                     picked.getTrainingSector().name(),
                     chart.getBars(),
+                    chart.getAnalysisBars(),
+                    chart.getTrainingBars(),
+                    chart.trainingProgressAt(chart.getProgressIndex()),
+                    chart.remainingTrainingBarsAt(chart.getProgressIndex()),
                     chart.getProgressIndex(),
                     chart.getStatus(),
                     chart.getStartDate(),
@@ -504,6 +557,10 @@ public class TrainingSessionService {
                         c.getSymbol().getName(),    // 종목 이름
                         c.getSymbol().getTrainingSector().name(), // sector 이름
                         c.getBars(),                // 총 봉 개수
+                        c.getAnalysisBars(),        // 분석 구간 봉 개수
+                        c.getTrainingBars(),        // 훈련 구간 봉 개수
+                        c.trainingProgressAt(c.getProgressIndex()),
+                        c.remainingTrainingBarsAt(c.getProgressIndex()),
                         c.getProgressIndex(),       // 현재 진행 위치
                         c.getStatus(),              // 차트 상태
                         c.getStartDate(),           // 시작일
@@ -714,7 +771,8 @@ public class TrainingSessionService {
         return createOneRandomChartWithCandles(
                 session,
                 candidates,
-                currentChart.getBars(),
+                currentChart.getAnalysisBars(),
+                currentChart.getTrainingBars(),
                 currentChart.getChartIndex(),
                 usedSymbolIds,
                 true
