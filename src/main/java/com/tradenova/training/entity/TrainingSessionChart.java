@@ -75,9 +75,17 @@ public class TrainingSessionChart {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    // 공개할 봉 개수
+    // 저장된 전체 봉 개수 (analysisBars + trainingBars)
     @Column(name = "bars", nullable = false)
     private Integer bars;
+
+    // NEXT 시작 전에 공개되는 분석용 과거 봉 개수
+    @Column(name = "analysis_bars", nullable = false)
+    private Integer analysisBars;
+
+    // NEXT로 실제 진행하는 훈련 봉 개수
+    @Column(name = "training_bars", nullable = false)
+    private Integer trainingBars;
 
     // 치팅 방지용: 미래 봉 숨김
     @Column(name = "hidden_future_bars", nullable = false)
@@ -118,6 +126,25 @@ public class TrainingSessionChart {
     // ===== 편의 메서드 =====
     public void setProgressIndex(int progressIndex) {
         this.progressIndex = progressIndex;
+    }
+
+    /**
+     * Nullable fallback keeps rows readable during a staged manual migration.
+     */
+    public int getAnalysisBars() {
+        return analysisBars != null ? analysisBars : Math.min(60, bars);
+    }
+
+    public int getTrainingBars() {
+        return trainingBars != null ? trainingBars : Math.max(0, bars - getAnalysisBars());
+    }
+
+    public int trainingProgressAt(int rawProgressIndex) {
+        return Math.max(0, rawProgressIndex - (getAnalysisBars() - 1));
+    }
+
+    public int remainingTrainingBarsAt(int rawProgressIndex) {
+        return Math.max(0, getTrainingBars() - trainingProgressAt(rawProgressIndex));
     }
 
     public void complete() {

@@ -22,6 +22,11 @@ public record SessionProgressResponse(
         // 앞으로 진행 가능한 봉 개수
         Integer remainingBars,
 
+        Integer analysisBars,
+        Integer trainingBars,
+        Integer trainingProgress,
+        Integer remainingTrainingBars,
+
         // 현재 마지막 봉 도달 여부
         boolean atLastBar,
 

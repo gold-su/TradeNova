@@ -13,6 +13,10 @@ public record ChartSummaryResponse(
         String trainingSector,
         Integer bars,
         Integer progressIndex,
+        Integer analysisBars,
+        Integer trainingBars,
+        Integer trainingProgress,
+        Integer remainingTrainingBars,
         TrainingChartStatus status,
         LocalDate startDate,
         LocalDate endDate

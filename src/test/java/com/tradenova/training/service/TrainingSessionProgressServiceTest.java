@@ -170,6 +170,53 @@ class TrainingSessionProgressServiceTest {
         verify(candleRepo, never()).findByChartIdAndIdx(1L, 3);
     }
 
+    @Test
+    void reportsTrainingProgressAndCompletesOnlyAtTotalLastIndex() {
+        TrainingSessionChart chart = fixture(300, 199).chart();
+        chart = TrainingSessionChart.builder()
+                .id(chart.getId())
+                .session(chart.getSession())
+                .symbol(chart.getSymbol())
+                .chartIndex(0)
+                .bars(300)
+                .analysisBars(200)
+                .trainingBars(100)
+                .progressIndex(199)
+                .status(TrainingChartStatus.IN_PROGRESS)
+                .build();
+
+        assertThat(chart.trainingProgressAt(199)).isZero();
+        assertThat(chart.trainingProgressAt(200)).isEqualTo(1);
+        assertThat(chart.trainingProgressAt(249)).isEqualTo(50);
+        assertThat(chart.trainingProgressAt(299)).isEqualTo(100);
+        assertThat(chart.remainingTrainingBarsAt(199)).isEqualTo(100);
+        assertThat(chart.remainingTrainingBarsAt(299)).isZero();
+
+        TrainingSessionCandle current = candle(1L, 298, 298L, 108.0);
+        TrainingSessionCandle last = candle(1L, 299, 299L, 109.0);
+        chart.setProgressIndex(298);
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(chart));
+        when(candleRepo.findByChartIdAndIdx(1L, 298)).thenReturn(Optional.of(current));
+        when(candleRepo.findByChartIdAndIdx(1L, 299)).thenReturn(Optional.of(last));
+        when(autoExitService.checkAndAutoExit(1L, last)).thenReturn(noAutoExit(109.0));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
+        when(tradeService.sellAllAtPriceLockedResult(
+                7L, chart, BigDecimal.valueOf(109.0), 299L, AutoExitReason.END_OF_CHART
+        )).thenReturn(new TrainingTradeService.LockedSellResult(
+                new TradeResponse(1L, null, BigDecimal.valueOf(1000), BigDecimal.ZERO,
+                        BigDecimal.ZERO, BigDecimal.valueOf(109.0), 299L),
+                BigDecimal.ZERO
+        ));
+
+        SessionProgressResponse response = service.next(7L, 1L);
+
+        assertThat(response.progressIndex()).isEqualTo(299);
+        assertThat(response.maxIndex()).isEqualTo(299);
+        assertThat(response.trainingProgress()).isEqualTo(100);
+        assertThat(response.remainingTrainingBars()).isZero();
+        assertThat(response.chartStatus()).isEqualTo(TrainingChartStatus.COMPLETED.name());
+    }
+
     private static TrainingAutoExitService.AutoExitResult noAutoExit(double close) {
         return new TrainingAutoExitService.AutoExitResult(false, null, BigDecimal.valueOf(close), null);
     }
