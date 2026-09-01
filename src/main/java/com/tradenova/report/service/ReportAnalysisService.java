@@ -121,8 +121,12 @@ public class ReportAnalysisService {
         // snapshot true면 DEEP, 아니면 FAST
         String analysisType = hasSnapshot ? "DEEP" : "FAST";
 
-        // 4) 최근 캔들 30개 조회
-        List<TrainingSessionCandle> candles = candleRepository.findTop30ByChartIdOrderByIdxDesc(chartId);
+        // 4) 현재 공개된 범위 내 최근 캔들 30개 조회
+        List<TrainingSessionCandle> candles = candleRepository
+                .findTop30ByChartIdAndIdxLessThanEqualOrderByIdxDesc(
+                        chartId,
+                        chart.getProgressIndex()
+                );
 
         if (candles == null || candles.isEmpty()) {
             throw new CustomException(ErrorCode.CANDLES_EMPTY);
