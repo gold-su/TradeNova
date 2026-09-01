@@ -12,6 +12,8 @@ public record TrainingChartCreateResponse (
         String symbolName,
         String trainingSector,
         Integer bars,
+        Integer analysisBars,
+        Integer trainingBars,
         Integer progressIndex,
         TrainingChartStatus status,
         LocalDate startDate,

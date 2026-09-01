@@ -516,6 +516,8 @@ public class TrainingSessionProgressService {
         // 최종 진행 상태를 프론트에 반환
         return new SessionProgressResponse(
                 chart.getId(),
+                chart.getAnalysisBars(),
+                chart.getTrainingBars(),
                 finalIdx,
                 maxIdx,
                 remainingBars,
@@ -628,6 +630,8 @@ public class TrainingSessionProgressService {
         // 조회 API이므로 autoExited=false, reason=null
         return new SessionProgressResponse(
                 chart.getId(),
+                chart.getAnalysisBars(),
+                chart.getTrainingBars(),
                 safeProgressIndex,
                 maxIndex,
                 remainingBars,

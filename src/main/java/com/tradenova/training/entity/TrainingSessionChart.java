@@ -75,9 +75,17 @@ public class TrainingSessionChart {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    // 공개할 봉 개수
+    // 전체 봉 개수 (분석 구간 + 훈련 구간)
     @Column(name = "bars", nullable = false)
     private Integer bars;
+
+    // 훈련 시작 전에 제공하는 분석 구간 봉 개수
+    @Column(name = "analysis_bars", nullable = false)
+    private Integer analysisBars;
+
+    // 사용자가 진행할 훈련 구간 봉 개수
+    @Column(name = "training_bars", nullable = false)
+    private Integer trainingBars;
 
     // 치팅 방지용: 미래 봉 숨김
     @Column(name = "hidden_future_bars", nullable = false)

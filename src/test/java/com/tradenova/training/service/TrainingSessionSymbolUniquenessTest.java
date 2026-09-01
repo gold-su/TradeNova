@@ -95,7 +95,7 @@ class TrainingSessionSymbolUniquenessTest {
         when(paperAccountRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(account));
         when(sessionRepo.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 4));
+        service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 30, 4));
 
         ArgumentCaptor<TrainingSessionChart> captor = ArgumentCaptor.forClass(TrainingSessionChart.class);
         org.mockito.Mockito.verify(chartRepo, org.mockito.Mockito.times(4)).save(captor.capture());
@@ -137,7 +137,7 @@ class TrainingSessionSymbolUniquenessTest {
                 .thenReturn(List.of(symbol(1), symbol(1), symbol(2)));
 
         CustomException error = assertThrows(CustomException.class, () ->
-                service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 3))
+                service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 30, 3))
         );
 
         assertEquals(ErrorCode.TRAINING_SYMBOL_CANDIDATES_EXHAUSTED, error.getErrorCode());

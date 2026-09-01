@@ -85,6 +85,8 @@ class TrainingSessionProgressServiceTest {
 
         SessionProgressResponse response = service.advance(7L, 1L, 2);
 
+        assertThat(response.analysisBars()).isEqualTo(1);
+        assertThat(response.trainingBars()).isEqualTo(2);
         assertThat(response.progressIndex()).isEqualTo(2);
         assertThat(response.atLastBar()).isTrue();
         assertThat(response.chartStatus()).isEqualTo(TrainingChartStatus.COMPLETED.name());
@@ -204,6 +206,8 @@ class TrainingSessionProgressServiceTest {
                 .symbol(symbol)
                 .chartIndex(0)
                 .bars(bars)
+                .analysisBars(1)
+                .trainingBars(Math.max(0, bars - 1))
                 .progressIndex(progressIndex)
                 .status(TrainingChartStatus.IN_PROGRESS)
                 .build();
