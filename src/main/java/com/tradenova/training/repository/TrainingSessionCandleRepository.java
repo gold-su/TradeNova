@@ -31,9 +31,11 @@ public interface TrainingSessionCandleRepository extends JpaRepository<TrainingS
     void deleteAllByChartId(Long ChartId);
 
     /**
-     * 특정 차트의 최근 30개 봉 조회
-     * - AI 분석용
+     * 특정 차트에서 현재 공개된 범위 내 최근 30개 봉 조회
      */
-    List<TrainingSessionCandle> findTop30ByChartIdOrderByIdxDesc(Long chartId);
+    List<TrainingSessionCandle> findTop30ByChartIdAndIdxLessThanEqualOrderByIdxDesc(
+            Long chartId,
+            Integer progressIndex
+    );
 
 }

@@ -81,7 +81,7 @@ class TrainingSessionSymbolUniquenessTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         lenient().when(marketDataService.getCandles(
                         any(Symbol.class), any(LocalDate.class), any(LocalDate.class), anyInt()))
-                .thenReturn(candles(30));
+                .thenReturn(candles(300));
     }
 
     @Test
@@ -95,7 +95,7 @@ class TrainingSessionSymbolUniquenessTest {
         when(paperAccountRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(account));
         when(sessionRepo.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 4));
+        service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 100, 4));
 
         ArgumentCaptor<TrainingSessionChart> captor = ArgumentCaptor.forClass(TrainingSessionChart.class);
         org.mockito.Mockito.verify(chartRepo, org.mockito.Mockito.times(4)).save(captor.capture());
@@ -103,6 +103,37 @@ class TrainingSessionSymbolUniquenessTest {
                 .map(chart -> chart.getSymbol().getId())
                 .collect(java.util.stream.Collectors.toSet());
         assertEquals(4, symbolIds.size());
+    }
+
+    @Test
+    void createsDefaultAnalysisAndTrainingRangesWithThreeHundredStoredCandles() {
+        User user = User.builder().id(1L).build();
+        PaperAccount account = PaperAccount.builder().id(10L).build();
+        when(symbolRepository.findAllByActiveTrueOrderByIdAsc()).thenReturn(List.of(symbol(1)));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(paperAccountRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(account));
+        when(sessionRepo.save(any(TrainingSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.createSession(1L, new TrainingSessionCreateRequest(
+                10L, TrainingMode.RANDOM, null, null, 1, null
+        ));
+
+        ArgumentCaptor<TrainingSessionChart> chartCaptor = ArgumentCaptor.forClass(TrainingSessionChart.class);
+        verify(chartRepo).save(chartCaptor.capture());
+        TrainingSessionChart chart = chartCaptor.getValue();
+        assertEquals(200, chart.getAnalysisBars());
+        assertEquals(100, chart.getTrainingBars());
+        assertEquals(300, chart.getBars());
+        assertEquals(199, chart.getProgressIndex());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<com.tradenova.training.entity.TrainingSessionCandle>> candleCaptor =
+                ArgumentCaptor.forClass(List.class);
+        verify(candleRepo).saveAll(candleCaptor.capture());
+        assertEquals(300, candleCaptor.getValue().size());
+        assertEquals(0, candleCaptor.getValue().get(0).getIdx());
+        assertEquals(299, candleCaptor.getValue().get(299).getIdx());
+        verify(marketDataService).getCandles(any(), any(), any(), org.mockito.ArgumentMatchers.eq(300));
     }
 
     @Test
@@ -128,6 +159,10 @@ class TrainingSessionSymbolUniquenessTest {
         ArgumentCaptor<TrainingSessionChart> captor = ArgumentCaptor.forClass(TrainingSessionChart.class);
         org.mockito.Mockito.verify(chartRepo).save(captor.capture());
         assertEquals(4L, captor.getValue().getSymbol().getId());
+        assertEquals(200, captor.getValue().getAnalysisBars());
+        assertEquals(100, captor.getValue().getTrainingBars());
+        assertEquals(300, captor.getValue().getBars());
+        assertEquals(199, captor.getValue().getProgressIndex());
         assertFalse(current.isActive());
     }
 
@@ -137,10 +172,38 @@ class TrainingSessionSymbolUniquenessTest {
                 .thenReturn(List.of(symbol(1), symbol(1), symbol(2)));
 
         CustomException error = assertThrows(CustomException.class, () ->
-                service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 30, 3))
+                service.createSession(1L, new TrainingSessionCreateRequest(10L, TrainingMode.RANDOM, 100, 3))
         );
 
         assertEquals(ErrorCode.TRAINING_SYMBOL_CANDIDATES_EXHAUSTED, error.getErrorCode());
+    }
+
+    @Test
+    void rejectsInvalidNewRangesAndInconsistentLegacyBars() {
+        assertEquals(ErrorCode.INVALID_REQUEST, assertThrows(CustomException.class, () ->
+                service.createSession(1L, new TrainingSessionCreateRequest(
+                        10L, TrainingMode.RANDOM, 0, 100, 1, null
+                ))).getErrorCode());
+        assertEquals(ErrorCode.INVALID_REQUEST, assertThrows(CustomException.class, () ->
+                service.createSession(1L, new TrainingSessionCreateRequest(
+                        10L, TrainingMode.RANDOM, 200, 0, 1, null
+                ))).getErrorCode());
+        assertEquals(ErrorCode.INVALID_REQUEST, assertThrows(CustomException.class, () ->
+                service.createSession(1L, new TrainingSessionCreateRequest(
+                        10L, TrainingMode.RANDOM, 200, 100, 1, 301
+                ))).getErrorCode());
+    }
+
+    @Test
+    void legacyRangeFallbackPreservesOldSessionSemantics() {
+        TrainingSessionChart legacyHundred = TrainingSessionChart.builder().bars(100).progressIndex(59).build();
+        assertEquals(60, legacyHundred.getAnalysisBars());
+        assertEquals(40, legacyHundred.getTrainingBars());
+
+        TrainingSessionChart legacySixty = TrainingSessionChart.builder().bars(60).progressIndex(59).build();
+        assertEquals(60, legacySixty.getAnalysisBars());
+        assertEquals(0, legacySixty.getTrainingBars());
+        assertEquals(0, legacySixty.remainingTrainingBarsAt(59));
     }
 
     @Test
@@ -221,7 +284,10 @@ class TrainingSessionSymbolUniquenessTest {
                 .session(session)
                 .chartIndex(chartIndex)
                 .symbol(symbol)
-                .bars(30)
+                .bars(300)
+                .analysisBars(200)
+                .trainingBars(100)
+                .progressIndex(199)
                 .active(active)
                 .build();
     }
