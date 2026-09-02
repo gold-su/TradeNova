@@ -22,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,6 +68,8 @@ class TrainingSessionProgressServiceTest {
         when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(first));
         when(candleRepo.findByChartIdAndIdx(1L, 1)).thenReturn(Optional.of(middle));
         when(candleRepo.findByChartIdAndIdx(1L, 2)).thenReturn(Optional.of(last));
+        when(candleRepo.findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc(1L, 2))
+                .thenReturn(List.of(first, middle, last));
         when(autoExitService.checkAndAutoExit(eq(1L), any()))
                 .thenReturn(noAutoExit(105.0), noAutoExit(110.0));
         when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
@@ -94,6 +97,8 @@ class TrainingSessionProgressServiceTest {
         assertThat(response.positionQty()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(response.autoExited()).isTrue();
         assertThat(response.reason()).isEqualTo(AutoExitReason.END_OF_CHART);
+        assertThat(response.revealedCandles()).extracting(candle -> candle.idx())
+                .containsExactly(1, 2);
         verify(tradeService).sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(110.0), 300L, AutoExitReason.END_OF_CHART
         );
@@ -109,6 +114,8 @@ class TrainingSessionProgressServiceTest {
         when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
         when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(first));
         when(candleRepo.findByChartIdAndIdx(1L, 1)).thenReturn(Optional.of(last));
+        when(candleRepo.findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc(1L, 1))
+                .thenReturn(List.of(first, last));
         when(autoExitService.checkAndAutoExit(1L, last)).thenReturn(noAutoExit(110.0));
         when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
         when(tradeService.sellAllAtPriceLockedResult(
@@ -127,6 +134,8 @@ class TrainingSessionProgressServiceTest {
         assertThat(response.positionQty()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(response.autoExited()).isFalse();
         assertThat(response.reason()).isNull();
+        assertThat(response.revealedCandles()).extracting(candle -> candle.idx())
+                .containsExactly(1);
         verify(tradeService).sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(110.0), 200L, AutoExitReason.END_OF_CHART
         );
@@ -142,6 +151,8 @@ class TrainingSessionProgressServiceTest {
         when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
         when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(first));
         when(candleRepo.findByChartIdAndIdx(1L, 1)).thenReturn(Optional.of(trigger));
+        when(candleRepo.findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc(1L, 1))
+                .thenReturn(List.of(first, trigger));
         when(autoExitService.checkAndAutoExit(1L, trigger)).thenReturn(
                 new TrainingAutoExitService.AutoExitResult(
                         true, AutoExitReason.STOP_LOSS, BigDecimal.valueOf(90.0), BigDecimal.valueOf(95.0)
@@ -164,12 +175,60 @@ class TrainingSessionProgressServiceTest {
         assertThat(response.atLastBar()).isFalse();
         assertThat(response.chartStatus()).isEqualTo(TrainingChartStatus.IN_PROGRESS.name());
         assertThat(response.reason()).isEqualTo(AutoExitReason.STOP_LOSS);
+        assertThat(response.revealedCandles()).extracting(candle -> candle.idx())
+                .containsExactly(1);
         verify(tradeService).sellAllAtPriceLockedResult(
                 7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS
         );
         verify(positionRepo).findByAccountIdAndSymbolId(10L, 20L);
         verify(candleRepo, never()).findByChartIdAndIdx(1L, 2);
         verify(candleRepo, never()).findByChartIdAndIdx(1L, 3);
+    }
+
+    @Test
+    void advanceReturnsEveryActuallyRevealedCandleInAscendingOrderWithoutFutureCandles() {
+        Fixture fixture = fixture(300, 199);
+        List<TrainingSessionCandle> candles = java.util.stream.IntStream.rangeClosed(199, 205)
+                .mapToObj(idx -> candle(1L, idx, idx * 100L, 100.0 + idx))
+                .toList();
+
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
+        for (TrainingSessionCandle candle : candles.subList(0, 6)) {
+            when(candleRepo.findByChartIdAndIdx(1L, candle.getIdx())).thenReturn(Optional.of(candle));
+        }
+        when(autoExitService.checkAndAutoExit(eq(1L), any())).thenAnswer(invocation ->
+                noAutoExit(((TrainingSessionCandle) invocation.getArgument(1)).getC()));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
+        when(candleRepo.findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc(1L, 204))
+                .thenReturn(candles.subList(0, 6));
+
+        SessionProgressResponse response = service.advance(7L, 1L, 5);
+
+        assertThat(response.progressIndex()).isEqualTo(204);
+        assertThat(response.revealedCandles()).extracting(candle -> candle.idx())
+                .containsExactly(200, 201, 202, 203, 204)
+                .doesNotContain(205);
+    }
+
+    @Test
+    void legacyChartUsesTheSameRevealRule() {
+        Fixture fixture = fixture(100, 59);
+        TrainingSessionCandle current = candle(1L, 59, 5_900L, 100.0);
+        TrainingSessionCandle revealed = candle(1L, 60, 6_000L, 101.0);
+
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
+        when(candleRepo.findByChartIdAndIdx(1L, 59)).thenReturn(Optional.of(current));
+        when(candleRepo.findByChartIdAndIdx(1L, 60)).thenReturn(Optional.of(revealed));
+        when(autoExitService.checkAndAutoExit(1L, revealed)).thenReturn(noAutoExit(101.0));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
+        when(candleRepo.findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc(1L, 60))
+                .thenReturn(List.of(current, revealed));
+
+        SessionProgressResponse response = service.next(7L, 1L);
+
+        assertThat(response.progressIndex()).isEqualTo(60);
+        assertThat(response.revealedCandles()).extracting(candle -> candle.idx())
+                .containsExactly(60);
     }
 
     private static TrainingAutoExitService.AutoExitResult noAutoExit(double close) {

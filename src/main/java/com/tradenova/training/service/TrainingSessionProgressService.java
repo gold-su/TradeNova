@@ -10,6 +10,7 @@ import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.training.dto.AutoExitReason;
+import com.tradenova.training.dto.RevealedCandleResponse;
 import com.tradenova.training.dto.SessionProgressResponse;
 import com.tradenova.training.dto.TradeResponse;
 import com.tradenova.training.entity.*;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor    //final 필드 자동 생성자
@@ -512,6 +514,17 @@ public class TrainingSessionProgressService {
         boolean atLastBar =
                 finalIdx >= maxIdx;
 
+        // 요청 steps가 아니라 기존 위치와 실제 최종 위치 사이에서 공개된 봉만 반환한다.
+        // 기존 visible query를 재사용하며 finalIdx보다 큰 미래 봉은 조회하지 않는다.
+        List<RevealedCandleResponse> revealedCandles =
+                candleRepo.findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc(
+                                chart.getId(),
+                                finalIdx
+                        ).stream()
+                        .filter(candle -> candle.getIdx() > cur)
+                        .map(RevealedCandleResponse::from)
+                        .toList();
+
 
         // 최종 진행 상태를 프론트에 반환
         return new SessionProgressResponse(
@@ -535,7 +548,8 @@ public class TrainingSessionProgressService {
                 executedAutoExit,
                 executedAutoExit
                         ? autoExitReason
-                        : null
+                        : null,
+                revealedCandles
         );
     }
 
@@ -647,7 +661,8 @@ public class TrainingSessionProgressService {
                 positionQty,
                 avgPrice,
                 false,
-                null
+                null,
+                List.of()
         );
     }
 }

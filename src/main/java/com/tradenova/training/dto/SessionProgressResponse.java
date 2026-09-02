@@ -1,6 +1,7 @@
 package com.tradenova.training.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 차트의 현재 진행 상태와 계좌/포지션 스냅샷
@@ -49,6 +50,9 @@ public record SessionProgressResponse(
         boolean autoExited,
 
         // STOP_LOSS / TAKE_PROFIT / END_OF_CHART / null
-        AutoExitReason reason
+        AutoExitReason reason,
+
+        // 이번 요청으로 실제 새롭게 공개된 캔들 (idx 오름차순)
+        List<RevealedCandleResponse> revealedCandles
 ) {
 }
