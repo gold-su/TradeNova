@@ -173,8 +173,17 @@ public class TrainingSessionService {
             DB 조회로 변경
          */
 
-        // 2) DB에서 캔들 조회
-        List<TrainingSessionCandle> rows = candleRepo.findAllByChartIdOrderByIdxAsc(chart.getId());
+        // 2) DB에서 현재 진행 위치까지 공개된 캔들만 조회한다.
+        // 저장된 훈련 구간의 미래 봉은 일반 GET 응답에 포함하지 않는다.
+        int maxIndex = Math.max(0, chart.getBars() - 1);
+        int progressIndex = chart.getProgressIndex() == null
+                ? 0
+                : Math.min(Math.max(chart.getProgressIndex(), 0), maxIndex);
+        List<TrainingSessionCandle> rows =
+                candleRepo.findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc(
+                        chart.getId(),
+                        progressIndex
+                );
 
         // 비어있으면 예외
         if (rows.isEmpty()) {
