@@ -29,6 +29,40 @@ class TrainingRiskRuleLifecycleServiceTest {
     @Mock private TrainingRiskRuleHistoryRepository historyRepository;
 
     @Test
+    void newPositionEpisodeClearsBothConsumedLegsWithoutReEnablingRuleOrAppendingHistory() {
+        TrainingRiskRuleLifecycleService service =
+                new TrainingRiskRuleLifecycleService(riskRuleRepository, historyRepository);
+        TrainingRiskRule rule = TrainingRiskRule.builder()
+                .id(60L).chartId(1L).accountId(10L).enabled(false)
+                .stopLossConsumed(true).takeProfitConsumed(true).build();
+        when(riskRuleRepository.findByChartId(1L)).thenReturn(Optional.of(rule));
+
+        service.resetConsumedForNewPositionEpisode(1L);
+
+        assertThat(rule.isStopLossConsumed()).isFalse();
+        assertThat(rule.isTakeProfitConsumed()).isFalse();
+        assertThat(rule.isEnabled()).isFalse();
+        verify(riskRuleRepository).save(rule);
+        verify(historyRepository, never()).save(any());
+    }
+
+    @Test
+    void forcedExitReasonsNeverConsumeEitherRiskLeg() {
+        TrainingRiskRuleLifecycleService service =
+                new TrainingRiskRuleLifecycleService(riskRuleRepository, historyRepository);
+        TrainingRiskRule rule = TrainingRiskRule.builder()
+                .id(60L).chartId(1L).accountId(10L).enabled(true).build();
+        when(riskRuleRepository.findByChartId(1L)).thenReturn(Optional.of(rule));
+
+        service.consumeTrigger(1L, com.tradenova.training.dto.AutoExitReason.END_OF_CHART);
+        service.consumeTrigger(1L, com.tradenova.training.dto.AutoExitReason.END_OF_SESSION);
+
+        assertThat(rule.isStopLossConsumed()).isFalse();
+        assertThat(rule.isTakeProfitConsumed()).isFalse();
+        verify(riskRuleRepository, never()).save(any());
+    }
+
+    @Test
     void enabledRuleIsDisabledAndPostCloseHistoryIsAppended() {
         TrainingRiskRuleLifecycleService service =
                 new TrainingRiskRuleLifecycleService(riskRuleRepository, historyRepository);

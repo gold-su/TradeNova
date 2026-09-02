@@ -117,6 +117,9 @@ public class TrainingTradeService {
 
         // 포지션이 없으면 신규 생성(첫 매수)
         if (pos == null) {
+            // A missing position marks a new episode. Clear only one-shot execution state;
+            // preserve the existing lifecycle policy where a full close leaves the rule disabled.
+            riskRuleLifecycleService.resetConsumedForNewPositionEpisode(chart.getId());
             pos = PaperPosition.builder()
                     // 포지션이 속한 계좌 세팅
                     .account(acc)

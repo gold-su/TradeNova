@@ -327,7 +327,7 @@ public class TrainingSessionProgressService {
 
 
         /*
-         * 마지막 봉에 도달했고 손절/익절 청산이 이미 발생하지 않았다면
+         * 마지막 봉에 도달하면 손절/익절 부분청산 여부와 관계없이
          * 마지막 봉의 종가로 남은 포지션을 전량 청산한다.
          * advance 트랜잭션이 chart lock을 이미 보유하므로 lock 재조회는 하지 않는다.
          */

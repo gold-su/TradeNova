@@ -108,6 +108,7 @@ class TrainingTradeServiceLockTest {
         verify(eventService).append(eq(7L), eq(1L), eq(Type.TRADE), anyString(), payloadCaptor.capture());
         assertThat(payloadCaptor.getValue().path("tradeId").asLong()).isEqualTo(50L);
         assertThat(payloadCaptor.getValue().path("riskRuleHistoryId").isNull()).isTrue();
+        verify(riskRuleLifecycleService).resetConsumedForNewPositionEpisode(1L);
     }
 
     @Test
@@ -133,6 +134,7 @@ class TrainingTradeServiceLockTest {
         ArgumentCaptor<TrainingTrade> tradeCaptor = ArgumentCaptor.forClass(TrainingTrade.class);
         verify(tradeRepo).save(tradeCaptor.capture());
         assertThat(tradeCaptor.getValue().getRiskRuleHistoryId()).isEqualTo(71L);
+        verify(riskRuleLifecycleService).resetConsumedForNewPositionEpisode(1L);
     }
 
     @ParameterizedTest
@@ -308,6 +310,40 @@ class TrainingTradeServiceLockTest {
         TradeResponse response = service.sell(7L, 1L, BigDecimal.ONE, false);
 
         assertThat(response.positionQty()).isEqualByComparingTo(BigDecimal.ONE);
+        verify(riskRuleLifecycleService, never())
+                .disableAfterPositionClosed(any(), any(), any());
+    }
+
+    @Test
+    void partialAutoExitKeepsAveragePriceAndPreCloseHistoryAndConsumesOnlyItsReason() {
+        Fixture fixture = fixture();
+        PaperPosition position = PaperPosition.builder()
+                .id(30L).account(fixture.lockedAccount()).symbolId(20L)
+                .quantity(new BigDecimal("100")).avgPrice(new BigDecimal("90.00")).build();
+        when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(fixture.lockedAccount()));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.of(position));
+        when(riskHistoryRepo.findTopByChartIdOrderByIdDesc(1L))
+                .thenReturn(Optional.of(TrainingRiskRuleHistory.builder().id(70L).build()));
+        when(tradeRepo.save(any(TrainingTrade.class))).thenAnswer(invocation -> {
+            TrainingTrade trade = invocation.getArgument(0);
+            trade.setId(80L);
+            return trade;
+        });
+
+        TrainingTradeService.LockedSellResult result = service.sellAtPriceLockedResult(
+                7L, fixture.chart(), new BigDecimal("105"), 100L,
+                AutoExitReason.TAKE_PROFIT, 50);
+
+        assertThat(result.executedQty()).isEqualByComparingTo("50");
+        assertThat(result.response().positionQty()).isEqualByComparingTo("50");
+        assertThat(result.response().avgPrice()).isEqualByComparingTo("90.00");
+        assertThat(position.getQuantity()).isEqualByComparingTo("50");
+        assertThat(position.getAvgPrice()).isEqualByComparingTo("90.00");
+        ArgumentCaptor<TrainingTrade> trade = ArgumentCaptor.forClass(TrainingTrade.class);
+        verify(tradeRepo).save(trade.capture());
+        assertThat(trade.getValue().getQty()).isEqualByComparingTo("50");
+        assertThat(trade.getValue().getRiskRuleHistoryId()).isEqualTo(70L);
+        verify(riskRuleLifecycleService).consumeTrigger(1L, AutoExitReason.TAKE_PROFIT);
         verify(riskRuleLifecycleService, never())
                 .disableAfterPositionClosed(any(), any(), any());
     }

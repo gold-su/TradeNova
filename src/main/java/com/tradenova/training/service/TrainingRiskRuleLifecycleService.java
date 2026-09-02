@@ -21,6 +21,21 @@ public class TrainingRiskRuleLifecycleService {
     private final TrainingRiskRuleHistoryRepository riskRuleHistoryRepository;
 
     /**
+     * Starts a fresh position episode without changing the user's enabled/disabled plan.
+     * A full close deliberately disables the rule; a later upsert may re-enable it, but
+     * trigger consumption from the closed episode must never leak into the new position.
+     */
+    void resetConsumedForNewPositionEpisode(Long chartId) {
+        TrainingRiskRule rule = riskRuleRepository.findByChartId(chartId).orElse(null);
+        if (rule == null || (!rule.isStopLossConsumed() && !rule.isTakeProfitConsumed())) {
+            return;
+        }
+        rule.setStopLossConsumed(false);
+        rule.setTakeProfitConsumed(false);
+        riskRuleRepository.save(rule);
+    }
+
+    /**
      * Ends the current episode's live risk plan after its position has been fully closed.
      * Missing and already-disabled rules are no-ops; history is appended only for an
      * actual enabled -> disabled transition.

@@ -71,6 +71,8 @@ class TrainingRiskRuleServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         service.upsert(7L, 1L, request("90.00", "120.00", true));
+        currentRule.setStopLossConsumed(true);
+        currentRule.setTakeProfitConsumed(true);
         service.upsert(7L, 1L, request("85.00", "125.00", true));
         RiskRuleResponse latest = service.upsert(7L, 1L, request("85.00", "125.00", false));
 
@@ -90,6 +92,8 @@ class TrainingRiskRuleServiceTest {
         assertThat(latest.autoExitEnabled()).isFalse();
         assertThat(latest.stopLossExitPercent()).isEqualTo(100);
         assertThat(latest.takeProfitExitPercent()).isEqualTo(100);
+        assertThat(currentRule.isStopLossConsumed()).isFalse();
+        assertThat(currentRule.isTakeProfitConsumed()).isFalse();
     }
 
     @Test
