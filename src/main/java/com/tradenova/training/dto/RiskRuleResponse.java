@@ -8,7 +8,9 @@ public record RiskRuleResponse(
         Long chartId,
         Long accountId,
         BigDecimal stopLossPrice,
+        Integer stopLossExitPercent,
         BigDecimal takeProfitPrice,
+        Integer takeProfitExitPercent,
         Boolean autoExitEnabled,
         OffsetDateTime updatedAt
 ) {

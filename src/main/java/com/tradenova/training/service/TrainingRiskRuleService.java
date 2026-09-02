@@ -48,7 +48,9 @@ public class TrainingRiskRuleService {
                         chartId,    // chartId (DTO에 chartId 필드가 있어야 함)
                         accountId,  // accountId
                         null,       // stopLossPrice
+                        100,
                         null,       // takeProfitPrice
+                        100,
                         false,      // enabled
                         null        // updatedAt
                 ));
@@ -72,6 +74,9 @@ public class TrainingRiskRuleService {
         }
 
         Long accountId = chart.getSession().getAccount().getId();
+
+        int stopLossExitPercent = resolveExitPercent(req.stopLossExitPercent());
+        int takeProfitExitPercent = resolveExitPercent(req.takeProfitExitPercent());
 
         // 3) enabled=true인데 손절/익절 둘 다 null이면 의미 없음
         if (Boolean.TRUE.equals(req.autoExitEnabled())
@@ -105,7 +110,12 @@ public class TrainingRiskRuleService {
 
         // 7) 값 반영
         rule.setStopLossPrice(req.stopLossPrice());
+        rule.setStopLossExitPercent(stopLossExitPercent);
         rule.setTakeProfitPrice(req.takeProfitPrice());
+        rule.setTakeProfitExitPercent(takeProfitExitPercent);
+        // Every upsert creates a new immutable history/version, so both one-shot legs reset.
+        rule.setStopLossConsumed(false);
+        rule.setTakeProfitConsumed(false);
 
         if (req.autoExitEnabled() != null) {
             rule.setEnabled(req.autoExitEnabled());
@@ -123,7 +133,9 @@ public class TrainingRiskRuleService {
                         .chartId(chart.getId())
                         .accountId(accountId)
                         .stopLossPrice(saved.getStopLossPrice())
+                        .stopLossExitPercent(saved.getStopLossExitPercent())
                         .takeProfitPrice(saved.getTakeProfitPrice())
+                        .takeProfitExitPercent(saved.getTakeProfitExitPercent())
                         .autoExitEnabled(saved.isEnabled())
                         .progressIndex(chart.getProgressIndex())
                         .candleTime(currentCandle.getT())
@@ -155,9 +167,21 @@ public class TrainingRiskRuleService {
                 r.getChartId(),
                 r.getAccountId(),
                 r.getStopLossPrice(),
+                r.getStopLossExitPercent(),
                 r.getTakeProfitPrice(),
+                r.getTakeProfitExitPercent(),
                 r.isEnabled(),
                 r.getUpdatedAt()
         );
+    }
+
+    private int resolveExitPercent(Integer percent) {
+        if (percent == null) {
+            return 100;
+        }
+        if (percent < 1 || percent > 100) {
+            throw new CustomException(ErrorCode.INVALID_RISK_EXIT_PERCENT);
+        }
+        return percent;
     }
 }

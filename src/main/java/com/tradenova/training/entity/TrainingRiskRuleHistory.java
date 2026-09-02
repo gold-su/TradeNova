@@ -50,8 +50,16 @@ public class TrainingRiskRuleHistory {
     @Column(name = "stop_loss_price", precision = 18, scale = 4)
     private BigDecimal stopLossPrice;
 
+    @Builder.Default
+    @Column(name = "stop_loss_exit_percent", nullable = false)
+    private Integer stopLossExitPercent = 100;
+
     @Column(name = "take_profit_price", precision = 18, scale = 4)
     private BigDecimal takeProfitPrice;
+
+    @Builder.Default
+    @Column(name = "take_profit_exit_percent", nullable = false)
+    private Integer takeProfitExitPercent = 100;
 
     @Column(name = "auto_exit_enabled", nullable = false)
     private boolean autoExitEnabled;

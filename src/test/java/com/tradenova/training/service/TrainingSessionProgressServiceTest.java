@@ -155,12 +155,12 @@ class TrainingSessionProgressServiceTest {
                 .thenReturn(List.of(first, trigger));
         when(autoExitService.checkAndAutoExit(1L, trigger)).thenReturn(
                 new TrainingAutoExitService.AutoExitResult(
-                        true, AutoExitReason.STOP_LOSS, BigDecimal.valueOf(90.0), BigDecimal.valueOf(95.0)
+                        true, AutoExitReason.STOP_LOSS, BigDecimal.valueOf(90.0), BigDecimal.valueOf(95.0), 100
                 )
         );
         when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
-        when(tradeService.sellAllAtPriceLockedResult(
-                7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS
+        when(tradeService.sellAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS, 100
         )).thenReturn(new TrainingTradeService.LockedSellResult(
                 new TradeResponse(
                         1L, 88L, new BigDecimal("1190.00"), BigDecimal.ZERO,
@@ -177,8 +177,8 @@ class TrainingSessionProgressServiceTest {
         assertThat(response.reason()).isEqualTo(AutoExitReason.STOP_LOSS);
         assertThat(response.revealedCandles()).extracting(candle -> candle.idx())
                 .containsExactly(1);
-        verify(tradeService).sellAllAtPriceLockedResult(
-                7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS
+        verify(tradeService).sellAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS, 100
         );
         verify(positionRepo).findByAccountIdAndSymbolId(10L, 20L);
         verify(candleRepo, never()).findByChartIdAndIdx(1L, 2);
@@ -232,7 +232,7 @@ class TrainingSessionProgressServiceTest {
     }
 
     private static TrainingAutoExitService.AutoExitResult noAutoExit(double close) {
-        return new TrainingAutoExitService.AutoExitResult(false, null, BigDecimal.valueOf(close), null);
+        return new TrainingAutoExitService.AutoExitResult(false, null, BigDecimal.valueOf(close), null, null);
     }
 
     @Test

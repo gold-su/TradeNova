@@ -31,7 +31,8 @@ public class TrainingAutoExitService {
             boolean autoExited,        //자동 청산 여부
             AutoExitReason reason,     //
             BigDecimal currentPrice,
-            BigDecimal executedPrice
+            BigDecimal executedPrice,
+            Integer exitPercent
     ) {}
 
     /**
@@ -114,6 +115,7 @@ public class TrainingAutoExitService {
                     false,
                     null,
                     close,
+                    null,
                     null
             );
         }
@@ -126,6 +128,7 @@ public class TrainingAutoExitService {
         if (
                 // 손절 가격이 설정되어 있는지 확인한다. NULL이면 사용자가 손절가를 설정하지 않았다는 뜻.
                 rule.getStopLossPrice() != null &&
+                        !rule.isStopLossConsumed() &&
                         // 현재 봉의 저가(low)가 손절가보다 작거나 같은지 검사한다.
                         //
                         // BigDecimal은 <, > 같은 연산자로 직접 크기 비교를 하지 않고
@@ -172,7 +175,8 @@ public class TrainingAutoExitService {
                     true,            // 자동청산 발생
                     AutoExitReason.STOP_LOSS, // 자동청산 이유는 손절
                     close,                    // NEXT 이후 현재 가격은 해당 봉의 종가
-                    executedPrice             // 실제 손절 체결 가격
+                    executedPrice,            // 실제 손절 체결 가격
+                    defaultPercent(rule.getStopLossExitPercent())
             );
         }
 
@@ -181,6 +185,7 @@ public class TrainingAutoExitService {
         if (
             // 사용자가 익절 가격을 설정했는지 확인한다.
                 rule.getTakeProfitPrice() != null &&
+                        !rule.isTakeProfitConsumed() &&
 
                         // 현재 봉의 고가(high)가 익절가 이상인지 검사한다.
                         //
@@ -222,7 +227,8 @@ public class TrainingAutoExitService {
                     close,
 
                     // 실제 익절 체결 가격
-                    executedPrice
+                    executedPrice,
+                    defaultPercent(rule.getTakeProfitExitPercent())
             );
         }
 
@@ -246,7 +252,12 @@ public class TrainingAutoExitService {
                 close,
 
                 // 청산되지 않았으므로 체결 가격 없음
+                null,
                 null
         );
+    }
+
+    private int defaultPercent(Integer percent) {
+        return percent == null ? 100 : percent;
     }
 }

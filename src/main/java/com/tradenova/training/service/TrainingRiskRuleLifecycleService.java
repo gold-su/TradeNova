@@ -3,6 +3,7 @@ package com.tradenova.training.service;
 import com.tradenova.training.entity.TrainingRiskRule;
 import com.tradenova.training.entity.TrainingRiskRuleHistory;
 import com.tradenova.training.entity.TrainingSessionChart;
+import com.tradenova.training.dto.AutoExitReason;
 import com.tradenova.training.repository.TrainingRiskRuleHistoryRepository;
 import com.tradenova.training.repository.TrainingRiskRuleRepository;
 import lombok.RequiredArgsConstructor;
@@ -45,11 +46,28 @@ public class TrainingRiskRuleLifecycleService {
                         .chartId(chart.getId())
                         .accountId(chart.getSession().getAccount().getId())
                         .stopLossPrice(saved.getStopLossPrice())
+                        .stopLossExitPercent(saved.getStopLossExitPercent())
                         .takeProfitPrice(saved.getTakeProfitPrice())
+                        .takeProfitExitPercent(saved.getTakeProfitExitPercent())
                         .autoExitEnabled(false)
                         .progressIndex(chart.getProgressIndex())
                         .candleTime(candleTime)
                         .build()
         );
+    }
+
+    void consumeTrigger(Long chartId, AutoExitReason reason) {
+        TrainingRiskRule rule = riskRuleRepository.findByChartId(chartId).orElse(null);
+        if (rule == null) {
+            return;
+        }
+        if (reason == AutoExitReason.STOP_LOSS) {
+            rule.setStopLossConsumed(true);
+        } else if (reason == AutoExitReason.TAKE_PROFIT) {
+            rule.setTakeProfitConsumed(true);
+        } else {
+            return;
+        }
+        riskRuleRepository.save(rule);
     }
 }

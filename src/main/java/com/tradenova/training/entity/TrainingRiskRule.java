@@ -52,12 +52,28 @@ public class TrainingRiskRule {
     @Column(name="stop_loss_price", precision=18, scale=4)
     private BigDecimal stopLossPrice;
 
+    @Builder.Default
+    @Column(name="stop_loss_exit_percent", nullable=false)
+    private Integer stopLossExitPercent = 100;
+
     /**
      * 익절 가격
      * null 이면 익절 미설정 상태
      */
     @Column(name="take_profit_price", precision=18, scale=4)
     private BigDecimal takeProfitPrice;
+
+    @Builder.Default
+    @Column(name="take_profit_exit_percent", nullable=false)
+    private Integer takeProfitExitPercent = 100;
+
+    @Builder.Default
+    @Column(name="stop_loss_consumed", nullable=false)
+    private boolean stopLossConsumed = false;
+
+    @Builder.Default
+    @Column(name="take_profit_consumed", nullable=false)
+    private boolean takeProfitConsumed = false;
 
     /**
      * 리스크 규칙 활성화 여부

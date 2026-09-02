@@ -469,8 +469,22 @@ public class TrainingTradeService {
             AutoExitReason reason
     ) {
         return sellAllAtPriceLockedResult(
+            userId, chart, executedPrice, candleTime, reason,
+                null, false, null, null
+        );
+    }
+
+    LockedSellResult sellAtPriceLockedResult(
+            Long userId,
+            TrainingSessionChart chart,
+            BigDecimal executedPrice,
+            Long candleTime,
+            AutoExitReason reason,
+            int exitPercent
+    ) {
+        return sellAllAtPriceLockedResult(
                 userId, chart, executedPrice, candleTime, reason,
-                null, false
+                null, false, exitPercent, null
         );
     }
 
@@ -481,7 +495,9 @@ public class TrainingTradeService {
             Long candleTime,
             AutoExitReason reason,
             PaperAccount acc,
-            boolean sessionFinish
+            boolean sessionFinish,
+            Integer exitPercent,
+            BigDecimal requestedQty
     ) {
         // 2. 세션 상태 검증
         if (chart.getSession().getStatus() != TrainingStatus.IN_PROGRESS) {
@@ -531,8 +547,16 @@ public class TrainingTradeService {
             );
         }
 
-        // 6. 전량매도 수량
-        BigDecimal qty = pos.getQuantity();
+        // Explicit quantity uses the canonical partial SELL mutation. Risk exits derive an
+        // integer quantity by floor, with one-share minimum; forced exits remain full-close.
+        BigDecimal positionQty = pos.getQuantity();
+        BigDecimal qty = requestedQty;
+        if (qty == null && exitPercent != null) {
+            qty = calculateExitQuantity(positionQty, exitPercent);
+        }
+        if (qty == null) {
+            qty = positionQty;
+        }
 
         // 7. 매도대금 계산
         BigDecimal proceeds =
@@ -543,8 +567,13 @@ public class TrainingTradeService {
                 acc.getCashBalance().add(proceeds)
         );
 
-        // 9. 전량청산이므로 포지션 삭제
-        positionRepo.delete(pos);
+        BigDecimal remain = positionQty.subtract(qty);
+        if (remain.compareTo(BigDecimal.ZERO) == 0) {
+            positionRepo.delete(pos);
+        } else {
+            pos.setQuantity(remain);
+            positionRepo.save(pos);
+        }
 
         // 10. 계좌 저장
         accountRepo.save(acc);
@@ -565,18 +594,17 @@ public class TrainingTradeService {
                                 .build()
                 );
 
-        // STOP_LOSS, TAKE_PROFIT and END_OF_CHART share this full-close path.
-        // Save their pre-close plan reference before appending the disabled state.
-        riskRuleLifecycleService.disableAfterPositionClosed(
-                userId, chart, candleTime
-        );
+        riskRuleLifecycleService.consumeTrigger(chart.getId(), reason);
+        if (remain.compareTo(BigDecimal.ZERO) == 0) {
+            riskRuleLifecycleService.disableAfterPositionClosed(userId, chart, candleTime);
+        }
 
         // 12. TRADE 이벤트 저장
         ObjectNode payload =
                 objectMapper.createObjectNode();
 
         payload.put("side", "SELL");
-        payload.put("sellAll", true);
+        payload.put("sellAll", remain.compareTo(BigDecimal.ZERO) == 0);
         payload.put("autoExit", true);
 
         payload.put(
@@ -588,11 +616,12 @@ public class TrainingTradeService {
 
         payload.putPOJO("tradeId", trade.getId());
         payload.putPOJO("qty", qty);
+        if (exitPercent != null) payload.put("exitPercent", exitPercent);
         payload.putPOJO("executedPrice", executedPrice);
         payload.putPOJO("candleTime", candleTime);
         payload.putPOJO("cashBalance", acc.getCashBalance());
-        payload.putPOJO("positionQty", BigDecimal.ZERO);
-        payload.putPOJO("avgPrice", BigDecimal.ZERO);
+        payload.putPOJO("positionQty", remain);
+        payload.putPOJO("avgPrice", remain.signum() == 0 ? BigDecimal.ZERO : pos.getAvgPrice());
         putRiskRuleHistoryId(payload, trade.getRiskRuleHistoryId());
 
         String reasonName =
@@ -618,8 +647,8 @@ public class TrainingTradeService {
                         chart.getId(),
                         trade.getId(),
                         acc.getCashBalance(),
-                        BigDecimal.ZERO,
-                        BigDecimal.ZERO,
+                        remain,
+                        remain.signum() == 0 ? BigDecimal.ZERO : pos.getAvgPrice(),
                         executedPrice,
                         candleTime
                 ),
@@ -644,11 +673,29 @@ public class TrainingTradeService {
                 candle.getT(),
                 AutoExitReason.END_OF_SESSION,
                 lockedAccount,
-                true
+                true,
+                null,
+                null
         ).response();
     }
 
     record LockedSellResult(TradeResponse response, BigDecimal executedQty) {
+    }
+
+    static BigDecimal calculateExitQuantity(BigDecimal positionQty, int exitPercent) {
+        if (positionQty == null || positionQty.signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (exitPercent < 1 || exitPercent > 100) {
+            throw new IllegalArgumentException("exitPercent must be between 1 and 100");
+        }
+        if (exitPercent == 100) {
+            return positionQty;
+        }
+        return positionQty.multiply(BigDecimal.valueOf(exitPercent))
+                .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN)
+                .max(BigDecimal.ONE)
+                .min(positionQty);
     }
 
     /**
