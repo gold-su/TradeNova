@@ -143,6 +143,8 @@ public class TrainingSessionProgressService {
         AutoExitReason autoExitReason = null;
 
         TradeResponse autoExitTrade = null;
+        BigDecimal autoExitExecutedQty = null;
+        Integer autoExitPercent = null;
 
         ObjectNode autoExitPayload = null;
         String autoExitSummary = null;
@@ -233,12 +235,13 @@ public class TrainingSessionProgressService {
              * 자동청산이 발생한 캔들 시간을 넘겨준다.
              */
             TrainingTradeService.LockedSellResult lockedSell =
-                    tradeService.sellAllAtPriceLockedResult(
+                    tradeService.sellAtPriceLockedResult(
                             userId,
                             chart,
                             decision.executedPrice(),
                             candle.getT(),
-                            autoExitReason
+                            autoExitReason,
+                            decision.exitPercent()
                     );
 
             autoExitTrade = lockedSell.response();
@@ -246,6 +249,8 @@ public class TrainingSessionProgressService {
                 continue;
             }
             BigDecimal exitQty = lockedSell.executedQty();
+            autoExitExecutedQty = exitQty;
+            autoExitPercent = decision.exitPercent();
 
 
             // 자동청산이 발생한 경우 실제 체결가를 현재가로 사용
@@ -322,30 +327,32 @@ public class TrainingSessionProgressService {
 
 
         /*
-         * 마지막 봉에 도달했고 손절/익절 청산이 이미 발생하지 않았다면
+         * 마지막 봉에 도달하면 손절/익절 부분청산 여부와 관계없이
          * 마지막 봉의 종가로 남은 포지션을 전량 청산한다.
          * advance 트랜잭션이 chart lock을 이미 보유하므로 lock 재조회는 하지 않는다.
          */
         if (finalIdx >= maxIdx) {
-            if (!executedAutoExit) {
-                TrainingSessionCandle lastCandle =
+            TrainingSessionCandle lastCandle =
                         candleRepo.findByChartIdAndIdx(chart.getId(), finalIdx)
                                 .orElseThrow(() -> new CustomException(ErrorCode.CANDLES_EMPTY));
 
-                BigDecimal exitPrice = BigDecimal.valueOf(lastCandle.getC());
-                autoExitReason = AutoExitReason.END_OF_CHART;
-                TrainingTradeService.LockedSellResult lockedSell =
+            BigDecimal exitPrice = BigDecimal.valueOf(lastCandle.getC());
+            TrainingTradeService.LockedSellResult forcedSell =
                         tradeService.sellAllAtPriceLockedResult(
                                 userId,
                                 chart,
                                 exitPrice,
                                 lastCandle.getT(),
-                                autoExitReason
+                                AutoExitReason.END_OF_CHART
                         );
-                autoExitTrade = lockedSell.response();
+            TradeResponse forcedTrade = forcedSell.response();
 
-                if (autoExitTrade.tradeId() != null) {
-                    BigDecimal exitQty = lockedSell.executedQty();
+            if (forcedTrade.tradeId() != null) {
+                autoExitTrade = forcedTrade;
+                if (!executedAutoExit) {
+                    autoExitReason = AutoExitReason.END_OF_CHART;
+                    BigDecimal exitQty = forcedSell.executedQty();
+                    autoExitExecutedQty = exitQty;
                     currentPrice = autoExitTrade.executedPrice();
                     executedAutoExit = true;
 
@@ -549,6 +556,8 @@ public class TrainingSessionProgressService {
                 executedAutoExit
                         ? autoExitReason
                         : null,
+                autoExitExecutedQty,
+                autoExitPercent,
                 revealedCandles
         );
     }
@@ -661,6 +670,8 @@ public class TrainingSessionProgressService {
                 positionQty,
                 avgPrice,
                 false,
+                null,
+                null,
                 null,
                 List.of()
         );

@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -70,6 +71,8 @@ class TrainingRiskRuleServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         service.upsert(7L, 1L, request("90.00", "120.00", true));
+        currentRule.setStopLossConsumed(true);
+        currentRule.setTakeProfitConsumed(true);
         service.upsert(7L, 1L, request("85.00", "125.00", true));
         RiskRuleResponse latest = service.upsert(7L, 1L, request("85.00", "125.00", false));
 
@@ -87,6 +90,24 @@ class TrainingRiskRuleServiceTest {
         assertThat(latest.stopLossPrice()).isEqualByComparingTo("85.00");
         assertThat(latest.takeProfitPrice()).isEqualByComparingTo("125.00");
         assertThat(latest.autoExitEnabled()).isFalse();
+        assertThat(latest.stopLossExitPercent()).isEqualTo(100);
+        assertThat(latest.takeProfitExitPercent()).isEqualTo(100);
+        assertThat(currentRule.isStopLossConsumed()).isFalse();
+        assertThat(currentRule.isTakeProfitConsumed()).isFalse();
+    }
+
+    @Test
+    void rejectsExitPercentOutsideInclusiveRange() {
+        TrainingSessionChart chart = chart();
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(chart));
+
+        for (int invalid : new int[]{-1, 0, 101}) {
+            RiskRuleUpsertRequest request = new RiskRuleUpsertRequest(
+                    new BigDecimal("90"), invalid, new BigDecimal("120"), 100, true
+            );
+            assertThatThrownBy(() -> service.upsert(7L, 1L, request))
+                    .isInstanceOf(com.tradenova.common.exception.CustomException.class);
+        }
     }
 
     private TrainingRiskRule currentRule;
@@ -103,7 +124,9 @@ class TrainingRiskRuleServiceTest {
         assertThat(history.getChartId()).isEqualTo(1L);
         assertThat(history.getAccountId()).isEqualTo(10L);
         assertThat(history.getStopLossPrice()).isEqualByComparingTo(stopLoss);
+        assertThat(history.getStopLossExitPercent()).isEqualTo(100);
         assertThat(history.getTakeProfitPrice()).isEqualByComparingTo(takeProfit);
+        assertThat(history.getTakeProfitExitPercent()).isEqualTo(100);
         assertThat(history.isAutoExitEnabled()).isEqualTo(enabled);
         assertThat(history.getProgressIndex()).isEqualTo(4);
         assertThat(history.getCandleTime()).isEqualTo(500L);
@@ -112,7 +135,9 @@ class TrainingRiskRuleServiceTest {
     private static RiskRuleUpsertRequest request(String stopLoss, String takeProfit, boolean enabled) {
         return new RiskRuleUpsertRequest(
                 new BigDecimal(stopLoss),
+                null,
                 new BigDecimal(takeProfit),
+                null,
                 enabled
         );
     }

@@ -52,6 +52,10 @@ public record SessionProgressResponse(
         // STOP_LOSS / TAKE_PROFIT / END_OF_CHART / null
         AutoExitReason reason,
 
+        // 실제 자동청산 수량/설정 비율 (강제청산 또는 미체결이면 null)
+        BigDecimal autoExitExecutedQty,
+        Integer autoExitPercent,
+
         // 이번 요청으로 실제 새롭게 공개된 캔들 (idx 오름차순)
         List<RevealedCandleResponse> revealedCandles
 ) {

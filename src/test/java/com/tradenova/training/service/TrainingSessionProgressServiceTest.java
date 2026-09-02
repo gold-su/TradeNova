@@ -143,6 +143,55 @@ class TrainingSessionProgressServiceTest {
     }
 
     @Test
+    void lastBarPartialRiskExitReportsRiskLegWhileEndOfChartClosesRemainder() {
+        Fixture fixture = fixture(2, 0);
+        TrainingSessionCandle first = candle(1L, 0, 100L, 100.0);
+        TrainingSessionCandle last = candle(1L, 1, 200L, 110.0);
+
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(fixture.chart()));
+        when(candleRepo.findByChartIdAndIdx(1L, 0)).thenReturn(Optional.of(first));
+        when(candleRepo.findByChartIdAndIdx(1L, 1)).thenReturn(Optional.of(last));
+        when(candleRepo.findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc(1L, 1))
+                .thenReturn(List.of(first, last));
+        when(autoExitService.checkAndAutoExit(1L, last)).thenReturn(
+                new TrainingAutoExitService.AutoExitResult(
+                        true, AutoExitReason.TAKE_PROFIT, BigDecimal.valueOf(110),
+                        BigDecimal.valueOf(105), 50
+                ));
+        when(tradeService.sellAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(105), 200L,
+                AutoExitReason.TAKE_PROFIT, 50
+        )).thenReturn(new TrainingTradeService.LockedSellResult(
+                new TradeResponse(1L, 88L, new BigDecimal("6250"), new BigDecimal("50"),
+                        new BigDecimal("90"), BigDecimal.valueOf(105), 200L),
+                new BigDecimal("50")));
+        when(tradeService.sellAllAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(110), 200L, AutoExitReason.END_OF_CHART
+        )).thenReturn(new TrainingTradeService.LockedSellResult(
+                new TradeResponse(1L, 89L, new BigDecimal("11750"), BigDecimal.ZERO,
+                        BigDecimal.ZERO, BigDecimal.valueOf(110), 200L),
+                new BigDecimal("50")));
+        when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
+
+        SessionProgressResponse response = service.next(7L, 1L);
+
+        // Response metadata describes the user-configured risk leg; the position snapshot
+        // includes the subsequent mandatory END_OF_CHART cleanup.
+        assertThat(response.autoExited()).isTrue();
+        assertThat(response.reason()).isEqualTo(AutoExitReason.TAKE_PROFIT);
+        assertThat(response.autoExitExecutedQty()).isEqualByComparingTo("50");
+        assertThat(response.autoExitPercent()).isEqualTo(50);
+        assertThat(response.positionQty()).isZero();
+        assertThat(response.cashBalance()).isEqualByComparingTo("11750");
+        assertThat(response.revealedCandles()).extracting(candle -> candle.idx()).containsExactly(1);
+        verify(tradeService).sellAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(105), 200L,
+                AutoExitReason.TAKE_PROFIT, 50);
+        verify(tradeService).sellAllAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(110), 200L, AutoExitReason.END_OF_CHART);
+    }
+
+    @Test
     void stopLossDuringAdvanceStopsAtTriggerAndDoesNotAlsoLiquidateAtEndOfChart() {
         Fixture fixture = fixture(4, 0);
         TrainingSessionCandle first = candle(1L, 0, 100L, 100.0);
@@ -155,12 +204,12 @@ class TrainingSessionProgressServiceTest {
                 .thenReturn(List.of(first, trigger));
         when(autoExitService.checkAndAutoExit(1L, trigger)).thenReturn(
                 new TrainingAutoExitService.AutoExitResult(
-                        true, AutoExitReason.STOP_LOSS, BigDecimal.valueOf(90.0), BigDecimal.valueOf(95.0)
+                        true, AutoExitReason.STOP_LOSS, BigDecimal.valueOf(90.0), BigDecimal.valueOf(95.0), 100
                 )
         );
         when(positionRepo.findByAccountIdAndSymbolId(10L, 20L)).thenReturn(Optional.empty());
-        when(tradeService.sellAllAtPriceLockedResult(
-                7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS
+        when(tradeService.sellAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS, 100
         )).thenReturn(new TrainingTradeService.LockedSellResult(
                 new TradeResponse(
                         1L, 88L, new BigDecimal("1190.00"), BigDecimal.ZERO,
@@ -177,8 +226,8 @@ class TrainingSessionProgressServiceTest {
         assertThat(response.reason()).isEqualTo(AutoExitReason.STOP_LOSS);
         assertThat(response.revealedCandles()).extracting(candle -> candle.idx())
                 .containsExactly(1);
-        verify(tradeService).sellAllAtPriceLockedResult(
-                7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS
+        verify(tradeService).sellAtPriceLockedResult(
+                7L, fixture.chart(), BigDecimal.valueOf(95.0), 200L, AutoExitReason.STOP_LOSS, 100
         );
         verify(positionRepo).findByAccountIdAndSymbolId(10L, 20L);
         verify(candleRepo, never()).findByChartIdAndIdx(1L, 2);
@@ -232,7 +281,7 @@ class TrainingSessionProgressServiceTest {
     }
 
     private static TrainingAutoExitService.AutoExitResult noAutoExit(double close) {
-        return new TrainingAutoExitService.AutoExitResult(false, null, BigDecimal.valueOf(close), null);
+        return new TrainingAutoExitService.AutoExitResult(false, null, BigDecimal.valueOf(close), null, null);
     }
 
     @Test
