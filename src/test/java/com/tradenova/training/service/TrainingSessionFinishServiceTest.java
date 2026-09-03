@@ -84,8 +84,10 @@ class TrainingSessionFinishServiceTest {
         when(sessionRepo.findForUpdateByIdAndUserId(100L, 7L)).thenReturn(Optional.of(f.session));
         when(chartRepo.findAllForUpdateBySessionIdOrderByIdAsc(100L)).thenReturn(f.charts);
         when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(f.account));
-        doThrow(new IllegalStateException("sell failed"))
-                .when(tradeService).liquidateForSessionFinish(7L, f.charts.get(1), f.account);
+        doNothing().when(tradeService)
+                .liquidateForSessionFinish(7L, f.charts.get(0), f.account);
+        doThrow(new IllegalStateException("sell failed")).when(tradeService)
+                .liquidateForSessionFinish(7L, f.charts.get(1), f.account);
 
         assertThatThrownBy(() -> service.finishSession(7L, 100L))
                 .isInstanceOf(IllegalStateException.class);
