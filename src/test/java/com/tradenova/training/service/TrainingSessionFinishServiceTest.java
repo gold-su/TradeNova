@@ -11,6 +11,7 @@ import com.tradenova.report.repository.TrainingEventRepository;
 import com.tradenova.report.service.TrainingEventService;
 import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.symbol.repository.SymbolRepository;
+import com.tradenova.training.dto.TradeResponse;
 import com.tradenova.training.entity.*;
 import com.tradenova.training.repository.*;
 import com.tradenova.user.entity.User;
@@ -84,8 +85,8 @@ class TrainingSessionFinishServiceTest {
         when(sessionRepo.findForUpdateByIdAndUserId(100L, 7L)).thenReturn(Optional.of(f.session));
         when(chartRepo.findAllForUpdateBySessionIdOrderByIdAsc(100L)).thenReturn(f.charts);
         when(accountRepo.findForUpdateById(10L)).thenReturn(Optional.of(f.account));
-        doNothing().when(tradeService)
-                .liquidateForSessionFinish(7L, f.charts.get(0), f.account);
+        when(tradeService.liquidateForSessionFinish(7L, f.charts.get(0), f.account))
+                .thenReturn(mock(TradeResponse.class));
         doThrow(new IllegalStateException("sell failed")).when(tradeService)
                 .liquidateForSessionFinish(7L, f.charts.get(1), f.account);
 

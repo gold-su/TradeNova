@@ -166,7 +166,7 @@ class TrainingSessionProgressServiceTest {
                         new BigDecimal("90"), BigDecimal.valueOf(105), 200L),
                 new BigDecimal("50")));
         when(tradeService.sellAllAtPriceLockedResult(
-                7L, fixture.chart(), BigDecimal.valueOf(110), 200L, AutoExitReason.END_OF_CHART
+                7L, fixture.chart(), BigDecimal.valueOf(110.0), 200L, AutoExitReason.END_OF_CHART
         )).thenReturn(new TrainingTradeService.LockedSellResult(
                 new TradeResponse(1L, 89L, new BigDecimal("11750"), BigDecimal.ZERO,
                         BigDecimal.ZERO, BigDecimal.valueOf(110), 200L),
@@ -188,7 +188,7 @@ class TrainingSessionProgressServiceTest {
                 7L, fixture.chart(), BigDecimal.valueOf(105), 200L,
                 AutoExitReason.TAKE_PROFIT, 50);
         verify(tradeService).sellAllAtPriceLockedResult(
-                7L, fixture.chart(), BigDecimal.valueOf(110), 200L, AutoExitReason.END_OF_CHART);
+                7L, fixture.chart(), BigDecimal.valueOf(110.0), 200L, AutoExitReason.END_OF_CHART);
     }
 
     @Test
