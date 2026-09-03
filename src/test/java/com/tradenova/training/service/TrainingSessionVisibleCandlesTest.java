@@ -84,7 +84,7 @@ class TrainingSessionVisibleCandlesTest {
 
         assertThat(result).hasSize(expectedSize);
         assertThat(result).extracting(CandleDto::t).containsExactlyElementsOf(
-                IntStream.range(0, expectedSize).mapToObj(Integer::longValue).toList()
+                IntStream.range(0, expectedSize).asLongStream().boxed().toList()
         );
         verify(candleRepo).findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc(chartId, progressIndex);
     }

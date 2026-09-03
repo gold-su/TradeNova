@@ -408,7 +408,7 @@ class TrainingTradeServiceLockTest {
         assertThat(payload.getValue().path("autoExitReason").asText()).isEqualTo("END_OF_SESSION");
         assertThat(payload.getValue().path("riskRuleHistoryId").asLong()).isEqualTo(70L);
         verify(riskRuleLifecycleService).disableAfterPositionClosed(7L, fixture.chart(), 200L);
-        verifyNoInteractions(accountRepo);
+        verify(accountRepo).save(fixture.lockedAccount());
     }
 
     @Test

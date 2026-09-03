@@ -81,7 +81,7 @@ class TrainingSessionSymbolUniquenessTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         lenient().when(marketDataService.getCandles(
                         any(Symbol.class), any(LocalDate.class), any(LocalDate.class), anyInt()))
-                .thenReturn(candles(30));
+                .thenReturn(candles(60));
     }
 
     @Test
