@@ -2,6 +2,7 @@ package com.tradenova.training.service;
 
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.symbol.entity.Symbol;
+import com.tradenova.training.dto.AutoExitReason;
 import com.tradenova.training.dto.RiskRuleResponse;
 import com.tradenova.training.dto.RiskRuleUpsertRequest;
 import com.tradenova.training.entity.TrainingChartStatus;
@@ -108,6 +109,64 @@ class TrainingRiskRuleServiceTest {
             assertThatThrownBy(() -> service.upsert(7L, 1L, request))
                     .isInstanceOf(com.tradenova.common.exception.CustomException.class);
         }
+    }
+
+    @Test
+    void stopLossCanTriggerAgainOnlyAfterAnExplicitUpsertRearmsTheRule() {
+        assertConsumedTriggerCanOnlyRepeatAfterUpsert(AutoExitReason.STOP_LOSS);
+    }
+
+    @Test
+    void takeProfitCanTriggerAgainOnlyAfterAnExplicitUpsertRearmsTheRule() {
+        assertConsumedTriggerCanOnlyRepeatAfterUpsert(AutoExitReason.TAKE_PROFIT);
+    }
+
+    private void assertConsumedTriggerCanOnlyRepeatAfterUpsert(AutoExitReason reason) {
+        TrainingSessionChart chart = chart();
+        TrainingSessionCandle currentCandle = candle();
+        TrainingRiskRule rule = TrainingRiskRule.builder()
+                .id(50L)
+                .chartId(1L)
+                .accountId(10L)
+                .stopLossPrice(new BigDecimal("95"))
+                .stopLossExitPercent(50)
+                .takeProfitPrice(new BigDecimal("105"))
+                .takeProfitExitPercent(50)
+                .enabled(true)
+                .build();
+        when(chartRepo.findForUpdateByIdAndUserId(1L, 7L)).thenReturn(Optional.of(chart));
+        when(candleRepo.findByChartIdAndIdx(1L, 4)).thenReturn(Optional.of(currentCandle));
+        when(riskRepo.findByChartId(1L)).thenReturn(Optional.of(rule));
+        when(riskRepo.save(rule)).thenReturn(rule);
+        when(historyRepo.save(any(TrainingRiskRuleHistory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        TrainingAutoExitService autoExit = new TrainingAutoExitService(riskRepo);
+        TrainingRiskRuleLifecycleService lifecycle =
+                new TrainingRiskRuleLifecycleService(riskRepo, historyRepo);
+        TrainingSessionCandle triggerCandle = reason == AutoExitReason.STOP_LOSS
+                ? TrainingSessionCandle.builder().o(100).h(101).l(90).c(95).build()
+                : TrainingSessionCandle.builder().o(100).h(110).l(99).c(105).build();
+
+        TrainingAutoExitService.AutoExitResult first =
+                autoExit.checkAndAutoExit(1L, triggerCandle);
+        lifecycle.consumeTrigger(1L, first.reason());
+        TrainingAutoExitService.AutoExitResult withoutSave =
+                autoExit.checkAndAutoExit(1L, triggerCandle);
+
+        assertThat(first.reason()).isEqualTo(reason);
+        assertThat(withoutSave.autoExited()).isFalse();
+        assertThat(reason == AutoExitReason.STOP_LOSS
+                ? rule.isStopLossConsumed() : rule.isTakeProfitConsumed()).isTrue();
+
+        service.upsert(7L, 1L, request("94.00", "106.00", true));
+        TrainingAutoExitService.AutoExitResult afterSave =
+                autoExit.checkAndAutoExit(1L, triggerCandle);
+
+        assertThat(rule.isStopLossConsumed()).isFalse();
+        assertThat(rule.isTakeProfitConsumed()).isFalse();
+        assertThat(afterSave.reason()).isEqualTo(reason);
+        assertThat(afterSave.exitPercent()).isEqualTo(100);
     }
 
     private TrainingRiskRule currentRule;
