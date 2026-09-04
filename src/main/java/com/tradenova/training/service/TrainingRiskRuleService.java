@@ -113,9 +113,8 @@ public class TrainingRiskRuleService {
         rule.setStopLossExitPercent(stopLossExitPercent);
         rule.setTakeProfitPrice(req.takeProfitPrice());
         rule.setTakeProfitExitPercent(takeProfitExitPercent);
-        // Every upsert creates a new immutable history/version, so both one-shot legs reset.
-        rule.setStopLossConsumed(false);
-        rule.setTakeProfitConsumed(false);
+        // Every explicit upsert creates a new immutable history/version and rearms both legs.
+        rule.rearmTriggers();
 
         if (req.autoExitEnabled() != null) {
             rule.setEnabled(req.autoExitEnabled());

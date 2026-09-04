@@ -84,6 +84,16 @@ public class TrainingRiskRule {
     private boolean enabled;
 
     /**
+     * Treats an explicit user save as a new one-shot rule version for both legs.
+     * Candle progression must not call this method; consumed state otherwise remains
+     * in force for the lifetime of the current saved version.
+     */
+    public void rearmTriggers() {
+        stopLossConsumed = false;
+        takeProfitConsumed = false;
+    }
+
+    /**
      * 리스크 규칙이 마지막으로 수정된 시각
      * (값 변경 시 자동 갱신)
      */
