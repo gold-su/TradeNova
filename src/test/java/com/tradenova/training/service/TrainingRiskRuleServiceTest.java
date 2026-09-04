@@ -145,8 +145,18 @@ class TrainingRiskRuleServiceTest {
         TrainingRiskRuleLifecycleService lifecycle =
                 new TrainingRiskRuleLifecycleService(riskRepo, historyRepo);
         TrainingSessionCandle triggerCandle = reason == AutoExitReason.STOP_LOSS
-                ? TrainingSessionCandle.builder().o(100).h(101).l(90).c(95).build()
-                : TrainingSessionCandle.builder().o(100).h(110).l(99).c(105).build();
+                ? TrainingSessionCandle.builder()
+                .o(100.0)
+                .h(101.0)
+                .l(90.0)
+                .c(95.0)
+                .build()
+                : TrainingSessionCandle.builder()
+                .o(100.0)
+                .h(110.0)
+                .l(99.0)
+                .c(105.0)
+                .build();
 
         TrainingAutoExitService.AutoExitResult first =
                 autoExit.checkAndAutoExit(1L, triggerCandle);
