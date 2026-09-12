@@ -168,7 +168,24 @@ public class PromptBuilder {
           "score": 0,
           "summary": "문장",
           "warnings": ["문장1", "문장2"],
-          "strengths": ["문장1", "문장2"]
+          "strengths": ["문장1", "문장2"],
+          "decisionReview": {
+            "assessment": "문장",
+            "evidence": ["관찰된 사실"],
+            "betterAction": "다음 훈련 행동"
+          },
+          "riskReview": {
+            "assessment": "문장",
+            "evidence": ["관찰된 사실"],
+            "improvement": "다음 훈련 행동"
+          },
+          "behaviorPatterns": [{
+            "pattern": "관찰된 패턴",
+            "evidence": ["관찰된 사실"],
+            "impact": "제한된 해석",
+            "correction": "다음 훈련 행동"
+          }],
+          "nextTrainingFocus": ["구체적인 다음 훈련 항목"]
         }
 
         규칙:
@@ -176,13 +193,16 @@ public class PromptBuilder {
         - summary는 1~3문장
         - warnings는 없으면 빈 배열
         - strengths는 없으면 빈 배열
+        - behaviorPatterns와 nextTrainingFocus는 근거가 없으면 빈 배열
+        - structured review의 evidence는 backend fact나 시간적으로 연결된 사용자 작성 evidence만 인용해라
+        - evidence가 부족하면 assessment에 "근거가 충분하지 않음"이라고 명시하고 조언을 억지로 채우지 마라
         - 투자 추천/매수 추천 금지
+        - 미래의 매수/매도 가격, 시점, 수량을 추천하지 마라
 
         평가 기준:
         - 세션 전체의 선택, 관망, 자금 사용, 계획 일관성을 평가해라
         - 거래한 차트뿐 아니라 거래하지 않은 차트를 어떻게 다뤘는지도 평가해라
-        - 여러 차트 중 어떤 차트를 선택했고 어떤 차트를 무시했는지 반드시 평가하라
-        - 수익/손실이 발생한 차트뿐 아니라, 기회였던 차트를 놓친 경우도 평가하라
+        - 근거가 있는 경우에만 여러 차트의 선택/관망 행동을 평가해라
 
         reasoning:
         - snapshot이 존재하면 reasoning의 일관성을 반영해라
@@ -204,6 +224,11 @@ public class PromptBuilder {
         - qualitative timeline이 UNRESOLVED이면 특정 거래, episode, risk 변경에 귀속시키지 마라
         - 근거가 없으면 이유나 심리는 확인할 수 없다고 표현해라
         - deterministic fact, user-authored statement, AI interpretation을 문장에서 구분해라
+        - 항상 (1) 관찰/계산된 사실, (2) 시간적으로 연결된 사용자 작성 evidence, (3) 제한된 해석,
+          (4) 구체적인 다음 훈련 행동 순서로 추론해라
+        - panic, greed, fear, impulsive 같은 감정/성향을 거래 활동만으로 선언하지 마라
+        - 제공된 수치(win rate, PnL, episode count, holding period 등)를 재계산하지 마라
+        - 제공된 시점 이후의 시장 데이터나 미래 고점을 사용하지 마라
 
         PnL 해석:
         - finalPnL은 참고 지표로만 사용하고 결과만으로 판단하지 마라
@@ -238,7 +263,7 @@ public class PromptBuilder {
             위 데이터를 보고 아래 항목을 평가해라:
             1) 여러 차트 중 선택과 관망의 적절성
             2) 세션 전체의 계획 일관성
-            3) 거래 과잉/거래 회피 경향
+            3) 근거로 확인되는 거래 빈도 패턴
             4) reasoning 품질과 반복 습관
             5) 다음 세션에서 개선할 점
 
@@ -246,7 +271,7 @@ public class PromptBuilder {
             - 거래가 특정 차트에만 몰렸는지
             - snapshot 내용들이 서로 일관적인지
             - 실제 거래 여부와 계획 메모가 얼마나 연결되는지
-            - 세션 전체적으로 충동성이 있었는지
+            - 근거가 없으면 행동의 이유나 심리를 알 수 없다고 명시할 것
             """.formatted(
                 sessionFacts(req),
                 deterministicContextFormatter.formatStatistics(req.deterministicContext()),
