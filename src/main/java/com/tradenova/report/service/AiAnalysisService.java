@@ -7,6 +7,7 @@ import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
+import com.tradenova.report.dto.SessionAiAnalysisResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -118,8 +119,6 @@ public class AiAnalysisService {
                     entity,
                     String.class
             );
-            System.out.println("=== OpenAI raw response ===");
-            System.out.println(response.getBody());
             // 응답이 비정상이면 예외 처리
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
@@ -129,12 +128,6 @@ public class AiAnalysisService {
             return parseResponse(response.getBody());
 
         }catch (HttpStatusCodeException e){
-            System.out.println("=== OpenAI status code ===");
-            System.out.println(e.getStatusCode());
-
-            System.out.println("=== OpenAI error body ===");
-            System.out.println(e.getResponseBodyAsString());
-
             throw new CustomException(ErrorCode.AI_API_CALL_FAILED);
         }
         catch (CustomException e) {
@@ -151,28 +144,14 @@ public class AiAnalysisService {
      * choices[0].message.content 안에 JSON 문자열이 들어있다.
      */
     private AiAnalysisResponse parseResponse(String rawBody) throws Exception {
-        // rawBody log
-        System.out.println("=== parseResponse rawBody ===");
-        System.out.println(rawBody);
-
         JsonNode root = objectMapper.readTree(rawBody);
-        // root log
-        System.out.println("=== parseResponse root ===");
-        System.out.println(root);
 
         JsonNode contentNode = root.path("choices").get(0).path("message").path("content");
-        // contrentNode log
-        System.out.println("=== root ===");
-        System.out.println(root.toPrettyString());
 
         // content가 비어있으면 실패 처리
         if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
             throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
         }
-
-        String content = contentNode.asText();
-        System.out.println("=== content text ===");
-        System.out.println(content);
 
         // content 문자열을 다시 JSON으로 파싱
         JsonNode aiJson = objectMapper.readTree(contentNode.asText());
@@ -198,7 +177,7 @@ public class AiAnalysisService {
      * 세션 전체 데이터를 기반으로 OpenAI API를 호출해
      * 세션 단위 AI 분석 결과를 생성
      */
-    public AiAnalysisResponse analyzeSession(SessionAiAnalysisRequest req) {
+    public SessionAiAnalysisResponse analyzeSession(SessionAiAnalysisRequest req) {
         try {
             // 1. AI 역할, 출력 형식, 평가 규칙을 담은 system prompt 생성
             String systemPrompt = promptBuilder.buildSessionSystemPrompt();
@@ -244,17 +223,11 @@ public class AiAnalysisService {
                 throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
             }
             // 8. OpenAI 응답 JSON에서 실제 분석 결과(score, summary 등)를 파싱하여 반환
-            return parseResponse(response.getBody());
+            return parseSessionResponse(response.getBody());
 
         } catch (HttpStatusCodeException e) {
             // OpenAI 서버가 4xx / 5xx 응답을 준 경우
             // 예: 인증 실패, 요청 형식 오류, quota 초과 등
-
-            System.out.println("=== OpenAI status code ===");
-            System.out.println(e.getStatusCode());
-
-            System.out.println("=== OpenAI error body ===");
-            System.out.println(e.getResponseBodyAsString());
 
             throw new CustomException(ErrorCode.AI_API_CALL_FAILED);
         } catch (CustomException e) {
@@ -264,6 +237,15 @@ public class AiAnalysisService {
             // 그 외 예외는 응답 파싱 실패 / 예상치 못한 런타임 오류로 간주
             throw new CustomException(ErrorCode.AI_RESPONSE_INVALID);
         }
+    }
+
+    private SessionAiAnalysisResponse parseSessionResponse(String rawBody) throws Exception {
+        JsonNode root = objectMapper.readTree(rawBody);
+        JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
+        if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
+            throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
+        }
+        return objectMapper.treeToValue(objectMapper.readTree(contentNode.asText()), SessionAiAnalysisResponse.class);
     }
 
     /**

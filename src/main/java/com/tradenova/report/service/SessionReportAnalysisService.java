@@ -68,6 +68,10 @@ public class SessionReportAnalysisService {
         TrainingSession session = sessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_SESSION_NOT_FOUND));
 
+        if (session.getStatus() != TrainingStatus.COMPLETED) {
+            throw new CustomException(ErrorCode.SESSION_AI_REQUIRES_COMPLETED_SESSION);
+        }
+
         // 2) 세션 차트 조회
         List<TrainingSessionChart> charts = chartRepository.findAllBySession_IdOrderByChartIndexAsc(session.getId());
         if (charts.isEmpty()) {
@@ -177,7 +181,7 @@ public class SessionReportAnalysisService {
         );
 
         // 7) AI 분석 실행
-        AiAnalysisResponse ai = aiAnalysisService.analyzeSession(request);
+        SessionAiAnalysisResponse ai = aiAnalysisService.analyzeSession(request);
 
         // 거래가 발생한 차트 수
         int tradedChartCount = (int) chartSummaries.stream()
@@ -193,7 +197,7 @@ public class SessionReportAnalysisService {
         payload.put("summary", ai.summary());
 
         payload.put("generatedAt", Instant.now().toString());
-        payload.put("analysisVersion", 1);
+        payload.put("analysisVersion", 2);
         payload.put("hasSnapshots", !snapshots.isEmpty());
         payload.put("tradedChartCount", tradedChartCount);
 
@@ -214,6 +218,11 @@ public class SessionReportAnalysisService {
         if (ai.strengths() != null) {
             ai.strengths().forEach(strengthsNode::add);
         }
+
+        payload.set("decisionReview", objectMapper.valueToTree(ai.decisionReview()));
+        payload.set("riskReview", objectMapper.valueToTree(ai.riskReview()));
+        payload.set("behaviorPatterns", objectMapper.valueToTree(ai.behaviorPatterns()));
+        payload.set("nextTrainingFocus", objectMapper.valueToTree(ai.nextTrainingFocus()));
 
         // chartId null 불가라 첫 차트를 대표 chartId로 사용
         Long representativeChartId = charts.get(0).getId();

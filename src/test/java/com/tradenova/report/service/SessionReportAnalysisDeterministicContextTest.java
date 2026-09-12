@@ -3,7 +3,9 @@ package com.tradenova.report.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradenova.paper.entity.PaperAccount;
-import com.tradenova.report.dto.AiAnalysisResponse;
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.report.dto.SessionAiAnalysisResponse;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiDeterministicContext;
 import com.tradenova.report.dto.SessionQualitativeEvidenceContext;
@@ -35,11 +37,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 class SessionReportAnalysisDeterministicContextTest {
@@ -112,8 +116,18 @@ class SessionReportAnalysisDeterministicContextTest {
         when(contextService.build(1L, 5L)).thenReturn(deterministicContext);
         when(evidenceResolver.resolve(deterministicContext, List.of(snapshot), List.of(note)))
                 .thenReturn(qualitativeContext);
-        when(aiAnalysisService.analyzeSession(any(SessionAiAnalysisRequest.class)))
-                .thenReturn(new AiAnalysisResponse(80, "summary", List.of("warning"), List.of("strength")));
+        SessionAiAnalysisResponse response = new SessionAiAnalysisResponse(
+                80, "summary", List.of("warning"), List.of("strength"),
+                new SessionAiAnalysisResponse.DecisionReview(
+                        "consistent", List.of("Episode 1 used one entry"), "record an entry reason"),
+                new SessionAiAnalysisResponse.RiskReview(
+                        "changed", List.of("entry and exit plans differ"), "review plan changes"),
+                List.of(new SessionAiAnalysisResponse.BehaviorPattern(
+                        "multiple entries", List.of("Episode 2 had two entries"),
+                        "consistency needs review", "define a repeat-entry rule")),
+                List.of("link reasons to episodes")
+        );
+        when(aiAnalysisService.analyzeSession(any(SessionAiAnalysisRequest.class))).thenReturn(response);
         when(eventService.append(eq(1L), eq(10L), eq(Type.AI), eq("세션 AI 리뷰"), any(ObjectNode.class)))
                 .thenReturn(expected);
 
@@ -131,6 +145,61 @@ class SessionReportAnalysisDeterministicContextTest {
         assertEquals(1, request.snapshots().size());
         assertEquals("support held", request.snapshots().get(0).thesis());
         assertEquals(1, request.charts().size());
+
+        ArgumentCaptor<ObjectNode> payloadCaptor = ArgumentCaptor.forClass(ObjectNode.class);
+        verify(eventService).append(eq(1L), eq(10L), eq(Type.AI), eq("세션 AI 리뷰"), payloadCaptor.capture());
+        ObjectNode payload = payloadCaptor.getValue();
+        assertEquals(2, payload.path("analysisVersion").asInt());
+        assertEquals(80, payload.path("score").asInt());
+        assertEquals("warning", payload.path("warnings").get(0).asText());
+        assertEquals("consistent", payload.path("decisionReview").path("assessment").asText());
+        assertEquals("changed", payload.path("riskReview").path("assessment").asText());
+        assertEquals("multiple entries", payload.path("behaviorPatterns").get(0).path("pattern").asText());
+        assertEquals("link reasons to episodes", payload.path("nextTrainingFocus").get(0).asText());
+    }
+
+    @Test
+    void inProgressSessionIsRejectedBeforeAnyAnalysisOrChartLookup() {
+        TrainingSessionRepository sessionRepository = mock(TrainingSessionRepository.class);
+        TrainingSessionChartRepository chartRepository = mock(TrainingSessionChartRepository.class);
+        AiAnalysisService aiAnalysisService = mock(AiAnalysisService.class);
+        SessionReportAnalysisService service = service(sessionRepository, chartRepository, aiAnalysisService);
+        TrainingSession session = session();
+        session.setStatus(TrainingStatus.IN_PROGRESS);
+        when(sessionRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(session));
+
+        CustomException exception = assertThrows(CustomException.class,
+                () -> service.analyzeSession(1L, 5L));
+
+        assertEquals(ErrorCode.SESSION_AI_REQUIRES_COMPLETED_SESSION, exception.getErrorCode());
+        verify(aiAnalysisService, never()).analyzeSession(any());
+        verify(chartRepository, never()).findAllBySession_IdOrderByChartIndexAsc(any());
+    }
+
+    @Test
+    void ownershipFailureRemainsNotFoundAndDoesNotInvokeAnalysis() {
+        TrainingSessionRepository sessionRepository = mock(TrainingSessionRepository.class);
+        AiAnalysisService aiAnalysisService = mock(AiAnalysisService.class);
+        SessionReportAnalysisService service = service(
+                sessionRepository, mock(TrainingSessionChartRepository.class), aiAnalysisService);
+        when(sessionRepository.findByIdAndUserId(5L, 99L)).thenReturn(Optional.empty());
+
+        CustomException exception = assertThrows(CustomException.class,
+                () -> service.analyzeSession(99L, 5L));
+
+        assertEquals(ErrorCode.TRAINING_SESSION_NOT_FOUND, exception.getErrorCode());
+        verify(aiAnalysisService, never()).analyzeSession(any());
+    }
+
+    private SessionReportAnalysisService service(TrainingSessionRepository sessions,
+                                                  TrainingSessionChartRepository charts,
+                                                  AiAnalysisService ai) {
+        return new SessionReportAnalysisService(
+                sessions, charts, mock(TrainingTradeRepository.class), mock(TrainingEventRepository.class),
+                mock(ReportDocumentRepository.class), mock(TrainingSessionCandleRepository.class), ai,
+                mock(TrainingEventService.class), new ObjectMapper(),
+                mock(SessionAiDeterministicContextService.class), mock(SessionQualitativeEvidenceResolver.class)
+        );
     }
 
     private TrainingSession session() {
