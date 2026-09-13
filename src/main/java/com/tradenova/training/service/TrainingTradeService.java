@@ -59,8 +59,7 @@ public class TrainingTradeService {
     @Transactional // 아래 작업들을 한 트랜잭션으로 묶음 (중간 실패 시 롤백)
     public TradeResponse buy(Long userId, Long chartId, BigDecimal qty){
 
-        // chartId + userId(세션 소유자) 조건으로 차트를 조회
-        // - session.user.id까지 조건에 포함해서 "남의 차트는 조회 자체가 안 되게" 막음(보안/치팅 방지)
+        // 차트 소유권 검증 + 비관적 락
         TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 // 없으면 404 성격의 커스텀 예외(차트 없음 또는 남의 차트)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
@@ -709,7 +708,7 @@ public class TrainingTradeService {
     @Transactional
     public TradeResponse sellAll(Long userId, Long chartId) {
 
-        // chartId + userId 조건으로 차트 조회(소유권 검증 포함)
+        // 차트 소유권 검증 + 비관적 락
         TrainingSessionChart chart = chartRepo.findForUpdateByIdAndUserId(chartId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TRAINING_CHART_NOT_FOUND));
 
