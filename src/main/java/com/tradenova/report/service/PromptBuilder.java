@@ -4,6 +4,7 @@ import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionChartSummary;
 import com.tradenova.report.dto.SessionSnapshotSummary;
+import com.tradenova.report.dto.TradeActionAiEvidence;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -188,11 +189,20 @@ public class PromptBuilder {
                 req.volumes(),
                 req.currentVisibleTechnicalContext(),
                 req.entryDecisionTechnicalContext(),
-                req.entryActionEvidence(),
-                req.latestActionEvidence(),
+                chartActionEvidence(req.entryActionEvidence()),
+                chartActionEvidence(req.latestActionEvidence()),
                 req.currentVisibleOhlcv(),
                 req.entryDecisionOhlcv()
         );
+    }
+
+    private String chartActionEvidence(TradeActionAiEvidence action) {
+        if (action == null) return "ACTION-TIME USER CLAIM: unavailable\nLINKED PRE-TRADE PLAN: unresolved";
+        String plan = action.scenarioPlan() == null ? "unresolved" : action.scenarioPlan().toString();
+        return "ACTION-TIME USER CLAIM: " + action.reasons()
+                + "\nACTUAL ACTION: tradeId=" + action.tradeId() + ", side=" + action.side()
+                + ", candleTime=" + action.candleTime()
+                + "\nLINKED PRE-TRADE PLAN: " + plan;
     }
 
     /**

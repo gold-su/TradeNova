@@ -15,9 +15,17 @@ public record TradeActionAiEvidence(
         BigDecimal price,
         Instant createdAt,
         List<TradeReasonAiEvidence> reasons,
-        EvidenceTimelineAnchor timeline
+        EvidenceTimelineAnchor timeline,
+        String reasonMode,
+        Long scenarioSnapshotId,
+        ScenarioPlanAiEvidence scenarioPlan
 ) {
     public TradeActionAiEvidence {
         reasons = reasons == null ? List.of() : List.copyOf(reasons);
+    }
+    public TradeActionAiEvidence(Long eventId, Long chartId, Long tradeId, String side, Long candleTime,
+            BigDecimal qty, BigDecimal price, Instant createdAt, List<TradeReasonAiEvidence> reasons,
+            EvidenceTimelineAnchor timeline) {
+        this(eventId, chartId, tradeId, side, candleTime, qty, price, createdAt, reasons, timeline, null, null, null);
     }
 }

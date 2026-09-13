@@ -35,6 +35,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 리포트 AI 분석 orchestration 서비스
@@ -86,6 +88,7 @@ public class ReportAnalysisService {
 
     private final DecisionTechnicalContextService technicalContextService;
     private final TradeActionAiEvidenceResolver tradeActionEvidenceResolver;
+    private final ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver;
 
     /**
      * 특정 차트의 최신 snapshot을 분석해서
@@ -199,6 +202,17 @@ public class ReportAnalysisService {
 
 
         // 7) AI 분석 요청 DTO 생성
+        var entryActionEvidence = tradeActionEvidenceResolver.resolve(latestBuy, chartEvents);
+        var latestActionEvidence = tradeActionEvidenceResolver.resolve(latestTrade, chartEvents);
+        List<Long> scenarioIds = java.util.stream.Stream.of(entryActionEvidence, latestActionEvidence)
+                .filter(action -> action != null && "SCENARIO".equals(action.reasonMode()))
+                .map(com.tradenova.report.dto.TradeActionAiEvidence::scenarioSnapshotId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, ReportDocument> scenarioDocuments = scenarioIds.isEmpty() ? Map.of()
+                : reportDocumentRepository.findAllById(scenarioIds).stream()
+                .collect(Collectors.toMap(ReportDocument::getId, doc -> doc));
+        entryActionEvidence = scenarioPlanEvidenceResolver.link(entryActionEvidence, userId, scenarioDocuments);
+        latestActionEvidence = scenarioPlanEvidenceResolver.link(latestActionEvidence, userId, scenarioDocuments);
         AiAnalysisRequest request = new AiAnalysisRequest(
                 hasSnapshot ? text(content, "thesis") : "",
                 hasSnapshot ? text(content, "entryReason") : "",
@@ -221,8 +235,8 @@ public class ReportAnalysisService {
                 entryTechnicalContext,
                 technicalContextService.boundedOhlcv(chartId, chart.getProgressIndex()),
                 entryIndex == null ? List.of() : technicalContextService.boundedOhlcv(chartId, entryIndex),
-                tradeActionEvidenceResolver.resolve(latestBuy, chartEvents),
-                tradeActionEvidenceResolver.resolve(latestTrade, chartEvents)
+                entryActionEvidence,
+                latestActionEvidence
         );
 
         // 8) AI 분석 실행

@@ -16,14 +16,21 @@ import java.util.*;
 @Component
 public class SessionQualitativeEvidenceResolver {
     private final TradeActionAiEvidenceResolver tradeActionEvidenceResolver;
+    private final ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver;
 
     public SessionQualitativeEvidenceResolver() {
-        this(new TradeActionAiEvidenceResolver());
+        this(new TradeActionAiEvidenceResolver(), new ScenarioPlanAiEvidenceResolver());
+    }
+
+    public SessionQualitativeEvidenceResolver(TradeActionAiEvidenceResolver tradeActionEvidenceResolver) {
+        this(tradeActionEvidenceResolver, new ScenarioPlanAiEvidenceResolver());
     }
 
     @Autowired
-    public SessionQualitativeEvidenceResolver(TradeActionAiEvidenceResolver tradeActionEvidenceResolver) {
+    public SessionQualitativeEvidenceResolver(TradeActionAiEvidenceResolver tradeActionEvidenceResolver,
+                                               ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver) {
         this.tradeActionEvidenceResolver = tradeActionEvidenceResolver;
+        this.scenarioPlanEvidenceResolver = scenarioPlanEvidenceResolver;
     }
 
     public SessionQualitativeEvidenceContext resolve(
@@ -35,8 +42,11 @@ public class SessionQualitativeEvidenceResolver {
         events.forEach(event -> eventsById.put(event.getId(), event));
         Map<Long, TradeEpisodeReference> episodeByTradeId = episodeByTradeId(deterministic);
         Map<Long, List<ReportDocument>> snapshotsByChart = new HashMap<>();
-        snapshots.forEach(snapshot -> snapshotsByChart
-                .computeIfAbsent(snapshot.getChartId(), ignored -> new ArrayList<>()).add(snapshot));
+        Map<Long, ReportDocument> snapshotsById = new HashMap<>();
+        snapshots.forEach(snapshot -> {
+            snapshotsById.put(snapshot.getId(), snapshot);
+            snapshotsByChart.computeIfAbsent(snapshot.getChartId(), ignored -> new ArrayList<>()).add(snapshot);
+        });
         Map<Long, List<TrainingEvent>> notesByChart = new HashMap<>();
         events.stream()
                 .filter(event -> event.getType() == Type.NOTE && event.getOrigin() == EventOrigin.USER)
@@ -44,7 +54,8 @@ public class SessionQualitativeEvidenceResolver {
                         .computeIfAbsent(event.getChartId(), ignored -> new ArrayList<>()).add(event));
         Map<Long, List<TradeActionAiEvidence>> tradesByChart = new HashMap<>();
         events.stream()
-                .map(event -> tradeActionEvidenceResolver.parse(event, episodeByTradeId))
+                .map(event -> scenarioPlanEvidenceResolver.link(tradeActionEvidenceResolver.parse(event, episodeByTradeId),
+                        event.getUserId(), snapshotsById))
                 .filter(Objects::nonNull)
                 .forEach(evidence -> tradesByChart
                         .computeIfAbsent(evidence.chartId(), ignored -> new ArrayList<>()).add(evidence));

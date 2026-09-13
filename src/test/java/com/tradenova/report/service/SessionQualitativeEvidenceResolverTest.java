@@ -99,6 +99,40 @@ class SessionQualitativeEvidenceResolverTest {
         assertTrue(evidence.charts().get(0).tradeActions().isEmpty());
     }
 
+    @Test
+    void linksMultipleTradesToTheirOwnExplicitScenarioIds() {
+        ObjectNode buyPayload = tradePayload(101L, "BUY").put("reasonMode", "SCENARIO").put("scenarioSnapshotId", 55L);
+        ObjectNode sellPayload = tradePayload(102L, "SELL").put("reasonMode", "SCENARIO").put("scenarioSnapshotId", 56L);
+        ReportDocument first = scenario(55L, "first");
+        ReportDocument second = scenario(56L, "second");
+
+        List<TradeActionAiEvidence> actions = resolver.resolve(context(), List.of(second, first), List.of(
+                event(80L, Type.TRADE, EventOrigin.USER, "buy", buyPayload, 4),
+                event(81L, Type.TRADE, EventOrigin.USER, "sell", sellPayload, 5)))
+                .charts().get(0).tradeActions();
+
+        assertEquals(List.of(55L, 56L), actions.stream().map(a -> a.scenarioPlan().snapshotId()).toList());
+        assertEquals(List.of("first", "second"), actions.stream().map(a -> a.scenarioPlan().thesis()).toList());
+    }
+
+    @Test
+    void legacyTradeReasonRemainsUsableWithoutScenarioLink() {
+        TradeActionAiEvidence action = resolver.resolve(context(), List.of(scenario(55L, "latest")),
+                List.of(event(80L, Type.TRADE, EventOrigin.USER, "buy", tradePayload(101L, "BUY"), 4)))
+                .charts().get(0).tradeActions().get(0);
+        assertEquals(101L, action.tradeId());
+        assertNull(action.reasonMode());
+        assertNull(action.scenarioSnapshotId());
+        assertNull(action.scenarioPlan());
+    }
+
+    private ReportDocument scenario(Long id, String thesis) {
+        ObjectNode content = mapper.createObjectNode().put("thesis", thesis);
+        content.putArray("tags").add("SCENARIO");
+        return ReportDocument.builder().id(id).userId(1L).chartId(10L).kind(ReportKind.SNAPSHOT)
+                .version(id.intValue()).contentJson(content).createdAt(Instant.ofEpochSecond(id)).build();
+    }
+
     private ObjectNode tradePayload(Long tradeId, String side) {
         ObjectNode payload = mapper.createObjectNode().put("tradeId", tradeId).put("side", side)
                 .put("qty", 2).put("price", 10.5).put("candleTime", 1_000L)
