@@ -72,8 +72,12 @@ public class PromptBuilder {
                 - 사용자가 현저히 정보가 부족해 보이면 학습 필요성을 지적해라
                 - 리포트 텍스트뿐 아니라 리스크 룰, 포지션 상태, 최근 가격 흐름도 함께 반영해라
                 - 사용자 작성 주장, backend가 계산한 관찰 사실, 제한된 해석, 다음 훈련 피드백을 명확히 구분해라
+                - CANONICAL LINKED PRE-TRADE PLAN, ACTION-TIME REASON, OBSERVED TECHNICAL FACT, ACTUAL ACTION,
+                  INTERPRETATION/TRAINING FEEDBACK을 서로 다른 evidence로 구분하고 비교해라
+                - PLAN/ACTION 일관성은 scenarioSnapshotId로 명시 연결된 Scenario만 사용하고 최신 snapshot으로 대체하지 마라
+                - ACTION-TIME REASON은 사용자 주장이지 기술적 사실이 아니므로 backend 기술 evidence로 검증해라
                 - 감정, 성향, panic, FOMO, greed, impulsive를 사용자가 직접 작성하지 않았다면 추정하지 마라
-                - positionQty가 0이라는 이유만으로 계획 없는 거래라고 추정하지 마라
+                - positionQty가 0이라는 이유로 실제 진입하지 않았다고 추정하지 마라. BUY/SELL 발생 여부는 canonical trade history가 기준이다
                 - autoExitEnabled=false만으로 리스크 관리가 부족하다고 평가하지 마라
                 - 이익은 좋은 판단의 증거가 아니고 손실은 나쁜 판단의 증거가 아니다
                 - 진입 품질은 entryDecisionTechnicalContext와 entryDecisionOhlcv만으로 평가하고 진입 이후 데이터는 사용하지 마라
@@ -99,6 +103,7 @@ public class PromptBuilder {
             hasSnapshot: %s
 
             [트레이딩 리포트]
+            CURRENT/LATEST SNAPSHOT CONTEXT (supplementary; not automatically the entry plan):
             thesis: %s
             entryReason: %s
             exitPlan: %s
@@ -106,6 +111,7 @@ public class PromptBuilder {
             freeNote: %s
             
             [최근 체결 정보]
+            ACTUAL ACTION (canonical trade):
             price: %s
             qty: %s
             
@@ -129,6 +135,15 @@ public class PromptBuilder {
             %s
 
             [최신 BUY 결정 시점의 backend 계산 기술 사실]
+            %s
+
+            [최신 BUY의 ACTION-TIME REASON (user-authored claim)]
+            %s
+
+            [최신 BUY의 CANONICAL LINKED PRE-TRADE PLAN (exact scenarioSnapshotId only)]
+            %s
+
+            [최신 실제 거래의 ACTION-TIME REASON (user-authored claim)]
             %s
 
             [현재 공개 시점의 bounded OHLCV]
@@ -177,6 +192,9 @@ public class PromptBuilder {
                 req.volumes(),
                 req.currentVisibleTechnicalContext(),
                 req.entryDecisionTechnicalContext(),
+                req.entryActionEvidence(),
+                req.entryScenarioPlanEvidence(),
+                req.latestActionEvidence(),
                 req.currentVisibleOhlcv(),
                 req.entryDecisionOhlcv()
         );
@@ -245,9 +263,12 @@ public class PromptBuilder {
         - inactive/refreshed chart도 과거 훈련 evidence일 수 있으므로 현재 chart와 구분해라
         - riskRuleHistoryId는 당시 risk-plan snapshot reference이며 exit reason 자체가 아니다
         - entry/exit risk plan의 변경은 관찰 가능한 사실로만 설명해라
-        - snapshot 또는 note evidence가 없으면 risk plan 변경 원인이나 사용자의 심리를 추정하지 마라
+        - snapshot, note 또는 action-time trade reason evidence가 없으면 risk plan 변경 원인이나 사용자의 심리를 추정하지 마라
         - deterministic fact와 사용자 작성 snapshot의 의견/계획을 명확히 구분해라
-        - 사용자 의도, 심리, 이유는 user-authored SNAPSHOT/NOTE가 시간적으로 뒷받침할 때만 근거로 사용해라
+        - 사용자 의도, 심리, 이유는 user-authored SNAPSHOT/NOTE/ACTION-TIME TRADE REASON이 명시적으로 뒷받침할 때만 근거로 사용해라
+        - PRE-TRADE PLAN/SNAPSHOT, ACTION-TIME TRADE REASON, NOTE, DETERMINISTIC TRADE/RISK FACT를 구분해라
+        - action의 LINKED PRE-TRADE PLAN만 그 거래의 canonical plan으로 취급하고 다른 최신/근접 snapshot으로 대체하지 마라
+        - action-time reason은 사용자의 당시 주장이지 deterministic fact가 아니다
         - 시간적으로 뒤에 작성된 NOTE를 앞선 거래나 risk-plan 변경의 원인으로 해석하지 마라
         - backend 자동 TRADE/WARNING/PROGRESS/AI event는 사용자 생각이나 의도 evidence가 아니다
         - qualitative timeline이 UNRESOLVED이면 특정 거래, episode, risk 변경에 귀속시키지 마라

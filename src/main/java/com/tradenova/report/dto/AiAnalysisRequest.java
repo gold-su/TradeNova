@@ -147,6 +147,9 @@ public record AiAnalysisRequest(
         DecisionTechnicalContext currentVisibleTechnicalContext,
         DecisionTechnicalContext entryDecisionTechnicalContext,
         List<VisibleOhlcvCandle> currentVisibleOhlcv,
-        List<VisibleOhlcvCandle> entryDecisionOhlcv
+        List<VisibleOhlcvCandle> entryDecisionOhlcv,
+        TradeActionAiEvidence entryActionEvidence,
+        TradeActionAiEvidence latestActionEvidence,
+        ScenarioPlanAiEvidence entryScenarioPlanEvidence
 ) {
 }

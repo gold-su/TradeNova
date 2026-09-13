@@ -1,10 +1,16 @@
 package com.tradenova.report.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
+import com.tradenova.report.entity.EventOrigin;
+import com.tradenova.report.entity.TrainingEvent;
+import com.tradenova.report.entity.Type;
+import com.tradenova.report.entity.ReportDocument;
+import com.tradenova.report.entity.ReportKind;
 import com.tradenova.report.repository.ReportDocumentRepository;
 import com.tradenova.report.repository.TrainingEventRepository;
 import com.tradenova.symbol.entity.Symbol;
@@ -31,9 +37,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -55,6 +63,8 @@ class ReportAnalysisServiceTest {
     @Mock private PaperPositionRepository paperPositionRepository;
     @Mock private TrainingEventRepository trainingEventRepository;
     @Mock private DecisionTechnicalContextService technicalContextService;
+    @Spy private TradeActionAiEvidenceResolver tradeActionEvidenceResolver = new TradeActionAiEvidenceResolver();
+    @Spy private ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver = new ScenarioPlanAiEvidenceResolver();
     @Spy private ObjectMapper objectMapper = new ObjectMapper();
     @InjectMocks private ReportAnalysisService service;
 
@@ -159,6 +169,106 @@ class ReportAnalysisServiceTest {
         AiAnalysisRequest request = capturedAiRequest();
         assertEquals(current, request.currentVisibleTechnicalContext());
         assertEquals(null, request.entryDecisionTechnicalContext());
+    }
+
+    @Test
+    void attachesEntryBuyAndLatestSellReasonsByExactTradeId() {
+        visibleCandles();
+        TrainingTrade buy = trade(101L, TradeSide.BUY, 22L);
+        TrainingTrade sell = trade(102L, TradeSide.SELL, 30L);
+        when(tradeRepository.findTopByChartIdAndSideOrderByIdDesc(CHART_ID, TradeSide.BUY))
+                .thenReturn(Optional.of(buy));
+        when(tradeRepository.findTopByChartIdOrderByIdDesc(CHART_ID)).thenReturn(Optional.of(sell));
+        when(candleRepository.findByChartIdAndT(CHART_ID, 22L))
+                .thenReturn(Optional.of(descendingCandles(22, 22).get(0)));
+        when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(USER_ID, CHART_ID, Type.TRADE))
+                .thenReturn(List.of(tradeEvent(102L, CHART_ID, "SELL", "exit now"),
+                        tradeEvent(101L, CHART_ID, "BUY", "entry now")));
+
+        service.analyzeLatestSnapshot(USER_ID, CHART_ID);
+
+        AiAnalysisRequest request = capturedAiRequest();
+        assertEquals(101L, request.entryActionEvidence().tradeId());
+        assertEquals("entry now", request.entryActionEvidence().reasons().get(0).entryReason());
+        assertEquals(102L, request.latestActionEvidence().tradeId());
+        assertEquals("SELL", request.latestActionEvidence().side());
+    }
+
+    @Test
+    void doesNotAttachDifferentTradeIdOrChartAndIgnoresLegacyPayload() {
+        visibleCandles();
+        TrainingTrade buy = trade(101L, TradeSide.BUY, 22L);
+        when(tradeRepository.findTopByChartIdAndSideOrderByIdDesc(CHART_ID, TradeSide.BUY))
+                .thenReturn(Optional.of(buy));
+        when(tradeRepository.findTopByChartIdOrderByIdDesc(CHART_ID)).thenReturn(Optional.of(buy));
+        when(candleRepository.findByChartIdAndT(CHART_ID, 22L))
+                .thenReturn(Optional.of(descendingCandles(22, 22).get(0)));
+        TrainingEvent legacy = TrainingEvent.builder().id(3L).userId(USER_ID).chartId(CHART_ID)
+                .type(Type.TRADE).origin(EventOrigin.USER).summary("legacy")
+                .payloadJson(objectMapper.createObjectNode().put("tradeId", 101L).put("side", "BUY")).build();
+        when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(USER_ID, CHART_ID, Type.TRADE))
+                .thenReturn(List.of(tradeEvent(999L, CHART_ID, "BUY", "unrelated"),
+                        tradeEvent(101L, 999L, "BUY", "wrong chart"), legacy));
+
+        service.analyzeLatestSnapshot(USER_ID, CHART_ID);
+
+        assertNull(capturedAiRequest().entryActionEvidence());
+    }
+
+    @Test
+    void explicitlyLinkedOlderScenarioBeatsNewerLatestSnapshot() {
+        visibleCandles();
+        TrainingTrade buy = trade(101L, TradeSide.BUY, 22L);
+        when(tradeRepository.findTopByChartIdAndSideOrderByIdDesc(CHART_ID, TradeSide.BUY))
+                .thenReturn(Optional.of(buy));
+        when(tradeRepository.findTopByChartIdOrderByIdDesc(CHART_ID)).thenReturn(Optional.of(buy));
+        when(candleRepository.findByChartIdAndT(CHART_ID, 22L))
+                .thenReturn(Optional.of(descendingCandles(22, 22).get(0)));
+        ReportDocument linked = scenario(55L, USER_ID, CHART_ID, 1, "linked plan", true);
+        ReportDocument newer = scenario(56L, USER_ID, CHART_ID, 2, "newer unrelated", true);
+        when(reportDocumentRepository.findTopByUserIdAndChartIdAndKindOrderByVersionDesc(
+                USER_ID, CHART_ID, ReportKind.SNAPSHOT)).thenReturn(Optional.of(newer));
+        when(reportDocumentRepository.findByIdAndUserId(55L, USER_ID)).thenReturn(Optional.of(linked));
+        TrainingEvent event = tradeEvent(101L, CHART_ID, "BUY", "followed scenario");
+        ((ObjectNode) event.getPayloadJson()).put("reasonMode", "SCENARIO").put("scenarioSnapshotId", 55L);
+        when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(USER_ID, CHART_ID, Type.TRADE))
+                .thenReturn(List.of(event));
+
+        service.analyzeLatestSnapshot(USER_ID, CHART_ID);
+
+        AiAnalysisRequest request = capturedAiRequest();
+        assertEquals("newer unrelated", request.entryReason());
+        assertEquals(55L, request.entryScenarioPlanEvidence().snapshotId());
+        assertEquals("linked plan", request.entryScenarioPlanEvidence().entryReason());
+        assertEquals(55L, request.entryActionEvidence().linkedScenarioPlan().snapshotId());
+    }
+
+    private void visibleCandles() {
+        when(candleRepository.findTop30ByChartIdAndIdxLessThanEqualOrderByIdxDesc(CHART_ID, 59))
+                .thenReturn(descendingCandles(59, 30));
+    }
+
+    private TrainingTrade trade(Long id, TradeSide side, Long candleTime) {
+        return TrainingTrade.builder().id(id).chartId(CHART_ID).side(side).candleTime(candleTime)
+                .price(BigDecimal.TEN).qty(BigDecimal.ONE).build();
+    }
+
+    private TrainingEvent tradeEvent(Long tradeId, Long chartId, String side, String reason) {
+        ObjectNode payload = objectMapper.createObjectNode().put("tradeId", tradeId).put("side", side)
+                .put("qty", 1).put("price", 10).put("candleTime", 22L);
+        payload.putArray("reasons").addObject().put("title", "reason").put("entryReason", reason)
+                .put("riskNote", "risk").put("createdAt", "2026-01-01T00:00:00Z");
+        return TrainingEvent.builder().id(tradeId + 1000).userId(USER_ID).chartId(chartId)
+                .type(Type.TRADE).origin(EventOrigin.USER).summary("trade").payloadJson(payload)
+                .createdAt(Instant.EPOCH).build();
+    }
+
+    private ReportDocument scenario(Long id, Long userId, Long chartId, int version,
+                                    String entryReason, boolean scenarioTag) {
+        ObjectNode content = objectMapper.createObjectNode().put("entryReason", entryReason);
+        content.putArray("tags").add(scenarioTag ? "SCENARIO" : "OTHER");
+        return ReportDocument.builder().id(id).userId(userId).chartId(chartId).kind(ReportKind.SNAPSHOT)
+                .version(version).contentJson(content).createdAt(Instant.ofEpochSecond(version)).build();
     }
 
     private DecisionTechnicalContext contextAt(int index) {

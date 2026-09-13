@@ -8,12 +8,30 @@ import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.entity.Type;
 import com.tradenova.training.analytics.TradeEpisodeReference;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
 
 /** Resolves only explicit canonical links; temporal proximity is never treated as proof. */
 @Component
 public class SessionQualitativeEvidenceResolver {
+    private final TradeActionAiEvidenceResolver tradeActionEvidenceResolver;
+    private final ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver;
+
+    public SessionQualitativeEvidenceResolver() {
+        this(new TradeActionAiEvidenceResolver(), new ScenarioPlanAiEvidenceResolver());
+    }
+
+    public SessionQualitativeEvidenceResolver(TradeActionAiEvidenceResolver tradeActionEvidenceResolver) {
+        this(tradeActionEvidenceResolver, new ScenarioPlanAiEvidenceResolver());
+    }
+
+    @Autowired
+    public SessionQualitativeEvidenceResolver(TradeActionAiEvidenceResolver tradeActionEvidenceResolver,
+                                              ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver) {
+        this.tradeActionEvidenceResolver = tradeActionEvidenceResolver;
+        this.scenarioPlanEvidenceResolver = scenarioPlanEvidenceResolver;
+    }
 
     public SessionQualitativeEvidenceContext resolve(
             SessionAiDeterministicContext deterministic,
@@ -26,11 +44,19 @@ public class SessionQualitativeEvidenceResolver {
         Map<Long, List<ReportDocument>> snapshotsByChart = new HashMap<>();
         snapshots.forEach(snapshot -> snapshotsByChart
                 .computeIfAbsent(snapshot.getChartId(), ignored -> new ArrayList<>()).add(snapshot));
+        Map<Long, ReportDocument> snapshotsById = new HashMap<>();
+        snapshots.forEach(snapshot -> snapshotsById.put(snapshot.getId(), snapshot));
         Map<Long, List<TrainingEvent>> notesByChart = new HashMap<>();
         events.stream()
                 .filter(event -> event.getType() == Type.NOTE && event.getOrigin() == EventOrigin.USER)
                 .forEach(event -> notesByChart
                         .computeIfAbsent(event.getChartId(), ignored -> new ArrayList<>()).add(event));
+        Map<Long, List<TradeActionAiEvidence>> tradesByChart = new HashMap<>();
+        events.stream()
+                .map(event -> action(event, episodeByTradeId, snapshotsById))
+                .filter(Objects::nonNull)
+                .forEach(evidence -> tradesByChart
+                        .computeIfAbsent(evidence.chartId(), ignored -> new ArrayList<>()).add(evidence));
 
         List<ChartQualitativeEvidenceContext> charts = deterministic.charts().stream()
                 .map(chart -> new ChartQualitativeEvidenceContext(
@@ -42,9 +68,25 @@ public class SessionQualitativeEvidenceResolver {
                         notesByChart.getOrDefault(chart.chartId(), List.of()).stream()
                                 .sorted(Comparator.comparing(TrainingEvent::getCreatedAt,
                                         Comparator.nullsLast(Comparator.naturalOrder())))
-                                .map(note -> note(note, episodeByTradeId)).toList()
+                                .map(note -> note(note, episodeByTradeId)).toList(),
+                        tradesByChart.getOrDefault(chart.chartId(), List.of()).stream()
+                                .sorted(Comparator.comparing(TradeActionAiEvidence::createdAt,
+                                        Comparator.nullsLast(Comparator.naturalOrder())))
+                                .toList()
                 )).toList();
         return new SessionQualitativeEvidenceContext(deterministic.sessionId(), charts);
+    }
+
+    private TradeActionAiEvidence action(TrainingEvent event,
+                                         Map<Long, TradeEpisodeReference> episodeByTradeId,
+                                         Map<Long, ReportDocument> snapshotsById) {
+        TradeActionAiEvidence action = tradeActionEvidenceResolver.parse(event, episodeByTradeId);
+        if (action == null || !"SCENARIO".equals(action.reasonMode()) || action.scenarioSnapshotId() == null) {
+            return action;
+        }
+        ScenarioPlanAiEvidence plan = scenarioPlanEvidenceResolver.resolve(action,
+                snapshotsById.get(action.scenarioSnapshotId()), event.getUserId(), event.getChartId());
+        return plan == null ? action : action.withLinkedScenarioPlan(plan);
     }
 
     private SnapshotAiEvidence snapshot(ReportDocument document,

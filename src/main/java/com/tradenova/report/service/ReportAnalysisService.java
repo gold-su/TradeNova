@@ -12,6 +12,8 @@ import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
 import com.tradenova.report.dto.TrainingEventResponse;
+import com.tradenova.report.dto.TradeActionAiEvidence;
+import com.tradenova.report.dto.ScenarioPlanAiEvidence;
 import com.tradenova.report.entity.ReportDocument;
 import com.tradenova.report.entity.ReportKind;
 import com.tradenova.report.entity.TrainingEvent;
@@ -85,6 +87,8 @@ public class ReportAnalysisService {
     private final TrainingEventRepository trainingEventRepository;
 
     private final DecisionTechnicalContextService technicalContextService;
+    private final TradeActionAiEvidenceResolver tradeActionEvidenceResolver;
+    private final ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver;
 
     /**
      * 특정 차트의 최신 snapshot을 분석해서
@@ -193,6 +197,18 @@ public class ReportAnalysisService {
                 .orElse(null);
         DecisionTechnicalContext entryTechnicalContext = entryIndex == null
                 ? null : technicalContextService.calculate(chartId, entryIndex);
+        List<TrainingEvent> chartEvents = trainingEventRepository
+                .findAllByUserIdAndChartIdAndTypeOrderByIdDesc(userId, chartId, Type.TRADE);
+        TradeActionAiEvidence entryAction = tradeActionEvidenceResolver.resolve(latestBuy, chartEvents);
+        TradeActionAiEvidence latestAction = tradeActionEvidenceResolver.resolve(latestTrade, chartEvents);
+        ScenarioPlanAiEvidence entryPlan = resolveScenarioPlan(entryAction, userId, chartId);
+        if (entryPlan != null) entryAction = entryAction.withLinkedScenarioPlan(entryPlan);
+        if (latestAction != null && entryAction != null && latestAction.eventId().equals(entryAction.eventId())) {
+            latestAction = entryAction;
+        } else {
+            ScenarioPlanAiEvidence latestPlan = resolveScenarioPlan(latestAction, userId, chartId);
+            if (latestPlan != null) latestAction = latestAction.withLinkedScenarioPlan(latestPlan);
+        }
 
 
         // 7) AI 분석 요청 DTO 생성
@@ -217,7 +233,10 @@ public class ReportAnalysisService {
                 currentTechnicalContext,
                 entryTechnicalContext,
                 technicalContextService.boundedOhlcv(chartId, chart.getProgressIndex()),
-                entryIndex == null ? List.of() : technicalContextService.boundedOhlcv(chartId, entryIndex)
+                entryIndex == null ? List.of() : technicalContextService.boundedOhlcv(chartId, entryIndex),
+                entryAction,
+                latestAction,
+                entryPlan
         );
 
         // 8) AI 분석 실행
@@ -262,6 +281,15 @@ public class ReportAnalysisService {
                 "차트 AI 리뷰",
                 payload
         );
+    }
+
+    private ScenarioPlanAiEvidence resolveScenarioPlan(TradeActionAiEvidence action, Long userId, Long chartId) {
+        if (action == null || !"SCENARIO".equals(action.reasonMode()) || action.scenarioSnapshotId() == null) {
+            return null;
+        }
+        return reportDocumentRepository.findByIdAndUserId(action.scenarioSnapshotId(), userId)
+                .map(document -> scenarioPlanEvidenceResolver.resolve(action, document, userId, chartId))
+                .orElse(null);
     }
 
     /**

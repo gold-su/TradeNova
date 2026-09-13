@@ -10,11 +10,11 @@ public class SessionQualitativeEvidenceFormatter {
         if (context == null) return "qualitative evidence unavailable";
         StringBuilder out = new StringBuilder();
         for (ChartQualitativeEvidenceContext chart : context.charts()) {
-            if (chart.snapshots().isEmpty() && chart.notes().isEmpty()) continue;
+            if (chart.snapshots().isEmpty() && chart.notes().isEmpty() && chart.tradeActions().isEmpty()) continue;
             out.append("- chartId=").append(chart.chartId()).append(", active=").append(chart.active())
                     .append(", refreshed=").append(chart.refreshed()).append('\n');
             for (SnapshotAiEvidence snapshot : chart.snapshots()) {
-                out.append("  * SNAPSHOT#").append(snapshot.version())
+                out.append("  * SNAPSHOT CONTEXT#").append(snapshot.version())
                         .append(" authoredAt=").append(value(snapshot.authoredAt()))
                         .append(", timeline=").append(anchor(snapshot.timeline()))
                         .append(", text={thesis:").append(value(snapshot.thesis()))
@@ -32,8 +32,22 @@ public class SessionQualitativeEvidenceFormatter {
                 }
                 out.append('\n');
             }
+            for (TradeActionAiEvidence action : chart.tradeActions()) {
+                out.append("  * ACTION-TIME TRADE REASON event#").append(action.eventId())
+                        .append(", tradeId=").append(action.tradeId()).append(", side=").append(action.side())
+                        .append(", candleTime=").append(value(action.candleTime()))
+                        .append(", qty=").append(value(action.qty())).append(", price=").append(value(action.price()))
+                        .append(", authoredAt=").append(value(action.createdAt()))
+                        .append(", timeline=").append(anchor(action.timeline()))
+                        .append(", reasonMode=").append(value(action.reasonMode()))
+                        .append(", scenarioSnapshotId=").append(value(action.scenarioSnapshotId()))
+                        .append(", reasons=").append(action.reasons()).append('\n')
+                        .append("    LINKED PRE-TRADE PLAN: ")
+                        .append(action.linkedScenarioPlan() == null ? "UNRESOLVED" : action.linkedScenarioPlan())
+                        .append('\n');
+            }
         }
-        return out.isEmpty() ? "user-authored snapshot/note 없음" : out.toString();
+        return out.isEmpty() ? "user-authored snapshot/note/trade reason 없음" : out.toString();
     }
 
     private String anchor(EvidenceTimelineAnchor anchor) {

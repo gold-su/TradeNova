@@ -58,6 +58,83 @@ class SessionQualitativeEvidenceResolverTest {
         assertEquals("UNRESOLVED", chart.snapshots().get(0).timeline().resolution());
     }
 
+    @Test
+    void exposesUserTradeReasonWithExactEpisodeReference() {
+        ObjectNode payload = tradePayload(101L, "BUY");
+        TrainingEvent userTrade = event(80L, Type.TRADE, EventOrigin.USER, "buy", payload, 4);
+
+        ChartQualitativeEvidenceContext chart = resolver.resolve(context(), List.of(), List.of(userTrade))
+                .charts().get(0);
+
+        assertEquals(1, chart.tradeActions().size());
+        TradeActionAiEvidence evidence = chart.tradeActions().get(0);
+        assertEquals(101L, evidence.tradeId());
+        assertEquals("planned confirmation", evidence.reasons().get(0).entryReason());
+        assertEquals(new TradeEpisodeReference(10L, 1), evidence.timeline().episodeReference());
+    }
+
+    @Test
+    void doesNotFabricateEvidenceForEmptySystemOrMalformedTradeEvents() {
+        ObjectNode empty = mapper.createObjectNode().put("tradeId", 101L).put("side", "BUY");
+        empty.putArray("reasons");
+        ObjectNode malformed = mapper.createObjectNode().put("tradeId", 101L).put("side", "BUY")
+                .put("reasons", "not-an-array");
+        List<TrainingEvent> events = List.of(
+                event(80L, Type.TRADE, EventOrigin.USER, "empty", empty, 4),
+                event(81L, Type.TRADE, EventOrigin.SYSTEM, "system", tradePayload(101L, "BUY"), 5),
+                event(82L, Type.TRADE, null, "legacy", tradePayload(101L, "BUY"), 6),
+                event(83L, Type.TRADE, EventOrigin.USER, "malformed", malformed, 7));
+
+        assertTrue(resolver.resolve(context(), List.of(), events).charts().get(0).tradeActions().isEmpty());
+    }
+
+    @Test
+    void rejectsTradeIdWhoseCanonicalEpisodeBelongsToAnotherChart() {
+        TrainingEvent inconsistent = event(80L, Type.TRADE, EventOrigin.USER, "buy",
+                tradePayload(101L, "BUY"), 4);
+        inconsistent.setChartId(99L);
+
+        SessionQualitativeEvidenceContext evidence = resolver.resolve(context(), List.of(), List.of(inconsistent));
+
+        assertTrue(evidence.charts().get(0).tradeActions().isEmpty());
+    }
+
+    @Test
+    void mapsEachTradeToItsExplicitScenarioWithoutTimestampGuessing() {
+        ReportDocument older = scenario(55L, 1, "first plan");
+        ReportDocument newer = scenario(56L, 2, "second plan");
+        ObjectNode firstPayload = tradePayload(101L, "BUY").put("reasonMode", "SCENARIO")
+                .put("scenarioSnapshotId", 55L);
+        ObjectNode secondPayload = tradePayload(102L, "SELL").put("reasonMode", "SCENARIO")
+                .put("scenarioSnapshotId", 56L);
+
+        ChartQualitativeEvidenceContext chart = resolver.resolve(context(), List.of(newer, older), List.of(
+                event(80L, Type.TRADE, EventOrigin.USER, "buy", firstPayload, 100),
+                event(81L, Type.TRADE, EventOrigin.USER, "sell", secondPayload, 3)))
+                .charts().get(0);
+
+        assertEquals(55L, chart.tradeActions().get(1).linkedScenarioPlan().snapshotId());
+        assertEquals("first plan", chart.tradeActions().get(1).linkedScenarioPlan().entryReason());
+        assertEquals(56L, chart.tradeActions().get(0).linkedScenarioPlan().snapshotId());
+    }
+
+    private ReportDocument scenario(Long id, int version, String entryReason) {
+        ObjectNode content = mapper.createObjectNode().put("entryReason", entryReason);
+        content.putArray("tags").add("SCENARIO");
+        return ReportDocument.builder().id(id).userId(1L).chartId(10L).kind(ReportKind.SNAPSHOT)
+                .version(version).contentJson(content).createdAt(Instant.ofEpochSecond(version)).build();
+    }
+
+    private ObjectNode tradePayload(Long tradeId, String side) {
+        ObjectNode payload = mapper.createObjectNode().put("tradeId", tradeId).put("side", side)
+                .put("qty", 2).put("price", 10.5).put("candleTime", 1_000L)
+                .put("reasonCount", 1).put("savedForAiReview", true).put("reasonVersion", 2);
+        payload.putArray("reasons").addObject().put("title", "setup")
+                .put("entryReason", "planned confirmation").put("riskNote", "defined stop")
+                .put("createdAt", "2026-01-01T00:00:00Z");
+        return payload;
+    }
+
     private TrainingEvent event(Long id, Type type, EventOrigin origin, String summary,
                                 ObjectNode payload, long second) {
         return TrainingEvent.builder().id(id).userId(1L).chartId(10L).type(type).origin(origin)
