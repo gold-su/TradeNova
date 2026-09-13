@@ -7,6 +7,8 @@ import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
 import com.tradenova.report.entity.EventOrigin;
+import com.tradenova.report.entity.ReportDocument;
+import com.tradenova.report.entity.ReportKind;
 import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.repository.ReportDocumentRepository;
@@ -62,6 +64,7 @@ class ReportAnalysisServiceTest {
     @Mock private TrainingEventRepository trainingEventRepository;
     @Mock private DecisionTechnicalContextService technicalContextService;
     @Spy private TradeActionAiEvidenceResolver tradeActionEvidenceResolver = new TradeActionAiEvidenceResolver();
+    @Spy private ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver = new ScenarioPlanAiEvidenceResolver();
     @Spy private ObjectMapper objectMapper = new ObjectMapper();
     @InjectMocks private ReportAnalysisService service;
 
@@ -217,6 +220,38 @@ class ReportAnalysisServiceTest {
         service.analyzeLatestSnapshot(USER_ID, CHART_ID);
 
         assertNull(capturedAiRequest().entryActionEvidence());
+    }
+
+    @Test
+    void linksEntryBuyToExactExplicitScenarioRatherThanLatestSnapshot() {
+        visibleCandles();
+        TrainingTrade buy = trade(101L, TradeSide.BUY, 22L);
+        when(tradeRepository.findTopByChartIdAndSideOrderByIdDesc(CHART_ID, TradeSide.BUY)).thenReturn(Optional.of(buy));
+        when(tradeRepository.findTopByChartIdOrderByIdDesc(CHART_ID)).thenReturn(Optional.of(buy));
+        when(candleRepository.findByChartIdAndT(CHART_ID, 22L))
+                .thenReturn(Optional.of(descendingCandles(22, 22).get(0)));
+        TrainingEvent buyEvent = tradeEvent(101L, CHART_ID, "BUY", "scenario matched");
+        ((ObjectNode) buyEvent.getPayloadJson()).put("reasonMode", "SCENARIO").put("scenarioSnapshotId", 55L);
+        ReportDocument selected = scenario(55L, 1, "selected");
+        ReportDocument latestContext = scenario(56L, 2, "newer context only");
+        when(reportDocumentRepository.findTopByUserIdAndChartIdAndKindOrderByVersionDesc(
+                USER_ID, CHART_ID, ReportKind.SNAPSHOT)).thenReturn(Optional.of(latestContext));
+        when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(USER_ID, CHART_ID, Type.TRADE))
+                .thenReturn(List.of(buyEvent));
+        when(reportDocumentRepository.findAllById(List.of(55L))).thenReturn(List.of(selected));
+
+        service.analyzeLatestSnapshot(USER_ID, CHART_ID);
+
+        assertEquals(55L, capturedAiRequest().entryActionEvidence().scenarioPlan().snapshotId());
+        assertEquals("selected", capturedAiRequest().entryActionEvidence().scenarioPlan().thesis());
+        verify(reportDocumentRepository).findAllById(List.of(55L));
+    }
+
+    private ReportDocument scenario(Long id, int version, String thesis) {
+        ObjectNode content = objectMapper.createObjectNode().put("thesis", thesis);
+        content.putArray("tags").add("SCENARIO");
+        return ReportDocument.builder().id(id).userId(USER_ID).chartId(CHART_ID).kind(ReportKind.SNAPSHOT)
+                .version(version).contentJson(content).createdAt(Instant.EPOCH).build();
     }
 
     private void visibleCandles() {

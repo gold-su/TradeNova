@@ -40,6 +40,10 @@ public class SessionQualitativeEvidenceFormatter {
                         .append(", authoredAt=").append(value(action.createdAt()))
                         .append(", timeline=").append(anchor(action.timeline())).append(", reasons=")
                         .append(action.reasons()).append('\n');
+                if (action.scenarioPlan() != null) out.append("    LINKED PRE-TRADE PLAN snapshot#")
+                        .append(action.scenarioPlan().snapshotId()).append(" text={entryReason:")
+                        .append(value(action.scenarioPlan().entryReason())).append(",thesis:")
+                        .append(value(action.scenarioPlan().thesis())).append("}\n");
             }
         }
         return out.isEmpty() ? "user-authored snapshot/note/trade reason 없음" : out.toString();

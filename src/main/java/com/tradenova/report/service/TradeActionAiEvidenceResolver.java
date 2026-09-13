@@ -70,7 +70,8 @@ public class TradeActionAiEvidenceResolver {
         );
         return new TradeActionAiEvidence(
                 event.getId(), event.getChartId(), tradeId, side, integral(payload.get("candleTime")),
-                decimal(payload.get("qty")), decimal(payload.get("price")), event.getCreatedAt(), reasons, timeline
+                decimal(payload.get("qty")), decimal(payload.get("price")), event.getCreatedAt(), reasons, timeline,
+                text(payload.get("reasonMode")), integral(payload.get("scenarioSnapshotId")), null
         );
     }
 
