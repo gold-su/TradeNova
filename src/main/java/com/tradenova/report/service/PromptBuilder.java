@@ -68,9 +68,20 @@ public class PromptBuilder {
                 - snapshot이 없으면 가격/거래/포지션 기반으로 분석해라
                 - snapshot이 있으면 reasoning 일관성을 함께 평가해라
                 - 투자 추천/매수 추천 금지
-                - 사용자의 리스크 관리, 진입 근거, 감정 통제, 계획 구체성을 평가해라
+                - 사용자의 리스크 관리, 진입 근거, 계획 구체성과 기록 품질을 평가해라
                 - 사용자가 현저히 정보가 부족해 보이면 학습 필요성을 지적해라
                 - 리포트 텍스트뿐 아니라 리스크 룰, 포지션 상태, 최근 가격 흐름도 함께 반영해라
+                - 사용자 작성 주장, backend가 계산한 관찰 사실, 제한된 해석, 다음 훈련 피드백을 명확히 구분해라
+                - 감정, 성향, panic, FOMO, greed, impulsive를 사용자가 직접 작성하지 않았다면 추정하지 마라
+                - positionQty가 0이라는 이유만으로 계획 없는 거래라고 추정하지 마라
+                - autoExitEnabled=false만으로 리스크 관리가 부족하다고 평가하지 마라
+                - 이익은 좋은 판단의 증거가 아니고 손실은 나쁜 판단의 증거가 아니다
+                - 진입 품질은 entryDecisionTechnicalContext와 entryDecisionOhlcv만으로 평가하고 진입 이후 데이터는 사용하지 마라
+                - 미래 매수/매도 가격, 시점, 수량을 추천하지 마라
+                - 기술적 분석을 확실한 진실로 단정하지 마라. 근거가 부족하면 강하게 검증할 수 없다고 밝혀라
+                - score는 수익성이 아니라 reasoning 구체성, 기술 evidence와의 일관성, risk plan 구체성,
+                  확인 가능한 plan/action 일관성, 기록된 evidence 품질을 중심으로 정해라
+                - 명확하게 작성됐더라도 기술 evidence가 지지하지 않는 주장은 높은 점수를 주지 마라
                 """;
     }
 
@@ -113,13 +124,25 @@ public class PromptBuilder {
             
             [최근 거래량]
             %s
+
+            [현재 공개 시점의 backend 계산 기술 사실]
+            %s
+
+            [최신 BUY 결정 시점의 backend 계산 기술 사실]
+            %s
+
+            [현재 공개 시점의 bounded OHLCV]
+            %s
+
+            [최신 BUY 결정 시점의 bounded OHLCV]
+            %s
             
             위 데이터를 보고 아래 항목을 평가해라:
             1) 진입 판단의 구체성
             2) 청산 계획의 명확성
             3) 리스크 관리 수준
-            4) 감정적/충동적 진입 가능성
-            5) 강점과 반복될 수 있는 나쁜 습관
+            4) 사용자 주장과 관찰 가능한 기술 사실의 일관성
+            5) 기록 품질과 다음 훈련에서 확인할 항목
             
             특히 아래를 중요하게 봐라:
             - 손절/익절 계획이 실제로 존재하는지
@@ -132,6 +155,8 @@ public class PromptBuilder {
               거래/포지션/리스크/가격 흐름 중심으로만 평가해라.
             - analysisType이 DEEP면 snapshot의 thesis, entryReason, exitPlan, riskNote를 적극 반영해라.
             - hasSnapshot=false 인 경우 리포트 텍스트가 비어 있어도 정상 상황으로 간주해라.
+            - 각 판단은 USER CLAIM → OBSERVED TECHNICAL FACT → INTERPRETATION → TRAINING FEEDBACK 순서로 구성해라.
+            - swingHigh/swingLow와 rolling high/low는 관찰 evidence이며 support/resistance 확정값이 아니다.
             """.formatted(
                 nullSafe(req.analysisType()),
                 req.hasSnapshot(),
@@ -149,7 +174,11 @@ public class PromptBuilder {
                 req.takeProfitPrice(),
                 req.autoExitEnabled(),
                 req.closes(),
-                req.volumes()
+                req.volumes(),
+                req.currentVisibleTechnicalContext(),
+                req.entryDecisionTechnicalContext(),
+                req.currentVisibleOhlcv(),
+                req.entryDecisionOhlcv()
         );
     }
 

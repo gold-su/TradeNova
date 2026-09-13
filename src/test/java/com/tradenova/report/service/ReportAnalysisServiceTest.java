@@ -11,10 +11,14 @@ import com.tradenova.symbol.entity.Symbol;
 import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.entity.TrainingSessionChart;
+import com.tradenova.training.entity.TrainingTrade;
+import com.tradenova.training.entity.TradeSide;
+import com.tradenova.training.analytics.DecisionTechnicalContext;
 import com.tradenova.training.repository.TrainingRiskRuleRepository;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
+import com.tradenova.training.analytics.DecisionTechnicalContextService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +54,7 @@ class ReportAnalysisServiceTest {
     @Mock private TrainingEventService trainingEventService;
     @Mock private PaperPositionRepository paperPositionRepository;
     @Mock private TrainingEventRepository trainingEventRepository;
+    @Mock private DecisionTechnicalContextService technicalContextService;
     @Spy private ObjectMapper objectMapper = new ObjectMapper();
     @InjectMocks private ReportAnalysisService service;
 
@@ -77,6 +82,7 @@ class ReportAnalysisServiceTest {
                 .thenReturn(List.of());
         when(aiAnalysisService.analyze(any()))
                 .thenReturn(new AiAnalysisResponse(80, "summary", List.of(), List.of()));
+        when(technicalContextService.boundedOhlcv(any(), any())).thenReturn(List.of());
     }
 
     @Test
@@ -122,6 +128,43 @@ class ReportAnalysisServiceTest {
         assertEquals(30, request.closes().size());
         assertEquals(99.0, request.closes().get(0));
         assertEquals(70.0, request.closes().get(29));
+    }
+
+    @Test
+    void entryContextUsesResolvedLatestBuyIndexInsteadOfCurrentProgress() {
+        when(candleRepository.findTop30ByChartIdAndIdxLessThanEqualOrderByIdxDesc(CHART_ID, 59))
+                .thenReturn(descendingCandles(59, 30));
+        TrainingTrade buy = TrainingTrade.builder().chartId(CHART_ID).side(TradeSide.BUY).candleTime(22L).build();
+        when(tradeRepository.findTopByChartIdAndSideOrderByIdDesc(CHART_ID, TradeSide.BUY)).thenReturn(Optional.of(buy));
+        when(candleRepository.findByChartIdAndT(CHART_ID, 22L)).thenReturn(Optional.of(descendingCandles(22, 22).get(0)));
+        DecisionTechnicalContext entry = contextAt(22);
+        when(technicalContextService.calculate(CHART_ID, 22)).thenReturn(entry);
+
+        service.analyzeLatestSnapshot(USER_ID, CHART_ID);
+
+        assertEquals(entry, capturedAiRequest().entryDecisionTechnicalContext());
+        verify(technicalContextService).calculate(CHART_ID, 22);
+        verify(technicalContextService).boundedOhlcv(CHART_ID, 22);
+    }
+
+    @Test
+    void noBuyStillProvidesCurrentContextAndNullEntryContext() {
+        when(candleRepository.findTop30ByChartIdAndIdxLessThanEqualOrderByIdxDesc(CHART_ID, 59))
+                .thenReturn(descendingCandles(59, 30));
+        DecisionTechnicalContext current = contextAt(59);
+        when(technicalContextService.calculate(CHART_ID, 59)).thenReturn(current);
+
+        service.analyzeLatestSnapshot(USER_ID, CHART_ID);
+
+        AiAnalysisRequest request = capturedAiRequest();
+        assertEquals(current, request.currentVisibleTechnicalContext());
+        assertEquals(null, request.entryDecisionTechnicalContext());
+    }
+
+    private DecisionTechnicalContext contextAt(int index) {
+        return new DecisionTechnicalContext(CHART_ID, index, (long) index, index + 1, (double) index,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, List.of(), List.of());
     }
 
     private AiAnalysisRequest capturedAiRequest() {

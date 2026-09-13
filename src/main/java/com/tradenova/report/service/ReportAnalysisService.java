@@ -22,6 +22,9 @@ import com.tradenova.training.entity.TrainingRiskRule;
 import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.entity.TrainingSessionChart;
 import com.tradenova.training.entity.TrainingTrade;
+import com.tradenova.training.entity.TradeSide;
+import com.tradenova.training.analytics.DecisionTechnicalContext;
+import com.tradenova.training.analytics.DecisionTechnicalContextService;
 import com.tradenova.training.repository.TrainingRiskRuleRepository;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
@@ -80,6 +83,8 @@ public class ReportAnalysisService {
 
     // Event Repo 가져오기
     private final TrainingEventRepository trainingEventRepository;
+
+    private final DecisionTechnicalContextService technicalContextService;
 
     /**
      * 특정 차트의 최신 snapshot을 분석해서
@@ -177,6 +182,18 @@ public class ReportAnalysisService {
         BigDecimal takeProfitPrice = riskRule != null ? riskRule.getTakeProfitPrice() : null;
         Boolean autoExitEnabled = riskRule != null ? riskRule.isEnabled() : Boolean.FALSE;
 
+        DecisionTechnicalContext currentTechnicalContext = technicalContextService
+                .calculate(chartId, chart.getProgressIndex());
+        TrainingTrade latestBuy = tradeRepository
+                .findTopByChartIdAndSideOrderByIdDesc(chartId, TradeSide.BUY)
+                .orElse(null);
+        Integer entryIndex = latestBuy == null ? null : candleRepository
+                .findByChartIdAndT(chartId, latestBuy.getCandleTime())
+                .map(TrainingSessionCandle::getIdx)
+                .orElse(null);
+        DecisionTechnicalContext entryTechnicalContext = entryIndex == null
+                ? null : technicalContextService.calculate(chartId, entryIndex);
+
 
         // 7) AI 분석 요청 DTO 생성
         AiAnalysisRequest request = new AiAnalysisRequest(
@@ -196,7 +213,11 @@ public class ReportAnalysisService {
                 takeProfitPrice,
                 autoExitEnabled,
                 closes,
-                volumes
+                volumes,
+                currentTechnicalContext,
+                entryTechnicalContext,
+                technicalContextService.boundedOhlcv(chartId, chart.getProgressIndex()),
+                entryIndex == null ? List.of() : technicalContextService.boundedOhlcv(chartId, entryIndex)
         );
 
         // 8) AI 분석 실행
