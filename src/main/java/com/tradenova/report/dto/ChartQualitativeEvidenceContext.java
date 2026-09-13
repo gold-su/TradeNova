@@ -7,10 +7,17 @@ public record ChartQualitativeEvidenceContext(
         boolean active,
         boolean refreshed,
         List<SnapshotAiEvidence> snapshots,
-        List<NoteAiEvidence> notes
+        List<NoteAiEvidence> notes,
+        List<TradeActionAiEvidence> tradeActions
 ) {
     public ChartQualitativeEvidenceContext {
         snapshots = List.copyOf(snapshots);
         notes = List.copyOf(notes);
+        tradeActions = List.copyOf(tradeActions);
+    }
+
+    public ChartQualitativeEvidenceContext(Long chartId, boolean active, boolean refreshed,
+                                           List<SnapshotAiEvidence> snapshots, List<NoteAiEvidence> notes) {
+        this(chartId, active, refreshed, snapshots, notes, List.of());
     }
 }

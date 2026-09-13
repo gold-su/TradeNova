@@ -8,12 +8,23 @@ import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.entity.Type;
 import com.tradenova.training.analytics.TradeEpisodeReference;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
 
 /** Resolves only explicit canonical links; temporal proximity is never treated as proof. */
 @Component
 public class SessionQualitativeEvidenceResolver {
+    private final TradeActionAiEvidenceResolver tradeActionEvidenceResolver;
+
+    public SessionQualitativeEvidenceResolver() {
+        this(new TradeActionAiEvidenceResolver());
+    }
+
+    @Autowired
+    public SessionQualitativeEvidenceResolver(TradeActionAiEvidenceResolver tradeActionEvidenceResolver) {
+        this.tradeActionEvidenceResolver = tradeActionEvidenceResolver;
+    }
 
     public SessionQualitativeEvidenceContext resolve(
             SessionAiDeterministicContext deterministic,
@@ -31,6 +42,12 @@ public class SessionQualitativeEvidenceResolver {
                 .filter(event -> event.getType() == Type.NOTE && event.getOrigin() == EventOrigin.USER)
                 .forEach(event -> notesByChart
                         .computeIfAbsent(event.getChartId(), ignored -> new ArrayList<>()).add(event));
+        Map<Long, List<TradeActionAiEvidence>> tradesByChart = new HashMap<>();
+        events.stream()
+                .map(event -> tradeActionEvidenceResolver.parse(event, episodeByTradeId))
+                .filter(Objects::nonNull)
+                .forEach(evidence -> tradesByChart
+                        .computeIfAbsent(evidence.chartId(), ignored -> new ArrayList<>()).add(evidence));
 
         List<ChartQualitativeEvidenceContext> charts = deterministic.charts().stream()
                 .map(chart -> new ChartQualitativeEvidenceContext(
@@ -42,7 +59,11 @@ public class SessionQualitativeEvidenceResolver {
                         notesByChart.getOrDefault(chart.chartId(), List.of()).stream()
                                 .sorted(Comparator.comparing(TrainingEvent::getCreatedAt,
                                         Comparator.nullsLast(Comparator.naturalOrder())))
-                                .map(note -> note(note, episodeByTradeId)).toList()
+                                .map(note -> note(note, episodeByTradeId)).toList(),
+                        tradesByChart.getOrDefault(chart.chartId(), List.of()).stream()
+                                .sorted(Comparator.comparing(TradeActionAiEvidence::createdAt,
+                                        Comparator.nullsLast(Comparator.naturalOrder())))
+                                .toList()
                 )).toList();
         return new SessionQualitativeEvidenceContext(deterministic.sessionId(), charts);
     }
