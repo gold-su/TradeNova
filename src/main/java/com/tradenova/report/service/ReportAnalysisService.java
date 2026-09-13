@@ -85,6 +85,7 @@ public class ReportAnalysisService {
     private final TrainingEventRepository trainingEventRepository;
 
     private final DecisionTechnicalContextService technicalContextService;
+    private final TradeActionAiEvidenceResolver tradeActionEvidenceResolver;
 
     /**
      * 특정 차트의 최신 snapshot을 분석해서
@@ -193,6 +194,8 @@ public class ReportAnalysisService {
                 .orElse(null);
         DecisionTechnicalContext entryTechnicalContext = entryIndex == null
                 ? null : technicalContextService.calculate(chartId, entryIndex);
+        List<TrainingEvent> chartEvents = trainingEventRepository
+                .findAllByUserIdAndChartIdAndTypeOrderByIdDesc(userId, chartId, Type.TRADE);
 
 
         // 7) AI 분석 요청 DTO 생성
@@ -217,7 +220,9 @@ public class ReportAnalysisService {
                 currentTechnicalContext,
                 entryTechnicalContext,
                 technicalContextService.boundedOhlcv(chartId, chart.getProgressIndex()),
-                entryIndex == null ? List.of() : technicalContextService.boundedOhlcv(chartId, entryIndex)
+                entryIndex == null ? List.of() : technicalContextService.boundedOhlcv(chartId, entryIndex),
+                tradeActionEvidenceResolver.resolve(latestBuy, chartEvents),
+                tradeActionEvidenceResolver.resolve(latestTrade, chartEvents)
         );
 
         // 8) AI 분석 실행
