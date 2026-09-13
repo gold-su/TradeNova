@@ -144,12 +144,17 @@ class ReportAnalysisServiceTest {
         TrainingTrade buy = TrainingTrade.builder().chartId(CHART_ID).side(TradeSide.BUY).candleTime(22L).build();
         when(tradeRepository.findTopByChartIdAndSideOrderByIdDesc(CHART_ID, TradeSide.BUY)).thenReturn(Optional.of(buy));
         when(candleRepository.findByChartIdAndT(CHART_ID, 22L)).thenReturn(Optional.of(descendingCandles(22, 22).get(0)));
+        DecisionTechnicalContext current = contextAt(59);
         DecisionTechnicalContext entry = contextAt(22);
+        when(technicalContextService.calculate(CHART_ID, 59)).thenReturn(current);
         when(technicalContextService.calculate(CHART_ID, 22)).thenReturn(entry);
 
         service.analyzeLatestSnapshot(USER_ID, CHART_ID);
 
-        assertEquals(entry, capturedAiRequest().entryDecisionTechnicalContext());
+        AiAnalysisRequest request = capturedAiRequest();
+        assertEquals(current, request.currentVisibleTechnicalContext());
+        assertEquals(entry, request.entryDecisionTechnicalContext());
+        verify(technicalContextService).calculate(CHART_ID, 59);
         verify(technicalContextService).calculate(CHART_ID, 22);
         verify(technicalContextService).boundedOhlcv(CHART_ID, 22);
     }
@@ -178,9 +183,10 @@ class ReportAnalysisServiceTest {
         when(tradeRepository.findTopByChartIdOrderByIdDesc(CHART_ID)).thenReturn(Optional.of(sell));
         when(candleRepository.findByChartIdAndT(CHART_ID, 22L))
                 .thenReturn(Optional.of(descendingCandles(22, 22).get(0)));
+        TrainingEvent sellEvent = tradeEvent(102L, CHART_ID, "SELL", "exit now");
+        TrainingEvent buyEvent = tradeEvent(101L, CHART_ID, "BUY", "entry now");
         when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(USER_ID, CHART_ID, Type.TRADE))
-                .thenReturn(List.of(tradeEvent(102L, CHART_ID, "SELL", "exit now"),
-                        tradeEvent(101L, CHART_ID, "BUY", "entry now")));
+                .thenReturn(List.of(sellEvent, buyEvent));
 
         service.analyzeLatestSnapshot(USER_ID, CHART_ID);
 
@@ -203,9 +209,10 @@ class ReportAnalysisServiceTest {
         TrainingEvent legacy = TrainingEvent.builder().id(3L).userId(USER_ID).chartId(CHART_ID)
                 .type(Type.TRADE).origin(EventOrigin.USER).summary("legacy")
                 .payloadJson(objectMapper.createObjectNode().put("tradeId", 101L).put("side", "BUY")).build();
+        TrainingEvent unrelatedTrade = tradeEvent(999L, CHART_ID, "BUY", "unrelated");
+        TrainingEvent wrongChartTrade = tradeEvent(101L, 999L, "BUY", "wrong chart");
         when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(USER_ID, CHART_ID, Type.TRADE))
-                .thenReturn(List.of(tradeEvent(999L, CHART_ID, "BUY", "unrelated"),
-                        tradeEvent(101L, 999L, "BUY", "wrong chart"), legacy));
+                .thenReturn(List.of(unrelatedTrade, wrongChartTrade, legacy));
 
         service.analyzeLatestSnapshot(USER_ID, CHART_ID);
 
