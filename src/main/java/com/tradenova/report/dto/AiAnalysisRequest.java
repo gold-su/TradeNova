@@ -1,10 +1,9 @@
 package com.tradenova.report.dto;
 
-import lombok.Builder;
-import lombok.Getter;
-
 import java.math.BigDecimal;
 import java.util.List;
+import com.tradenova.training.analytics.DecisionTechnicalContext;
+import com.tradenova.training.analytics.VisibleOhlcvCandle;
 
 /**
  * AI 리포트 분석 요청 DTO
@@ -143,6 +142,11 @@ public record AiAnalysisRequest(
          * 예
          * [72000, 72100, 71900, 72500]
          */
-        List<Double> volumes
+        List<Double> volumes,
+
+        DecisionTechnicalContext currentVisibleTechnicalContext,
+        DecisionTechnicalContext entryDecisionTechnicalContext,
+        List<VisibleOhlcvCandle> currentVisibleOhlcv,
+        List<VisibleOhlcvCandle> entryDecisionOhlcv
 ) {
 }

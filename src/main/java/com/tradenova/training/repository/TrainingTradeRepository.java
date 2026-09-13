@@ -1,6 +1,7 @@
 package com.tradenova.training.repository;
 
 import com.tradenova.training.entity.TrainingTrade;
+import com.tradenova.training.entity.TradeSide;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -33,6 +34,8 @@ public interface TrainingTradeRepository extends JpaRepository<TrainingTrade, Lo
      * 특정 차트의 최신 거래 1건 조회
      */
     Optional<TrainingTrade> findTopByChartIdOrderByIdDesc(Long chartId);
+
+    Optional<TrainingTrade> findTopByChartIdAndSideOrderByIdDesc(Long chartId, TradeSide side);
 
     /**
      * 특정 차트에 거래 기록이 있는지 확인

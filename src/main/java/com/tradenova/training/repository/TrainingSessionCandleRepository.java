@@ -21,6 +21,8 @@ public interface TrainingSessionCandleRepository extends JpaRepository<TrainingS
      */
     Optional<TrainingSessionCandle> findByChartIdAndIdx(Long ChartId, Integer idx);
 
+    Optional<TrainingSessionCandle> findByChartIdAndT(Long chartId, Long candleTime);
+
     /** visibleOnly 옵션 (치팅 방지 강화용) */
     List<TrainingSessionCandle> findAllByChartIdAndIdxLessThanEqualOrderByIdxAsc( //LessThen = 비교연산
             Long ChartId,
