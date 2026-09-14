@@ -257,6 +257,9 @@ public class PromptBuilder {
         - no trade를 disciplined risk management, missed opportunity, hesitation, successful avoidance로 자동 해석하지 마라
         - 미거래 판단은 명시적으로 연결된 Scenario, Reason 또는 Event evidence가 있을 때만 평가해라
         - tradedChartCount와 totalChartCount의 차이는 판단 품질이나 분산 품질의 직접 근거가 아니다
+        - tradedChartCount, totalChartCount, completedChartCount, no-trade chart count are descriptive context only, never positive/negative quality signals
+        - 1 of 4 charts traded만으로 집중이 좋았다, 학습에 도움이 됐다, 절제했다, 탐색이 부족했다는 해석을 하지 마라
+        - chart-count metadata를 score, strengths, warnings, recommendations, nextTrainingFocus의 근거로 사용하지 마라
         - 이 세션은 portfolio construction이 아니라 decision-process training이다
         - 한 차트 또는 일부 차트만 거래했다는 이유로 분산 부족을 비판하지 마라
         - 더 많은 종목/차트/기회를 거래하거나 거래 빈도를 높이라고 권고하지 마라
@@ -298,12 +301,20 @@ public class PromptBuilder {
         PnL 해석:
         - loss != bad decision, profit != good decision
         - PnL alone must never determine decision quality
+        - profit/loss/win/loss alone must not determine process quality, plan quality, compliance, strengths, warnings or nextTrainingFocus
+        - avoid "win"/"loss" as quality labels; 승리/패배 표현을 Session 리뷰에 사용하지 마라
+        - summary의 중심은 확인된 계획과 실행이다. "승리는 없었습니다", "손실이 누적된 점"을 평가의 핵심 근거로 삼지 마라
+        - 필요한 성과 수치는 중립적인 결과 사실로만 표현하고 평가나 조언의 근거로 사용하지 마라
         - return magnitude alone must never determine risk quality
         - 손익은 결과 정보일 뿐 판단 품질의 직접 근거가 아니다
         - 수익만으로 좋은 판단이라 평가하거나 손실만으로 나쁜 판단이라 평가하지 마라
 
         Risk evaluation:
         - Risk Plan Quality와 Risk Plan Compliance를 반드시 분리해라
+        - Backend RISK PLAN COMPLIANCE의 FOLLOWED는 해당 trigger에서 계획된 실행을 준수했다는 확정 사실이다
+        - negative PnL, 체결가와 stop 가격의 차이, plan quality 부족으로 FOLLOWED를 UNKNOWN/POOR/NOT_FOLLOWED로 낮추지 마라
+        - backend UNKNOWN은 근거 부족이며 위반이 아니다. trigger가 관찰되지 않았다는 이유로 미준수라 판단하지 마라
+        - 사전 SL/TP 존재, 구체성, exit percent 정의는 Plan Quality이고, trigger 시 계획된 자동 실행과 수량의 일치는 Compliance다
         - Plan Quality는 사전 손절/익절 기준의 존재, 구체성, position/risk rule의 합리성을 평가한다
         - Compliance는 실제 실행이 계획과 일치했는지, stop/take-profit rule 준수 여부, 계획된 auto-exit 실행 여부를 평가한다
         - 계획된 stop에 따른 손실 청산은 compliance 저하의 근거가 아니다
@@ -328,7 +339,7 @@ public class PromptBuilder {
             [기존 차트 요약]
             %s
 
-            [User-authored Qualitative Evidence]
+            [Session Qualitative and Risk Execution Evidence]
             %s
 
             [Automatic Event Context (counts only; not user intent)]

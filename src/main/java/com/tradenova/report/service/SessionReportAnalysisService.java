@@ -161,7 +161,7 @@ public class SessionReportAnalysisService {
         SessionAiDeterministicContext deterministicContext =
                 deterministicContextService.build(userId, sessionId);
         SessionQualitativeEvidenceContext qualitativeEvidence = qualitativeEvidenceResolver.resolve(
-                deterministicContext, snapshots, events
+                deterministicContext, snapshots, events, trades
         );
 
         // AI 요청 DTO 생성
