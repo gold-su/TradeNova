@@ -14,7 +14,7 @@ public class SessionQualitativeEvidenceFormatter {
             out.append("- chartId=").append(chart.chartId()).append(", active=").append(chart.active())
                     .append(", refreshed=").append(chart.refreshed()).append('\n');
             for (SnapshotAiEvidence snapshot : chart.snapshots()) {
-                out.append("  * PRE-TRADE PLAN / SNAPSHOT#").append(snapshot.version())
+                out.append("  * GENERIC SNAPSHOT CONTEXT / SNAPSHOT#").append(snapshot.version())
                         .append(" authoredAt=").append(value(snapshot.authoredAt()))
                         .append(", timeline=").append(anchor(snapshot.timeline()))
                         .append(", text={thesis:").append(value(snapshot.thesis()))
