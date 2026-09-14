@@ -252,9 +252,14 @@ public class PromptBuilder {
         - 미래의 매수/매도 가격, 시점, 수량을 추천하지 마라
 
         평가 기준:
-        - 세션 전체의 선택, 관망, 자금 사용, 계획 일관성을 평가해라
-        - 거래한 차트뿐 아니라 거래하지 않은 차트를 어떻게 다뤘는지도 평가해라
-        - 근거가 있는 경우에만 여러 차트의 선택/관망 행동을 평가해라
+        - 결과가 아니라 PLAN -> ACTION -> FACT -> EXECUTION 의사결정 과정을 평가해라
+        - 거래하지 않은 차트는 기본적으로 neutral evidence다
+        - no trade를 disciplined risk management, missed opportunity, hesitation, successful avoidance로 자동 해석하지 마라
+        - 미거래 판단은 명시적으로 연결된 Scenario, Reason 또는 Event evidence가 있을 때만 평가해라
+        - tradedChartCount와 totalChartCount의 차이는 판단 품질이나 분산 품질의 직접 근거가 아니다
+        - 이 세션은 portfolio construction이 아니라 decision-process training이다
+        - 한 차트 또는 일부 차트만 거래했다는 이유로 분산 부족을 비판하지 마라
+        - 더 많은 종목/차트/기회를 거래하거나 거래 빈도를 높이라고 권고하지 마라
 
         reasoning:
         - snapshot이 존재하면 reasoning의 일관성을 반영해라
@@ -271,7 +276,9 @@ public class PromptBuilder {
         - snapshot, note 또는 action-time trade reason evidence가 없으면 risk plan 변경 원인이나 사용자의 심리를 추정하지 마라
         - deterministic fact와 사용자 작성 snapshot의 의견/계획을 명확히 구분해라
         - 사용자 의도, 심리, 이유는 user-authored SNAPSHOT/NOTE/ACTION-TIME TRADE REASON이 명시적으로 뒷받침할 때만 근거로 사용해라
-        - PRE-TRADE PLAN/SNAPSHOT, ACTION-TIME TRADE REASON, NOTE, DETERMINISTIC TRADE/RISK FACT를 구분해라
+        - LINKED PRE-TRADE PLAN, ACTION-TIME USER CLAIM, DECISION-TIME TECHNICAL FACT, ACTUAL ACTION을 구분해라
+        - canonical exact link를 action-time claim, deterministic fact, actual action, generic snapshot context보다 우선해라
+        - generic/latest snapshot을 explicit linked plan으로 간주하지 마라
         - action-time reason은 사용자의 당시 주장이지 deterministic fact가 아니다
         - 시간적으로 뒤에 작성된 NOTE를 앞선 거래나 risk-plan 변경의 원인으로 해석하지 마라
         - backend 자동 TRADE/WARNING/PROGRESS/AI event는 사용자 생각이나 의도 evidence가 아니다
@@ -281,13 +288,26 @@ public class PromptBuilder {
         - 항상 (1) 관찰/계산된 사실, (2) 시간적으로 연결된 사용자 작성 evidence, (3) 제한된 해석,
           (4) 구체적인 다음 훈련 행동 순서로 추론해라
         - panic, greed, fear, impulsive 같은 감정/성향을 거래 활동만으로 선언하지 마라
+        - FOMO, 자신감 부족, 충동성, 시장에 대한 두려움은 명시적 사용자 evidence 없이 추론하지 마라
+        - 근거가 부족하면 "판단하기에 근거가 부족합니다" 또는 "해당 항목은 이번 세션에서 확인되지 않았습니다"라고 써라
+        - behaviorPatterns는 같은 유형의 행동이 2회 이상이거나 명확한 반복 count가 있을 때만 생성해라
+        - 단 한 번의 episode/action을 반복 패턴이라고 부르지 마라. 단일 사례는 "이번 세션에서 관찰된 사례" 또는 "한 차례 확인된 행동"으로 제한하고 behaviorPatterns에서 제외해라
         - 제공된 수치(win rate, PnL, episode count, holding period 등)를 재계산하지 마라
         - 제공된 시점 이후의 시장 데이터나 미래 고점을 사용하지 마라
 
         PnL 해석:
-        - finalPnL은 참고 지표로만 사용하고 결과만으로 판단하지 마라
-        - 동일한 행동이라도 finalPnL 결과에 따라 평가를 조정하되,
-          결과보다 판단 과정과 일관성을 더 중요하게 평가하라
+        - loss != bad decision, profit != good decision
+        - PnL alone must never determine decision quality
+        - return magnitude alone must never determine risk quality
+        - 손익은 결과 정보일 뿐 판단 품질의 직접 근거가 아니다
+        - 수익만으로 좋은 판단이라 평가하거나 손실만으로 나쁜 판단이라 평가하지 마라
+
+        Risk evaluation:
+        - Risk Plan Quality와 Risk Plan Compliance를 반드시 분리해라
+        - Plan Quality는 사전 손절/익절 기준의 존재, 구체성, position/risk rule의 합리성을 평가한다
+        - Compliance는 실제 실행이 계획과 일치했는지, stop/take-profit rule 준수 여부, 계획된 auto-exit 실행 여부를 평가한다
+        - 계획된 stop에 따른 손실 청산은 compliance 저하의 근거가 아니다
+        - 계획을 지킨 실행의 compliance는 positive 또는 neutral로 평가하고, plan quality는 별도로 판단해라
         """;
     }
 
@@ -315,17 +335,17 @@ public class PromptBuilder {
             totalEventCount: %s
 
             위 데이터를 보고 아래 항목을 평가해라:
-            1) 여러 차트 중 선택과 관망의 적절성
+            1) 근거로 확인되는 PLAN / ACTION / FACT / EXECUTION 일치 여부
             2) 세션 전체의 계획 일관성
             3) 근거로 확인되는 거래 빈도 패턴
             4) reasoning 품질과 반복 습관
             5) 다음 세션에서 개선할 점
 
             특히 아래를 중요하게 봐라:
-            - 거래가 특정 차트에만 몰렸는지
             - snapshot 내용들이 서로 일관적인지
             - 실제 거래 여부와 계획 메모가 얼마나 연결되는지
             - 근거가 없으면 행동의 이유나 심리를 알 수 없다고 명시할 것
+            - 미거래 chart와 거래 chart 수는 neutral metadata이며 분산 실패나 거래 권고의 근거가 아님
             """.formatted(
                 sessionFacts(req),
                 deterministicContextFormatter.formatStatistics(req.deterministicContext()),

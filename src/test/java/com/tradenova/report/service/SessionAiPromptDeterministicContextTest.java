@@ -90,6 +90,56 @@ class SessionAiPromptDeterministicContextTest {
         assertTrue(prompt.contains("자동 TRADE/WARNING/PROGRESS/AI event"));
     }
 
+    @Test
+    void systemPromptPreventsOutcomeBiasAndSeparatesRiskQualityFromCompliance() {
+        String prompt = promptBuilder.buildSessionSystemPrompt();
+
+        assertTrue(prompt.contains("loss != bad decision"));
+        assertTrue(prompt.contains("profit != good decision"));
+        assertTrue(prompt.contains("PnL alone must never determine decision quality"));
+        assertTrue(prompt.contains("return magnitude alone must never determine risk quality"));
+        assertTrue(prompt.contains("Risk Plan Quality와 Risk Plan Compliance를 반드시 분리"));
+        assertTrue(prompt.contains("계획된 stop에 따른 손실 청산은 compliance 저하의 근거가 아니다"));
+        assertTrue(prompt.contains("계획을 지킨 실행의 compliance는 positive 또는 neutral"));
+    }
+
+    @Test
+    void systemPromptKeepsNoTradeNeutralAndForbidsDiversificationOrForcedTradingAdvice() {
+        String prompt = promptBuilder.buildSessionSystemPrompt();
+
+        assertTrue(prompt.contains("거래하지 않은 차트는 기본적으로 neutral evidence"));
+        assertTrue(prompt.contains("no trade를 disciplined risk management, missed opportunity, hesitation, successful avoidance로 자동 해석하지 마라"));
+        assertTrue(prompt.contains("분산 부족을 비판하지 마라"));
+        assertTrue(prompt.contains("더 많은 종목/차트/기회를 거래하거나 거래 빈도를 높이라고 권고하지 마라"));
+        assertTrue(prompt.contains("tradedChartCount와 totalChartCount의 차이는 판단 품질이나 분산 품질의 직접 근거가 아니다"));
+    }
+
+    @Test
+    void systemPromptRequiresRepeatedEvidenceAndExplicitlyHandlesInsufficientEvidence() {
+        String prompt = promptBuilder.buildSessionSystemPrompt();
+
+        assertTrue(prompt.contains("같은 유형의 행동이 2회 이상"));
+        assertTrue(prompt.contains("단 한 번의 episode/action을 반복 패턴이라고 부르지 마라"));
+        assertTrue(prompt.contains("반복성은 확인되지 않았습니다") || prompt.contains("behaviorPatterns에서 제외"));
+        assertTrue(prompt.contains("판단하기에 근거가 부족합니다"));
+        assertTrue(prompt.contains("해당 항목은 이번 세션에서 확인되지 않았습니다"));
+        assertTrue(prompt.contains("FOMO, 자신감 부족, 충동성, 시장에 대한 두려움은 명시적 사용자 evidence 없이 추론하지 마라"));
+    }
+
+    @Test
+    void userPromptMarksChartCountsNeutralAndPreservesCanonicalEvidenceHierarchy() {
+        SessionAiAnalysisRequest request = new SessionAiAnalysisRequest(
+                1L, 2L, "RANDOM", "COMPLETED", 4, 4, 1, 0,
+                List.of(), List.of(), contextWithClosedAndOpenEpisodes(), qualitativeContext());
+
+        String prompt = promptBuilder.buildSessionUserPrompt(request);
+
+        assertTrue(prompt.contains("미거래 chart와 거래 chart 수는 neutral metadata"));
+        assertTrue(prompt.contains("PLAN / ACTION / FACT / EXECUTION"));
+        assertTrue(prompt.contains("GENERIC SNAPSHOT CONTEXT"));
+        assertFalse(prompt.contains("거래가 특정 차트에만 몰렸는지"));
+    }
+
     private SessionQualitativeEvidenceContext qualitativeContext() {
         EvidenceTimelineAnchor linked = new EvidenceTimelineAnchor(
                 10, 1_000L, 101L, new TradeEpisodeReference(10L, 1), 700L, "LINKED_EVENT"
