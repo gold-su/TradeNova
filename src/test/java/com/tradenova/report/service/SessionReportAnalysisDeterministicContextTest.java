@@ -114,7 +114,7 @@ class SessionReportAnalysisDeterministicContextTest {
         when(documentRepository.findAllByUserIdAndChartIdInAndKindOrderByCreatedAtDesc(
                 1L, List.of(10L), ReportKind.SNAPSHOT)).thenReturn(List.of(snapshot));
         when(contextService.build(1L, 5L)).thenReturn(deterministicContext);
-        when(evidenceResolver.resolve(deterministicContext, List.of(snapshot), List.of(note)))
+        when(evidenceResolver.resolve(deterministicContext, List.of(snapshot), List.of(note), List.of()))
                 .thenReturn(qualitativeContext);
         SessionAiAnalysisResponse response = new SessionAiAnalysisResponse(
                 80, "summary", List.of("warning"), List.of("strength"),

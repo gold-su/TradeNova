@@ -17,6 +17,7 @@ import java.util.*;
 public class SessionQualitativeEvidenceResolver {
     private final TradeActionAiEvidenceResolver tradeActionEvidenceResolver;
     private final ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver;
+    private final SessionRiskComplianceEvidenceResolver riskComplianceResolver;
 
     public SessionQualitativeEvidenceResolver() {
         this(new TradeActionAiEvidenceResolver(), new ScenarioPlanAiEvidenceResolver());
@@ -26,11 +27,26 @@ public class SessionQualitativeEvidenceResolver {
         this(tradeActionEvidenceResolver, new ScenarioPlanAiEvidenceResolver());
     }
 
-    @Autowired
     public SessionQualitativeEvidenceResolver(TradeActionAiEvidenceResolver tradeActionEvidenceResolver,
                                                ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver) {
+        this(tradeActionEvidenceResolver, scenarioPlanEvidenceResolver, null);
+    }
+
+    @Autowired
+    public SessionQualitativeEvidenceResolver(TradeActionAiEvidenceResolver tradeActionEvidenceResolver,
+                                               ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver,
+                                               SessionRiskComplianceEvidenceResolver riskComplianceResolver) {
         this.tradeActionEvidenceResolver = tradeActionEvidenceResolver;
         this.scenarioPlanEvidenceResolver = scenarioPlanEvidenceResolver;
+        this.riskComplianceResolver = riskComplianceResolver;
+    }
+
+    public SessionQualitativeEvidenceContext resolve(SessionAiDeterministicContext deterministic,
+            List<ReportDocument> snapshots, List<TrainingEvent> events,
+            List<com.tradenova.training.entity.TrainingTrade> trades) {
+        SessionQualitativeEvidenceContext authored = resolve(deterministic, snapshots, events);
+        return new SessionQualitativeEvidenceContext(authored.sessionId(), authored.charts(),
+                riskComplianceResolver.resolve(deterministic, trades, events));
     }
 
     public SessionQualitativeEvidenceContext resolve(

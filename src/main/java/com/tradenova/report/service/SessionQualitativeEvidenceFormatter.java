@@ -3,12 +3,25 @@ package com.tradenova.report.service;
 import com.tradenova.report.dto.*;
 import org.springframework.stereotype.Component;
 
-/** Compact prompt serialization of user-authored evidence only. */
+/** Keeps deterministic execution facts distinct from user-authored evidence. */
 @Component
 public class SessionQualitativeEvidenceFormatter {
     public String format(SessionQualitativeEvidenceContext context) {
         if (context == null) return "qualitative evidence unavailable";
         StringBuilder out = new StringBuilder();
+        out.append("NEUTRAL METADATA: tradedChartCount, totalChartCount, completedChartCount and no-trade chart count "
+                + "are descriptive context only, never positive/negative quality signals or grounds for strengths, warnings, "
+                + "recommendations or nextTrainingFocus. 1 of 4 charts traded does not establish beneficial focus, "
+                + "learning, discipline, insufficient exploration or poor diversification.\n");
+        out.append("[Backend Risk Plan Compliance / deterministic execution facts, not user intent]\n");
+        for (RiskComplianceAiEvidence risk : context.riskCompliance()) {
+            out.append("  RISK PLAN COMPLIANCE: ").append(risk).append('\n');
+        }
+        out.append("Compliance describes only the linked trigger/execution, not overall plan quality. "
+                + "FOLLOWED remains FOLLOWED with negative PnL. UNKNOWN is insufficient evidence, not NOT_FOLLOWED. "
+                + "A null triggeredReason means no confirmed trigger reason, not proof that no trigger occurred. "
+                + "plannedExitQty includes integer floor/minimum-one-share rules; executedExitPercent is the actual position fraction.\n");
+        out.append("[User-authored Qualitative Evidence]\n");
         for (ChartQualitativeEvidenceContext chart : context.charts()) {
             if (chart.snapshots().isEmpty() && chart.notes().isEmpty() && chart.tradeActions().isEmpty()) continue;
             out.append("- chartId=").append(chart.chartId()).append(", active=").append(chart.active())
