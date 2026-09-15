@@ -62,7 +62,7 @@ class SessionRiskComplianceEvidenceResolverTest {
         when(repository.findAllByIdIn(Set.of(70L))).thenReturn(List.of(plan(100)));
         var evidence = resolver.resolve(context(List.of(248L)), List.of(trade(248L, TradeSide.BUY, 104)), List.of());
         assertEquals("UNKNOWN", evidence.get(0).compliance());
-        assertNull(evidence.get(0).triggeredReason());
+        assertNull(evidence.get(0).executionReason());
     }
 
     @Test
@@ -148,7 +148,7 @@ class SessionRiskComplianceEvidenceResolverTest {
                 List.of(automatic, claim)).get(0).compliance());
         assertEquals("UNKNOWN", resolver.resolve(context(List.of(248L, 249L)), trades(104, 104),
                 List.of(claim)).get(0).compliance());
-        assertEquals("UNKNOWN", resolve(104, 104, 100, "END_OF_CHART", true).compliance());
+        assertEquals("NOT_APPLICABLE", resolve(104, 104, 100, "END_OF_CHART", true).compliance());
     }
 
     @Test
@@ -166,16 +166,26 @@ class SessionRiskComplianceEvidenceResolverTest {
     }
 
     @Test
+    void terminalLiquidationsAreExplicitAndNotRiskComplianceCases() {
+        var chartEnd = resolve(104, 104, 100, "END_OF_CHART", true);
+        assertEquals("END_OF_CHART", chartEnd.executionReason());
+        assertEquals("NOT_APPLICABLE", chartEnd.compliance());
+        assertTrue(chartEnd.basis().contains("terminal lifecycle liquidation"));
+
+        var sessionEnd = resolve(104, 104, 100, "END_OF_SESSION", true);
+        assertEquals("END_OF_SESSION", sessionEnd.executionReason());
+        assertEquals("NOT_APPLICABLE", sessionEnd.compliance());
+    }
+
+    @Test
     void chartCountsAndOutcomeLabelsAreExplicitlyNeutralInPromptAndFormatter() {
         var builder = new PromptBuilder(new SessionAiDeterministicContextFormatter());
         String system = builder.buildSessionSystemPrompt();
         String formatted = new SessionQualitativeEvidenceFormatter().format(new SessionQualitativeEvidenceContext(131L, List.of()));
-        for (String field : List.of("tradedChartCount", "totalChartCount", "completedChartCount", "no-trade chart count")) {
-            assertTrue(system.contains(field));
-            assertTrue(formatted.contains(field));
-        }
-        assertTrue(formatted.contains("1 of 4 charts traded"));
-        assertTrue(formatted.contains("never positive/negative quality signals"));
+        assertTrue(system.contains("거래가 없고 explicit user-authored Scenario/Reason이 없는 chart는 평가에서 제외"));
+        assertTrue(system.contains("미거래 이유 부재 자체를 warnings, recommendations, nextTrainingFocus"));
+        assertTrue(formatted.contains("NO-TRADE EXCLUSION POLICY"));
+        assertTrue(formatted.contains("Never request a no-trade explanation or plan"));
         assertTrue(system.contains("profit/loss/win/loss alone must not determine process quality"));
         assertTrue(system.contains("avoid \"win\"/\"loss\" as quality labels"));
     }

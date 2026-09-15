@@ -25,10 +25,6 @@ public class SessionAiDeterministicContextFormatter {
                 + ", accountId=" + context.accountId()
                 + ", mode=" + context.mode()
                 + ", status=" + context.sessionStatus()
-                + ", totalChartCount=" + context.totalChartCount()
-                + ", activeChartCount=" + context.activeChartCount()
-                + ", completedChartCount=" + context.completedChartCount()
-                + ", tradedChartCount=" + context.tradedChartCount()
                 + ", totalTradeCount=" + context.totalTradeCount();
     }
 
@@ -63,6 +59,9 @@ public class SessionAiDeterministicContextFormatter {
 
         StringBuilder builder = new StringBuilder();
         for (ChartAiDeterministicContext chart : context.charts()) {
+            // A no-trade chart without explicit authored evidence has no decision process to evaluate.
+            // Qualitative evidence is formatted separately, so suppress descriptive inventory here.
+            if (!chart.traded() && chart.episodes().isEmpty()) continue;
             builder.append("- chartId=").append(chart.chartId())
                     .append(", chartIndex=").append(chart.chartIndex())
                     .append(", symbol=").append(chart.symbolTicker())

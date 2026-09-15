@@ -9,17 +9,19 @@ public class SessionQualitativeEvidenceFormatter {
     public String format(SessionQualitativeEvidenceContext context) {
         if (context == null) return "qualitative evidence unavailable";
         StringBuilder out = new StringBuilder();
-        out.append("NEUTRAL METADATA: tradedChartCount, totalChartCount, completedChartCount and no-trade chart count "
-                + "are descriptive context only, never positive/negative quality signals or grounds for strengths, warnings, "
-                + "recommendations or nextTrainingFocus. 1 of 4 charts traded does not establish beneficial focus, "
-                + "learning, discipline, insufficient exploration or poor diversification.\n");
+        out.append("NO-TRADE EXCLUSION POLICY: charts with no trade and no explicit user-authored Scenario/Reason "
+                + "are excluded from decision-quality evaluation. Missing no-trade reasons are not missing evidence, a warning, "
+                + "or a training need. Never request a no-trade explanation or plan. Chart counts and trade coverage are omitted "
+                + "because they are neither positive nor negative quality signals.\n");
         out.append("[Backend Risk Plan Compliance / deterministic execution facts, not user intent]\n");
         for (RiskComplianceAiEvidence risk : context.riskCompliance()) {
             out.append("  RISK PLAN COMPLIANCE: ").append(risk).append('\n');
         }
         out.append("Compliance describes only the linked trigger/execution, not overall plan quality. "
                 + "FOLLOWED remains FOLLOWED with negative PnL. UNKNOWN is insufficient evidence, not NOT_FOLLOWED. "
-                + "A null triggeredReason means no confirmed trigger reason, not proof that no trigger occurred. "
+                + "NOT_APPLICABLE means a confirmed terminal lifecycle liquidation, not an unknown trigger or violation. "
+                + "END_OF_CHART and END_OF_SESSION are forced lifecycle exits, never STOP_LOSS/TAKE_PROFIT triggers. "
+                + "A null executionReason means no confirmed execution reason, not proof that no trigger occurred. "
                 + "plannedExitQty includes integer floor/minimum-one-share rules; executedExitPercent is the actual position fraction.\n");
         out.append("[User-authored Qualitative Evidence]\n");
         for (ChartQualitativeEvidenceContext chart : context.charts()) {

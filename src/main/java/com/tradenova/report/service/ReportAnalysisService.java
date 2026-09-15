@@ -11,6 +11,7 @@ import com.tradenova.paper.entity.PaperPosition;
 import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
+import com.tradenova.report.dto.ChartLifecycleAiEvidence;
 import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.entity.ReportDocument;
 import com.tradenova.report.entity.ReportKind;
@@ -19,6 +20,7 @@ import com.tradenova.report.entity.Type;
 import com.tradenova.report.repository.ReportDocumentRepository;
 import com.tradenova.report.repository.TrainingEventRepository;
 import com.tradenova.training.entity.TrainingRiskRule;
+import com.tradenova.training.entity.TrainingRiskRuleHistory;
 import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.entity.TrainingSessionChart;
 import com.tradenova.training.entity.TrainingTrade;
@@ -26,6 +28,7 @@ import com.tradenova.training.entity.TradeSide;
 import com.tradenova.training.analytics.DecisionTechnicalContext;
 import com.tradenova.training.analytics.DecisionTechnicalContextService;
 import com.tradenova.training.repository.TrainingRiskRuleRepository;
+import com.tradenova.training.repository.TrainingRiskRuleHistoryRepository;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
@@ -73,6 +76,7 @@ public class ReportAnalysisService {
 
     // 리스크 룰 조회용
     private final TrainingRiskRuleRepository trainingRiskRuleRepository;
+    private final TrainingRiskRuleHistoryRepository trainingRiskRuleHistoryRepository;
 
     // AI 분석 결과를 이벤트 로그로 저장
     private final TrainingEventService trainingEventService;
@@ -213,6 +217,9 @@ public class ReportAnalysisService {
                 .collect(Collectors.toMap(ReportDocument::getId, doc -> doc));
         entryActionEvidence = scenarioPlanEvidenceResolver.link(entryActionEvidence, userId, scenarioDocuments);
         latestActionEvidence = scenarioPlanEvidenceResolver.link(latestActionEvidence, userId, scenarioDocuments);
+        ChartLifecycleAiEvidence lifecycleEvidence = lifecycleEvidence(
+                userId, chart, latestBuy, latestTrade, chartEvents, positionQty, autoExitEnabled
+        );
         AiAnalysisRequest request = new AiAnalysisRequest(
                 hasSnapshot ? text(content, "thesis") : "",
                 hasSnapshot ? text(content, "entryReason") : "",
@@ -236,7 +243,8 @@ public class ReportAnalysisService {
                 technicalContextService.boundedOhlcv(chartId, chart.getProgressIndex()),
                 entryIndex == null ? List.of() : technicalContextService.boundedOhlcv(chartId, entryIndex),
                 entryActionEvidence,
-                latestActionEvidence
+                latestActionEvidence,
+                lifecycleEvidence
         );
 
         // 8) AI 분석 실행
@@ -281,6 +289,72 @@ public class ReportAnalysisService {
                 "차트 AI 리뷰",
                 payload
         );
+    }
+
+    private ChartLifecycleAiEvidence lifecycleEvidence(
+            Long userId,
+            TrainingSessionChart chart,
+            TrainingTrade latestBuy,
+            TrainingTrade latestTrade,
+            List<TrainingEvent> tradeEvents,
+            BigDecimal positionQty,
+            Boolean currentAutoExitEnabled
+    ) {
+        Long accountId = chart.getSession().getAccount().getId();
+        TrainingRiskRuleHistory entryHistory = latestBuy == null || latestBuy.getRiskRuleHistoryId() == null
+                ? null : trainingRiskRuleHistoryRepository.findById(latestBuy.getRiskRuleHistoryId()).orElse(null);
+        if (entryHistory != null && (!userId.equals(entryHistory.getUserId())
+                || !chart.getId().equals(entryHistory.getChartId())
+                || !accountId.equals(entryHistory.getAccountId())
+                || chart.getSession().getId() == null
+                || !chart.getSession().getId().equals(entryHistory.getSessionId())
+                || entryHistory.getCandleTime() == null
+                || latestBuy.getCandleTime() == null
+                || entryHistory.getCandleTime() > latestBuy.getCandleTime())) {
+            entryHistory = null;
+        }
+
+        String terminalReason = null;
+        Long terminalTradeId = null;
+        if (latestTrade != null && latestTrade.getSide() == TradeSide.SELL) {
+            List<String> exactReasons = tradeEvents.stream()
+                    .filter(event -> event.getOrigin() == com.tradenova.report.entity.EventOrigin.SYSTEM)
+                    .map(TrainingEvent::getPayloadJson)
+                    .filter(payload -> exactTerminalEvent(payload, latestTrade))
+                    .map(payload -> payload.path("autoExitReason").asText())
+                    .distinct().toList();
+            if (exactReasons.size() == 1) {
+                terminalReason = exactReasons.get(0);
+                terminalTradeId = latestTrade.getId();
+            }
+        }
+        return new ChartLifecycleAiEvidence(
+                chart.getStatus() == null ? "UNKNOWN" : chart.getStatus().name(),
+                latestBuy != null,
+                latestBuy == null ? null : latestBuy.getId(),
+                latestTrade == null ? null : latestTrade.getId(),
+                latestTrade == null || latestTrade.getSide() == null ? null : latestTrade.getSide().name(),
+                latestBuy != null && positionQty.signum() == 0,
+                terminalReason,
+                terminalTradeId,
+                entryHistory == null ? null : entryHistory.getId(),
+                entryHistory == null ? null : entryHistory.isAutoExitEnabled(),
+                currentAutoExitEnabled
+        );
+    }
+
+    private boolean exactTerminalEvent(JsonNode payload, TrainingTrade trade) {
+        if (payload == null || !payload.isObject() || !payload.path("autoExit").asBoolean(false)) return false;
+        String reason = payload.path("autoExitReason").asText();
+        if (!"END_OF_CHART".equals(reason) && !"END_OF_SESSION".equals(reason)) return false;
+        return payload.path("tradeId").isIntegralNumber() && payload.get("tradeId").longValue() == trade.getId()
+                && payload.path("side").asText().equals("SELL")
+                && payload.path("candleTime").isIntegralNumber()
+                && payload.get("candleTime").longValue() == trade.getCandleTime()
+                && payload.path("qty").isNumber()
+                && payload.get("qty").decimalValue().compareTo(trade.getQty()) == 0
+                && payload.path("executedPrice").isNumber()
+                && payload.get("executedPrice").decimalValue().compareTo(trade.getPrice()) == 0;
     }
 
     /**

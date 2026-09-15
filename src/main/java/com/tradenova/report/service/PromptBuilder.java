@@ -78,7 +78,11 @@ public class PromptBuilder {
                 - ACTION-TIME REASON은 사용자 주장이지 기술적 사실이 아니므로 backend 기술 evidence로 검증해라
                 - 감정, 성향, panic, FOMO, greed, impulsive를 사용자가 직접 작성하지 않았다면 추정하지 마라
                 - positionQty가 0이라는 이유로 실제 진입하지 않았다고 추정하지 마라. BUY/SELL 발생 여부는 canonical trade history가 기준이다
-                - autoExitEnabled=false만으로 리스크 관리가 부족하다고 평가하지 마라
+                - historicalBuyExecuted=true이면 진입은 체결된 사실이다. final positionQty=0을 진입 미체결이나 entry-state inconsistency로 표현하지 마라
+                - END_OF_CHART/END_OF_SESSION 청산 뒤 positionQty=0, avgPrice=0은 정상 terminal state다
+                - currentAutoExitEnabled=false는 현재 상태일 뿐 과거 거래 시점 설정의 증거가 아니다
+                - historical risk-rule history가 있으면 current risk state로 과거 계획을 덮어쓰지 마라
+                - autoExitEnabled=false만으로 과거 리스크 관리나 compliance가 부족하다고 평가하지 마라
                 - 이익은 좋은 판단의 증거가 아니고 손실은 나쁜 판단의 증거가 아니다
                 - 진입 품질은 entryDecisionTechnicalContext와 entryDecisionOhlcv만으로 평가하고 진입 이후 데이터는 사용하지 마라
                 - 미래 매수/매도 가격, 시점, 수량을 추천하지 마라
@@ -116,14 +120,19 @@ public class PromptBuilder {
             qty: %s
             
             [현재 포지션 / 계좌]
+            CURRENT/FINAL STATE (entry-time state가 아님):
             avgPrice: %s
             positionQty: %s
             cashBalance: %s
             
             [저장된 리스크 룰]
+            CURRENT RISK RULE STATE (historical trade-time plan이 아님):
             stopLossPrice: %s
             takeProfitPrice: %s
             autoExitEnabled: %s
+
+            [Chart Lifecycle / Historical Execution Evidence]
+            %s
             
             [최근 종가]
             %s
@@ -185,6 +194,7 @@ public class PromptBuilder {
                 req.stopLossPrice(),
                 req.takeProfitPrice(),
                 req.autoExitEnabled(),
+                req.lifecycleEvidence(),
                 req.closes(),
                 req.volumes(),
                 req.currentVisibleTechnicalContext(),
@@ -255,6 +265,10 @@ public class PromptBuilder {
         - 결과가 아니라 PLAN -> ACTION -> FACT -> EXECUTION 의사결정 과정을 평가해라
         - 거래하지 않은 차트는 기본적으로 neutral evidence다
         - no trade를 disciplined risk management, missed opportunity, hesitation, successful avoidance로 자동 해석하지 마라
+        - 거래가 없고 explicit user-authored Scenario/Reason이 없는 chart는 평가에서 제외해라
+        - 미거래 이유 부재 자체를 warnings, recommendations, nextTrainingFocus 또는 기록 품질 부족의 근거로 사용하지 마라
+        - 미거래 이유, 미거래 계획, 거래 빈도 증가, 종목 선택 확대를 기록하거나 연습하라고 권고하지 마라
+        - "거래 빈도와 종목 선택의 전략적 근거가 부족하다" 같은 평가를 하지 마라
         - 미거래 판단은 명시적으로 연결된 Scenario, Reason 또는 Event evidence가 있을 때만 평가해라
         - tradedChartCount와 totalChartCount의 차이는 판단 품질이나 분산 품질의 직접 근거가 아니다
         - tradedChartCount, totalChartCount, completedChartCount, no-trade chart count are descriptive context only, never positive/negative quality signals
@@ -314,6 +328,8 @@ public class PromptBuilder {
         - Backend RISK PLAN COMPLIANCE의 FOLLOWED는 해당 trigger에서 계획된 실행을 준수했다는 확정 사실이다
         - negative PnL, 체결가와 stop 가격의 차이, plan quality 부족으로 FOLLOWED를 UNKNOWN/POOR/NOT_FOLLOWED로 낮추지 마라
         - backend UNKNOWN은 근거 부족이며 위반이 아니다. trigger가 관찰되지 않았다는 이유로 미준수라 판단하지 마라
+        - backend NOT_APPLICABLE은 END_OF_CHART/END_OF_SESSION terminal lifecycle 청산이며 risk compliance 평가 대상이 아니다
+        - terminal lifecycle reason을 trigger 불명, UNKNOWN, FOLLOWED 또는 NOT_FOLLOWED로 바꾸지 마라
         - 사전 SL/TP 존재, 구체성, exit percent 정의는 Plan Quality이고, trigger 시 계획된 자동 실행과 수량의 일치는 Compliance다
         - Plan Quality는 사전 손절/익절 기준의 존재, 구체성, position/risk rule의 합리성을 평가한다
         - Compliance는 실제 실행이 계획과 일치했는지, stop/take-profit rule 준수 여부, 계획된 auto-exit 실행 여부를 평가한다
@@ -382,8 +398,6 @@ public class PromptBuilder {
                 + ", accountId=" + req.accountId()
                 + ", mode=" + req.mode()
                 + ", status=" + req.sessionStatus()
-                + ", totalChartCount=" + req.totalChartCount()
-                + ", completedChartCount=" + req.completedChartCount()
                 + ", totalTradeCount=" + req.totalTradeCount();
     }
 
@@ -395,6 +409,7 @@ public class PromptBuilder {
 
         StringBuilder sb = new StringBuilder();
         for (SessionChartSummary c : charts) {
+            if (!c.traded()) continue;
             sb.append("- chartId=").append(c.chartId())
                     .append(", chartIndex=").append(c.chartIndex())
                     .append(", symbol=").append(c.symbolTicker()).append(" / ").append(c.symbolName())
@@ -407,7 +422,7 @@ public class PromptBuilder {
                     .append(", finalPnL=").append(c.finalPnL())
                     .append("\n");
         }
-        return sb.toString();
+        return sb.isEmpty() ? "평가 가능한 거래 차트 없음" : sb.toString();
     }
 
     // 세션 내 snapshot(사용자 분석 기록) 요약 생성

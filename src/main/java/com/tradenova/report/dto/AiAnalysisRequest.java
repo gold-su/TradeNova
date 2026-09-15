@@ -149,6 +149,7 @@ public record AiAnalysisRequest(
         List<VisibleOhlcvCandle> currentVisibleOhlcv,
         List<VisibleOhlcvCandle> entryDecisionOhlcv,
         TradeActionAiEvidence entryActionEvidence,
-        TradeActionAiEvidence latestActionEvidence
+        TradeActionAiEvidence latestActionEvidence,
+        ChartLifecycleAiEvidence lifecycleEvidence
 ) {
 }

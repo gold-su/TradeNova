@@ -77,16 +77,17 @@ public class SessionRiskComplianceEvidenceResolver {
                     if (exactAction && action.getOrigin() == EventOrigin.SYSTEM && payload.path("autoExit").isBoolean())
                         automatic = payload.get("autoExit").booleanValue();
                     Set<String> reasons = new HashSet<>();
-                    if (Boolean.TRUE.equals(automatic) && riskReason(payload.path("autoExitReason").asText()))
+                    if (Boolean.TRUE.equals(automatic) && executionReason(payload.path("autoExitReason").asText()))
                         reasons.add(payload.get("autoExitReason").asText());
                     linked.stream().filter(e -> e.getType() == Type.WARNING && e.getOrigin() == EventOrigin.SYSTEM)
                             .filter(e -> Objects.equals(number(e.getPayloadJson(), "candleTime"), trade.getCandleTime()))
                             .filter(e -> decimalEquals(e.getPayloadJson().get("qty"), trade.getQty())
                                     && decimalEquals(e.getPayloadJson().get("executedPrice"), trade.getPrice()))
-                            .map(e -> e.getPayloadJson().path("reason").asText()).filter(this::riskReason)
+                            .map(e -> e.getPayloadJson().path("reason").asText()).filter(this::executionReason)
                             .forEach(reasons::add);
                     String reason = reasons.size() == 1 ? reasons.iterator().next() : null;
-                    Integer percent = plan == null || reason == null ? null : "STOP_LOSS".equals(reason)
+                    boolean terminal = terminalReason(reason);
+                    Integer percent = plan == null || !riskReason(reason) ? null : "STOP_LOSS".equals(reason)
                             ? plan.getStopLossExitPercent() : plan.getTakeProfitExitPercent();
                     boolean validPosition = complete && position.signum() > 0 && trade.getQty().compareTo(position) <= 0;
                     BigDecimal expected = validPosition && percent != null && percent >= 1 && percent <= 100
@@ -97,7 +98,10 @@ public class SessionRiskComplianceEvidenceResolver {
                             ? plan.getStopLossPrice() != null : plan.getTakeProfitPrice() != null);
                     String compliance = "UNKNOWN";
                     String basis = "Insufficient or conflicting exact execution/plan evidence; not a violation.";
-                    if (reason == null && reasons.isEmpty()) {
+                    if (terminal && Boolean.TRUE.equals(automatic)) {
+                        compliance = "NOT_APPLICABLE";
+                        basis = reason + " is a confirmed terminal lifecycle liquidation, not a risk-rule trigger.";
+                    } else if (reason == null && reasons.isEmpty()) {
                         basis = "No observed risk trigger linked to this exit; manual/forced exit alone is not a violation.";
                     } else if (configured && plan.isAutoExitEnabled() && expected != null && automatic != null) {
                         compliance = automatic && expected.compareTo(trade.getQty()) == 0 ? "FOLLOWED" : "NOT_FOLLOWED";
@@ -127,6 +131,14 @@ public class SessionRiskComplianceEvidenceResolver {
 
     private boolean riskReason(String reason) {
         return "STOP_LOSS".equals(reason) || "TAKE_PROFIT".equals(reason);
+    }
+
+    private boolean terminalReason(String reason) {
+        return "END_OF_CHART".equals(reason) || "END_OF_SESSION".equals(reason);
+    }
+
+    private boolean executionReason(String reason) {
+        return riskReason(reason) || terminalReason(reason);
     }
 
     private static Long number(JsonNode payload, String field) {
