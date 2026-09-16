@@ -5,6 +5,7 @@ import com.tradenova.report.dto.RiskPlanAiContext;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiDeterministicContext;
 import com.tradenova.report.dto.SessionSnapshotSummary;
+import com.tradenova.report.dto.SessionChartSummary;
 import com.tradenova.report.dto.TradeEpisodeAiContext;
 import com.tradenova.report.dto.ChartQualitativeEvidenceContext;
 import com.tradenova.report.dto.EvidenceTimelineAnchor;
@@ -51,7 +52,7 @@ class SessionAiPromptDeterministicContextTest {
         String prompt = promptBuilder.buildSessionUserPrompt(request);
 
         assertTrue(prompt.contains("[Deterministic Session Facts]"));
-        assertTrue(prompt.contains("activeChartCount=0"));
+        assertFalse(prompt.contains("activeChartCount"));
         assertTrue(prompt.contains("[Calculated Trade Statistics]"));
         assertTrue(prompt.contains("closedEpisodes=1, openEpisodes=1"));
         assertTrue(prompt.contains("winRate=1"));
@@ -112,6 +113,46 @@ class SessionAiPromptDeterministicContextTest {
         assertTrue(prompt.contains("분산 부족을 비판하지 마라"));
         assertTrue(prompt.contains("더 많은 종목/차트/기회를 거래하거나 거래 빈도를 높이라고 권고하지 마라"));
         assertTrue(prompt.contains("tradedChartCount와 totalChartCount의 차이는 판단 품질이나 분산 품질의 직접 근거가 아니다"));
+        assertTrue(prompt.contains("미거래 이유 부재 자체를 warnings, recommendations, nextTrainingFocus"));
+        assertTrue(prompt.contains("미거래 이유, 미거래 계획, 거래 빈도 증가, 종목 선택 확대를 기록하거나 연습하라고 권고하지 마라"));
+    }
+
+    @Test
+    void omitsUnevaluatedNoTradeChartInventoryFromDeterministicEvidence() {
+        ChartAiDeterministicContext noTrade = new ChartAiDeterministicContext(
+                99L, 3, 30L, "NONE", "No trade", "ETC", LocalDate.now(), LocalDate.now(),
+                10, 9, "COMPLETED", true, false, 0, 0, false, List.of());
+        SessionAiDeterministicContext base = contextWithClosedAndOpenEpisodes();
+        SessionAiDeterministicContext withNoTrade = new SessionAiDeterministicContext(
+                base.sessionId(), base.userId(), base.accountId(), base.mode(), base.sessionStatus(),
+                4, base.activeChartCount(), 4, 1, base.totalTradeCount(), base.tradeStatistics(),
+                java.util.stream.Stream.concat(base.charts().stream(), java.util.stream.Stream.of(noTrade)).toList());
+
+        String facts = new SessionAiDeterministicContextFormatter().formatSessionFacts(withNoTrade);
+        String charts = new SessionAiDeterministicContextFormatter().formatChartEvidence(withNoTrade);
+        assertFalse(facts.contains("tradedChartCount"));
+        assertFalse(facts.contains("totalChartCount"));
+        assertFalse(facts.contains("completedChartCount"));
+        assertFalse(facts.contains("activeChartCount"));
+        assertFalse(charts.contains("chartId=99"));
+    }
+
+    @Test
+    void omitsThreeOfFourNoTradeChartsFromLegacySummaryBlock() {
+        List<SessionChartSummary> summaries = List.of(
+                new SessionChartSummary(10L, 0, "TRADED", "Traded", "COMPLETED", 9, 2, 2, 1, true, BigDecimal.ZERO),
+                new SessionChartSummary(11L, 1, "NO_TRADE_A", "A", "COMPLETED", 9, 0, 0, 0, false, BigDecimal.ZERO),
+                new SessionChartSummary(12L, 2, "NO_TRADE_B", "B", "COMPLETED", 9, 0, 0, 0, false, BigDecimal.ZERO),
+                new SessionChartSummary(13L, 3, "NO_TRADE_C", "C", "COMPLETED", 9, 0, 0, 0, false, BigDecimal.ZERO));
+        SessionAiAnalysisRequest request = new SessionAiAnalysisRequest(
+                1L, 2L, "RANDOM", "COMPLETED", 4, 4, 2, 0,
+                summaries, List.of(), contextWithClosedAndOpenEpisodes(), qualitativeContext());
+
+        String prompt = promptBuilder.buildSessionUserPrompt(request);
+        assertTrue(prompt.contains("symbol=TRADED"));
+        assertFalse(prompt.contains("NO_TRADE_A"));
+        assertFalse(prompt.contains("NO_TRADE_B"));
+        assertFalse(prompt.contains("NO_TRADE_C"));
     }
 
     @Test

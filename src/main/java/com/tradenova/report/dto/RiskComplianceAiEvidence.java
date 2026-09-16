@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 public record RiskComplianceAiEvidence(
         TradeEpisodeReference episode, Long tradeId, Long riskRuleHistoryId,
         Boolean stopLossConfigured, Boolean takeProfitConfigured, Boolean autoExitEnabledAtTrade,
-        String triggeredReason, Integer plannedExitPercent, BigDecimal executedExitPercent,
+        String executionReason, Integer plannedExitPercent, BigDecimal executedExitPercent,
         BigDecimal plannedExitQty, BigDecimal executedExitQty, Boolean actualExitAutomatic,
         String compliance, String basis
 ) {}

@@ -18,9 +18,11 @@ import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.entity.TrainingSessionCandle;
 import com.tradenova.training.entity.TrainingSessionChart;
 import com.tradenova.training.entity.TrainingTrade;
+import com.tradenova.training.entity.TrainingRiskRuleHistory;
 import com.tradenova.training.entity.TradeSide;
 import com.tradenova.training.analytics.DecisionTechnicalContext;
 import com.tradenova.training.repository.TrainingRiskRuleRepository;
+import com.tradenova.training.repository.TrainingRiskRuleHistoryRepository;
 import com.tradenova.training.repository.TrainingSessionCandleRepository;
 import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
@@ -59,6 +61,7 @@ class ReportAnalysisServiceTest {
     @Mock private TrainingTradeRepository tradeRepository;
     @Mock private AiAnalysisService aiAnalysisService;
     @Mock private TrainingRiskRuleRepository trainingRiskRuleRepository;
+    @Mock private TrainingRiskRuleHistoryRepository trainingRiskRuleHistoryRepository;
     @Mock private TrainingEventService trainingEventService;
     @Mock private PaperPositionRepository paperPositionRepository;
     @Mock private TrainingEventRepository trainingEventRepository;
@@ -76,7 +79,7 @@ class ReportAnalysisServiceTest {
                 .id(20L)
                 .cashBalance(BigDecimal.valueOf(1_000_000))
                 .build();
-        TrainingSession session = TrainingSession.builder().account(account).build();
+        TrainingSession session = TrainingSession.builder().id(85L).account(account).build();
         Symbol symbol = Symbol.builder().id(30L).build();
         chart = TrainingSessionChart.builder()
                 .id(CHART_ID)
@@ -245,6 +248,72 @@ class ReportAnalysisServiceTest {
         assertEquals(55L, capturedAiRequest().entryActionEvidence().scenarioPlan().snapshotId());
         assertEquals("selected", capturedAiRequest().entryActionEvidence().scenarioPlan().thesis());
         verify(reportDocumentRepository).findAllById(List.of(55L));
+    }
+
+    @Test
+    void completedChartSeparatesHistoricalBuyAndTerminalExitFromFinalPosition() {
+        chart.setProgressIndex(99);
+        when(candleRepository.findTop30ByChartIdAndIdxLessThanEqualOrderByIdxDesc(CHART_ID, 99))
+                .thenReturn(descendingCandles(99, 70));
+        TrainingTrade buy = trade(238L, TradeSide.BUY, 22L);
+        buy.setRiskRuleHistoryId(29L);
+        TrainingTrade sell = trade(239L, TradeSide.SELL, 99L);
+        sell.setRiskRuleHistoryId(29L);
+        when(tradeRepository.findTopByChartIdAndSideOrderByIdDesc(CHART_ID, TradeSide.BUY)).thenReturn(Optional.of(buy));
+        when(tradeRepository.findTopByChartIdOrderByIdDesc(CHART_ID)).thenReturn(Optional.of(sell));
+        when(candleRepository.findByChartIdAndT(CHART_ID, 22L)).thenReturn(Optional.of(descendingCandles(22, 22).get(0)));
+        when(trainingRiskRuleHistoryRepository.findById(29L)).thenReturn(Optional.of(history(true)));
+        TrainingEvent terminalEvent = terminalEvent(sell, "END_OF_CHART");
+        when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(USER_ID, CHART_ID, Type.TRADE))
+                .thenReturn(List.of(terminalEvent));
+
+        service.analyzeLatestSnapshot(USER_ID, CHART_ID);
+
+        AiAnalysisRequest request = capturedAiRequest();
+        assertTrue(request.lifecycleEvidence().historicalBuyExecuted());
+        assertEquals(238L, request.lifecycleEvidence().latestBuyTradeId());
+        assertEquals("SELL", request.lifecycleEvidence().latestTradeSide());
+        assertTrue(request.lifecycleEvidence().finalPositionClosed());
+        assertEquals("END_OF_CHART", request.lifecycleEvidence().terminalLiquidationReason());
+        assertEquals(239L, request.lifecycleEvidence().terminalLiquidationTradeId());
+        assertTrue(request.lifecycleEvidence().historicalAutoExitEnabled());
+        assertEquals(Boolean.FALSE, request.lifecycleEvidence().currentAutoExitEnabled());
+
+        String prompt = new PromptBuilder(new SessionAiDeterministicContextFormatter()).buildUserPrompt(request);
+        assertTrue(prompt.contains("historicalBuyExecuted=true"));
+        assertTrue(prompt.contains("terminalLiquidationReason=END_OF_CHART"));
+        assertTrue(prompt.contains("CURRENT/FINAL STATE (entry-time state가 아님)"));
+        assertTrue(prompt.contains("CURRENT RISK RULE STATE (historical trade-time plan이 아님)"));
+    }
+
+    @Test
+    void endOfSessionIsAlsoExplicitTerminalLifecycleEvidence() {
+        visibleCandles();
+        TrainingTrade buy = trade(238L, TradeSide.BUY, 22L);
+        TrainingTrade sell = trade(239L, TradeSide.SELL, 59L);
+        when(tradeRepository.findTopByChartIdAndSideOrderByIdDesc(CHART_ID, TradeSide.BUY)).thenReturn(Optional.of(buy));
+        when(tradeRepository.findTopByChartIdOrderByIdDesc(CHART_ID)).thenReturn(Optional.of(sell));
+        when(candleRepository.findByChartIdAndT(CHART_ID, 22L)).thenReturn(Optional.of(descendingCandles(22, 22).get(0)));
+        TrainingEvent terminalEvent = terminalEvent(sell, "END_OF_SESSION");
+        when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(USER_ID, CHART_ID, Type.TRADE))
+                .thenReturn(List.of(terminalEvent));
+
+        service.analyzeLatestSnapshot(USER_ID, CHART_ID);
+
+        assertEquals("END_OF_SESSION", capturedAiRequest().lifecycleEvidence().terminalLiquidationReason());
+    }
+
+    private TrainingRiskRuleHistory history(boolean enabled) {
+        return TrainingRiskRuleHistory.builder().id(29L).userId(USER_ID).sessionId(85L)
+                .chartId(CHART_ID).accountId(20L).autoExitEnabled(enabled).candleTime(20L).build();
+    }
+
+    private TrainingEvent terminalEvent(TrainingTrade trade, String reason) {
+        ObjectNode payload = objectMapper.createObjectNode().put("tradeId", trade.getId()).put("side", "SELL")
+                .put("qty", trade.getQty()).put("executedPrice", trade.getPrice())
+                .put("candleTime", trade.getCandleTime()).put("autoExit", true).put("autoExitReason", reason);
+        return TrainingEvent.builder().id(2000L).userId(USER_ID).chartId(CHART_ID).type(Type.TRADE)
+                .origin(EventOrigin.SYSTEM).payloadJson(payload).build();
     }
 
     private ReportDocument scenario(Long id, int version, String thesis) {
