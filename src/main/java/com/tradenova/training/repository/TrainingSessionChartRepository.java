@@ -19,7 +19,7 @@ public interface TrainingSessionChartRepository extends JpaRepository<TrainingSe
     List<TrainingSessionChart> findAllBySession_IdOrderByChartIndexAsc(Long sessionId);
 
     @EntityGraph(attributePaths = "symbol")
-    @Query("select c from TrainingSessionChart c where c.session.id in :sessionIds order by c.session.id desc, c.chartIndex asc, c.id asc")
+    @Query("select c from TrainingSessionChart c where c.session.id in :sessionIds and c.active = true order by c.session.id desc, c.chartIndex asc, c.id asc")
     List<TrainingSessionChart> findHistoryChartsBySessionIds(@Param("sessionIds") List<Long> sessionIds);
 
     /**

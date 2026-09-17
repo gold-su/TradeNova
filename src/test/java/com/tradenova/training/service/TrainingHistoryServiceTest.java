@@ -40,22 +40,22 @@ class TrainingHistoryServiceTest {
         when(sessions.findAllByUserIdAndStatusOrderByIdDesc(7L, TrainingStatus.COMPLETED))
                 .thenReturn(List.of(newer, older));
         when(charts.findHistoryChartsBySessionIds(List.of(85L, 83L))).thenReturn(List.of(first, refreshed, prior));
-        when(trades.countHistoryByChartIds(List.of(304L, 305L, 301L)))
-                .thenReturn(List.of(count(304L, 2), count(305L, 1)));
-        when(documents.countHistoryByChartIdsAndKind(7L, List.of(304L, 305L, 301L), ReportKind.SNAPSHOT))
+        when(trades.countHistoryByChartIds(List.of(304L, 301L)))
+                .thenReturn(List.of(count(304L, 2)));
+        when(documents.countHistoryByChartIdsAndKind(7L, List.of(304L, 301L), ReportKind.SNAPSHOT))
                 .thenReturn(List.of(count(304L, 1)));
-        when(events.findAllByUserIdAndChartIdInAndTypeOrderByIdDesc(7L, List.of(304L, 305L, 301L), Type.AI))
+        when(events.findAllByUserIdAndChartIdInAndTypeOrderByIdDesc(7L, List.of(304L, 301L), Type.AI))
                 .thenReturn(List.of(ai(20L, 304L, "SESSION", 85L, 92)));
         when(events.findAllByUserIdAndChartIdInAndTypeAndSummaryOrderByIdDesc(
-                7L, List.of(304L, 305L, 301L), Type.NOTE, "세션 종료"))
+                7L, List.of(304L, 301L), Type.NOTE, "세션 종료"))
                 .thenReturn(List.of(finished(85L, 304L, Instant.parse("2026-09-15T00:00:00Z"))));
 
         var result = service.list(7L);
 
         assertEquals(List.of(85L, 83L), result.stream().map(r -> r.sessionId()).toList());
-        assertEquals(2, result.get(0).totalChartCount());
+        assertEquals(1, result.get(0).totalChartCount());
         assertEquals(1, result.get(0).completedChartCount());
-        assertEquals(3, result.get(0).totalTradeCount());
+        assertEquals(2, result.get(0).totalTradeCount());
         assertEquals(1, result.get(0).snapshotCount());
         assertEquals(92, result.get(0).sessionAiScore());
         assertTrue(result.get(0).hasSessionAiReview());
@@ -67,6 +67,44 @@ class TrainingHistoryServiceTest {
         verify(trades, times(1)).countHistoryByChartIds(any());
         verify(documents, times(1)).countHistoryByChartIdsAndKind(any(), any(), any());
         verify(events, times(1)).findAllByUserIdAndChartIdInAndTypeOrderByIdDesc(any(), any(), any());
+    }
+
+    @Test
+    void refreshedAttemptsDoNotDuplicateFourLogicalCharts() {
+        TrainingSession session = session(85L);
+        var original = chart(session, 303L, 0, false);
+        var secondAttempt = chart(session, 304L, 0, false);
+        secondAttempt.markRefreshed();
+        var finalSlotZero = chart(session, 305L, 0, true);
+        finalSlotZero.markRefreshed();
+        var slotOne = chart(session, 306L, 1, true);
+        var slotTwo = chart(session, 307L, 2, true);
+        var slotThree = chart(session, 308L, 3, true);
+        // Six persisted attempts for four logical slots. The repository query also filters active rows.
+        var persisted = List.of(original, secondAttempt, finalSlotZero, slotOne, slotTwo, slotThree);
+        when(sessions.findAllByUserIdAndStatusOrderByIdDesc(7L, TrainingStatus.COMPLETED))
+                .thenReturn(List.of(session));
+        when(sessions.findByIdAndUserId(85L, 7L)).thenReturn(Optional.of(session));
+        when(charts.findHistoryChartsBySessionIds(List.of(85L))).thenReturn(persisted);
+        List<Long> finalIds = List.of(305L, 306L, 307L, 308L);
+        when(trades.countHistoryByChartIds(finalIds)).thenReturn(List.of(count(305L, 2)));
+        when(documents.countHistoryByChartIdsAndKind(7L, finalIds, ReportKind.SNAPSHOT))
+                .thenReturn(List.of(count(305L, 1)));
+
+        var summary = service.list(7L).get(0);
+        var detail = service.detail(7L, 85L);
+
+        assertEquals(4, summary.totalChartCount());
+        assertEquals(4, summary.completedChartCount());
+        assertEquals(2, summary.totalTradeCount());
+        assertEquals(1, summary.snapshotCount());
+        assertEquals(4, detail.session().totalChartCount());
+        assertEquals(4, detail.session().completedChartCount());
+        assertEquals(finalIds, detail.charts().stream().map(c -> c.chartId()).toList());
+        assertEquals(List.of(0, 1, 2, 3), detail.charts().stream().map(c -> c.chartIndex()).toList());
+        assertTrue(detail.charts().get(0).refreshed());
+        verify(trades, times(2)).countHistoryByChartIds(finalIds);
+        verify(documents, times(2)).countHistoryByChartIdsAndKind(7L, finalIds, ReportKind.SNAPSHOT);
     }
 
     @Test

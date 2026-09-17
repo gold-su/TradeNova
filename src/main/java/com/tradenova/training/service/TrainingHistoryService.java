@@ -71,7 +71,10 @@ public class TrainingHistoryService {
     }
 
     private Evidence load(Long userId, List<Long> sessionIds) {
-        List<TrainingSessionChart> charts = chartRepository.findHistoryChartsBySessionIds(sessionIds);
+        // A refresh retains the previous row with active=false in the DB; My Page follows
+        // the final logical chart in each slot, as the existing session summary does.
+        List<TrainingSessionChart> charts = chartRepository.findHistoryChartsBySessionIds(sessionIds)
+                .stream().filter(TrainingSessionChart::isActive).toList();
         Map<Long, List<TrainingSessionChart>> bySession = charts.stream()
                 .collect(Collectors.groupingBy(chart -> chart.getSession().getId()));
         List<Long> chartIds = charts.stream().map(TrainingSessionChart::getId).toList();
