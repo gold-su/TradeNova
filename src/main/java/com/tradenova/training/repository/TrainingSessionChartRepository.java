@@ -5,6 +5,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -16,6 +17,10 @@ public interface TrainingSessionChartRepository extends JpaRepository<TrainingSe
     Optional<TrainingSessionChart> findByIdAndSession_User_Id(Long chartId, Long userId);
 
     List<TrainingSessionChart> findAllBySession_IdOrderByChartIndexAsc(Long sessionId);
+
+    @EntityGraph(attributePaths = "symbol")
+    @Query("select c from TrainingSessionChart c where c.session.id in :sessionIds order by c.session.id desc, c.chartIndex asc, c.id asc")
+    List<TrainingSessionChart> findHistoryChartsBySessionIds(@Param("sessionIds") List<Long> sessionIds);
 
     /**
      * 세션 화면에 실제로 보여줄 활성 차트 목록

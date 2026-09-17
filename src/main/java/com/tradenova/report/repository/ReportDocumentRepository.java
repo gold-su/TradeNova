@@ -2,6 +2,7 @@ package com.tradenova.report.repository;
 
 import com.tradenova.report.entity.ReportDocument;
 import com.tradenova.report.entity.ReportKind;
+import com.tradenova.training.repository.ChartCountProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -51,6 +52,11 @@ public interface ReportDocumentRepository extends JpaRepository<ReportDocument, 
             List<Long> chartIds,
             ReportKind kind
     );
+
+    @Query("select d.chartId as chartId, count(d.id) as count from ReportDocument d where d.userId = :userId and d.chartId in :chartIds and d.kind = :kind group by d.chartId")
+    List<ChartCountProjection> countHistoryByChartIdsAndKind(@Param("userId") Long userId,
+                                                              @Param("chartIds") List<Long> chartIds,
+                                                              @Param("kind") ReportKind kind);
 
     // (옵션) 특정 이벤트에 연결된 스냅샷 조회
     List<ReportDocument> findAllByUserIdAndChartIdAndLinkedEventIdOrderByVersionDesc(

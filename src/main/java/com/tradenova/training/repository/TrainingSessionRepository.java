@@ -21,6 +21,9 @@ public interface TrainingSessionRepository extends JpaRepository<TrainingSession
     //특정 유저가 가진 모든 TrainingSession 조회 최신 세션이 먼저 오도록 id DESC
     List<TrainingSession> findAllByUserIdOrderByIdDesc(Long userId);
 
+    /** Finished sessions only: unfinished blind charts remain in the training workspace. */
+    List<TrainingSession> findAllByUserIdAndStatusOrderByIdDesc(Long userId, TrainingStatus status);
+
     //특정 세션 ID가 해당 유저의 세션이 맞는지 확인하면서 조회
     Optional<TrainingSession> findByIdAndUserId(Long id, Long userId);
 
