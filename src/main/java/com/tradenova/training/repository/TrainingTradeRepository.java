@@ -3,6 +3,7 @@ package com.tradenova.training.repository;
 import com.tradenova.training.entity.TrainingTrade;
 import com.tradenova.training.entity.TradeSide;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +30,9 @@ public interface TrainingTradeRepository extends JpaRepository<TrainingTrade, Lo
      * 생성 시간(createdAt) 오름차순으로 조회한다.
      */
     List<TrainingTrade> findAllByChartIdInOrderByCreatedAtAsc(List<Long> chartIds);
+
+    @Query("select t.chartId as chartId, count(t.id) as count from TrainingTrade t where t.chartId in :chartIds group by t.chartId")
+    List<ChartCountProjection> countHistoryByChartIds(@org.springframework.data.repository.query.Param("chartIds") List<Long> chartIds);
 
     /**
      * 특정 차트의 최신 거래 1건 조회

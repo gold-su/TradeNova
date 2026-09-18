@@ -42,6 +42,9 @@ public interface TrainingEventRepository extends JpaRepository<TrainingEvent, Lo
 
     List<TrainingEvent> findAllByUserIdAndChartIdInOrderByIdAsc(Long userId, List<Long> chartIds);
 
+    List<TrainingEvent> findAllByUserIdAndChartIdInAndTypeAndSummaryOrderByIdDesc(
+            Long userId, List<Long> chartIds, Type type, String summary);
+
     /**
      * 특정 차트에 이벤트 기록이 있는지 확인
      * - AI/NOTE/WARNING/TRADE 등 기록 보호용
