@@ -16,4 +16,6 @@ public interface TrainingRiskRuleHistoryRepository
 
     /** Resolve all episode risk evidence in one IN query. */
     List<TrainingRiskRuleHistory> findAllByIdIn(Collection<Long> ids);
+
+    List<TrainingRiskRuleHistory> findAllByUserIdAndSessionIdIn(Long userId, Collection<Long> sessionIds);
 }
