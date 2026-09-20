@@ -67,6 +67,10 @@ public class GrowthAnalyticsCalculator {
         return "Observer";
     }
 
+    public int levelForXp(long xp) {
+        return Math.toIntExact(xp / XP_PER_LEVEL) + 1;
+    }
+
     public record SessionFact(Long sessionId, Instant completedAt, long tradeCount,
                               long userTradeCount, long reasonedUserTradeCount,
                               boolean hasPlan, boolean hasRiskRule, Integer aiScore) {}

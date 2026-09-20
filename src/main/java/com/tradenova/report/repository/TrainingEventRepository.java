@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface TrainingEventRepository extends JpaRepository<TrainingEvent, Long> {
@@ -41,6 +42,9 @@ public interface TrainingEventRepository extends JpaRepository<TrainingEvent, Lo
 
 
     List<TrainingEvent> findAllByUserIdAndChartIdInOrderByIdAsc(Long userId, List<Long> chartIds);
+
+    List<TrainingEvent> findAllByUserIdInAndChartIdInOrderByIdAsc(Collection<Long> userIds,
+                                                                  Collection<Long> chartIds);
 
     List<TrainingEvent> findAllByUserIdAndChartIdInAndTypeAndSummaryOrderByIdDesc(
             Long userId, List<Long> chartIds, Type type, String summary);
