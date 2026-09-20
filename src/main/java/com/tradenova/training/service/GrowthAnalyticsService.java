@@ -42,10 +42,9 @@ public class GrowthAnalyticsService {
     public GrowthOverviewResponse overview(Long userId, Integer limit) {
         List<TrainingSession> all = sessionRepository.findAllByUserIdAndStatusOrderByIdDesc(userId, TrainingStatus.COMPLETED);
         String period = limit == null ? "ALL" : "LAST_" + limit;
-        List<TrainingSession> sessions = limit == null ? all : all.subList(0, Math.min(limit, all.size()));
-        if (sessions.isEmpty()) return calculator.calculate(period, List.of());
+        if (all.isEmpty()) return calculator.calculate(period, limit, List.of(), List.of());
 
-        List<Long> sessionIds = sessions.stream().map(TrainingSession::getId).toList();
+        List<Long> sessionIds = all.stream().map(TrainingSession::getId).toList();
         List<TrainingSessionChart> charts = chartRepository.findHistoryChartsBySessionIds(sessionIds).stream()
                 .filter(TrainingSessionChart::isActive).toList();
         List<Long> chartIds = charts.stream().map(TrainingSessionChart::getId).toList();
@@ -86,7 +85,7 @@ public class GrowthAnalyticsService {
             }
         }
 
-        Map<Long, TrainingSession> byId = sessions.stream().collect(Collectors.toMap(TrainingSession::getId, Function.identity()));
+        Map<Long, TrainingSession> byId = all.stream().collect(Collectors.toMap(TrainingSession::getId, Function.identity()));
         List<GrowthAnalyticsCalculator.SessionFact> facts = sessionIds.stream().map(sessionId -> {
             long tradeCount = charts.stream().filter(c -> c.getSession().getId().equals(sessionId))
                     .mapToLong(c -> tradesByChart.getOrDefault(c.getId(), 0L)).sum();
@@ -95,7 +94,9 @@ public class GrowthAnalyticsService {
                     userTrades.getOrDefault(sessionId, 0L), reasonedTrades.getOrDefault(sessionId, 0L),
                     planSessions.contains(sessionId), riskSessions.contains(sessionId), aiScore.get(sessionId));
         }).toList();
-        return calculator.calculate(period, facts);
+        List<GrowthAnalyticsCalculator.SessionFact> periodFacts = limit == null
+                ? facts : facts.subList(0, Math.min(limit, facts.size()));
+        return calculator.calculate(period, limit, facts, periodFacts);
     }
 
     private boolean isScenario(JsonNode content) {
