@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface ReportDocumentRepository extends JpaRepository<ReportDocument, Long> {
@@ -40,6 +41,10 @@ public interface ReportDocumentRepository extends JpaRepository<ReportDocument, 
             List<Long> chartIds,
             ReportKind kind
     );
+
+    List<ReportDocument> findAllByUserIdInAndChartIdInAndKind(Collection<Long> userIds,
+                                                               Collection<Long> chartIds,
+                                                               ReportKind kind);
 
     /**
      * 여러 차트에 저장된 특정 종류의 리포트 개수를 계산한다.

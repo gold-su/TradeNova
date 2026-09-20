@@ -18,4 +18,7 @@ public interface TrainingRiskRuleHistoryRepository
     List<TrainingRiskRuleHistory> findAllByIdIn(Collection<Long> ids);
 
     List<TrainingRiskRuleHistory> findAllByUserIdAndSessionIdIn(Long userId, Collection<Long> sessionIds);
+
+    List<TrainingRiskRuleHistory> findAllByUserIdInAndSessionIdIn(Collection<Long> userIds,
+                                                                  Collection<Long> sessionIds);
 }
