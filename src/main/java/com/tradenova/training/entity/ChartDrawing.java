@@ -19,6 +19,10 @@ public class ChartDrawing {
  @Column(nullable=false,precision=19,scale=4) private BigDecimal startPrice;
  private LocalDate endDate;
  @Column(precision=19,scale=4) private BigDecimal endPrice;
+ @Column(name="anchor3_date") private LocalDate anchor3Date;
+ @Column(name="anchor3_price", precision=19,scale=4) private BigDecimal anchor3Price;
+ @Column(name="text_content", length=500) private String textContent;
+ @Column(name="options_json", length=2000) private String optionsJson;
  @CreationTimestamp @Column(nullable=false,updatable=false) private OffsetDateTime createdAt;
  @UpdateTimestamp @Column(nullable=false) private OffsetDateTime updatedAt;
 }
