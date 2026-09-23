@@ -5,6 +5,7 @@ import com.tradenova.training.entity.TrainingSession;
 import com.tradenova.training.repository.TrainingSessionRepository;
 import com.tradenova.training.service.TrainingSessionService;
 import com.tradenova.training.service.TrainingTradeService;
+import com.tradenova.training.service.ChartDrawingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +34,7 @@ public class TrainingSessionController {
     private final TrainingSessionService trainingSessionService;
     private final TrainingTradeService tradeService;
     private final TrainingSessionRepository sessionRepo;
+    private final ChartDrawingService chartDrawingService;
     /**
      * 훈련 세션 생성
      * POST /api/training/sessions
@@ -73,6 +75,11 @@ public class TrainingSessionController {
     ) {
         Long userId = extractUserId(authentication);
         return ResponseEntity.ok(trainingSessionService.getSessionCharts(userId, sessionId));
+    }
+
+    @GetMapping("/{sessionId}/drawings")
+    public ResponseEntity<List<ChartDrawingGroupResponse>> getSessionDrawings(Authentication authentication, @PathVariable Long sessionId) {
+        return ResponseEntity.ok(chartDrawingService.listSession(extractUserId(authentication), sessionId));
     }
 
     /**
