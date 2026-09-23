@@ -14,9 +14,9 @@ import java.time.OffsetDateTime;
 public class ChartDrawing {
  @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
  @ManyToOne(fetch=FetchType.LAZY, optional=false) @JoinColumn(name="chart_id", nullable=false) private TrainingSessionChart chart;
- @Enumerated(EnumType.STRING) @Column(nullable=false,length=20) private ChartDrawingType type;
+ @Enumerated(EnumType.STRING) @Column(nullable=false,length=32) private ChartDrawingType type;
  private LocalDate startDate;
- @Column(nullable=false,precision=19,scale=4) private BigDecimal startPrice;
+ @Column(precision=19,scale=4) private BigDecimal startPrice;
  private LocalDate endDate;
  @Column(precision=19,scale=4) private BigDecimal endPrice;
  @Column(name="anchor3_date") private LocalDate anchor3Date;

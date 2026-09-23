@@ -139,6 +139,43 @@ class ChartDrawingPersistenceIntegrationTest {
     }
 
     @Test
+    void postRoundTripsEveryV2DrawingType() throws Exception {
+        post(chartA.getId(), owner.getId(), """
+                {"type":"HORIZONTAL_LINE","startPrice":51800}
+                """).andExpect(status().isCreated());
+        post(chartA.getId(), owner.getId(), """
+                {"type":"VERTICAL_LINE","startDate":"2025-01-10"}
+                """).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.startDate").value("2025-01-10"))
+                .andExpect(jsonPath("$.startPrice").doesNotExist());
+        post(chartA.getId(), owner.getId(), """
+                {"type":"TREND_LINE","startDate":"2025-01-10","startPrice":51800,"endDate":"2025-01-20","endPrice":53500}
+                """).andExpect(status().isCreated());
+        post(chartA.getId(), owner.getId(), """
+                {"type":"RAY","startDate":"2025-01-10","startPrice":51800,"endDate":"2025-01-20","endPrice":53500}
+                """).andExpect(status().isCreated());
+        post(chartA.getId(), owner.getId(), """
+                {"type":"ZONE","startDate":"2025-01-10","startPrice":51000,"endDate":"2025-01-20","endPrice":54000}
+                """).andExpect(status().isCreated());
+        post(chartA.getId(), owner.getId(), """
+                {"type":"PARALLEL_CHANNEL","startDate":"2025-01-10","startPrice":51000,"endDate":"2025-01-20","endPrice":54000,"anchor3Date":"2025-01-15","anchor3Price":55000}
+                """).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.anchor3Date").value("2025-01-15"))
+                .andExpect(jsonPath("$.anchor3Price").value(55000.0));
+        post(chartA.getId(), owner.getId(), """
+                {"type":"FIBONACCI_RETRACEMENT","startDate":"2025-01-10","startPrice":51000,"endDate":"2025-01-20","endPrice":54000}
+                """).andExpect(status().isCreated());
+        post(chartA.getId(), owner.getId(), """
+                {"type":"TEXT","startDate":"2025-01-10","startPrice":51800,"textContent":"support"}
+                """).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.textContent").value("support"));
+
+        em.flush();
+        assertThat(drawings.findAll()).extracting(ChartDrawing::getType)
+                .containsExactlyInAnyOrder(ChartDrawingType.values());
+    }
+
+    @Test
     void rejectsOtherUsersChartGetPostAndDelete() throws Exception {
         JsonNode created = mapper.readTree(post(chartA.getId(), owner.getId(), """
                 {"type":"TREND_LINE","startDate":"2025-01-10","startPrice":51800,"endDate":"2025-01-20","endPrice":53500}
