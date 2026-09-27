@@ -155,6 +155,12 @@ class ChartDrawingPersistenceIntegrationTest {
                 {"type":"RAY","startDate":"2025-01-10","startPrice":51800,"endDate":"2025-01-20","endPrice":53500}
                 """).andExpect(status().isCreated());
         post(chartA.getId(), owner.getId(), """
+                {"type":"EXTENDED_LINE","startDate":"2025-01-10","startPrice":51800,"endDate":"2025-01-20","endPrice":53500}
+                """).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.type").value("EXTENDED_LINE"))
+                .andExpect(jsonPath("$.startDate").value("2025-01-10"))
+                .andExpect(jsonPath("$.endDate").value("2025-01-20"));
+        post(chartA.getId(), owner.getId(), """
                 {"type":"ZONE","startDate":"2025-01-10","startPrice":51000,"endDate":"2025-01-20","endPrice":54000}
                 """).andExpect(status().isCreated());
         post(chartA.getId(), owner.getId(), """
@@ -173,6 +179,19 @@ class ChartDrawingPersistenceIntegrationTest {
         em.flush();
         assertThat(drawings.findAll()).extracting(ChartDrawing::getType)
                 .containsExactlyInAnyOrder(ChartDrawingType.values());
+    }
+
+    @Test
+    void extendedLineRequiresBothPositiveAnchors() throws Exception {
+        post(chartA.getId(), owner.getId(), """
+                {"type":"EXTENDED_LINE","startPrice":51800,"endDate":"2025-01-20","endPrice":53500}
+                """).andExpect(status().isBadRequest());
+        post(chartA.getId(), owner.getId(), """
+                {"type":"EXTENDED_LINE","startDate":"2025-01-10","startPrice":51800}
+                """).andExpect(status().isBadRequest());
+        post(chartA.getId(), owner.getId(), """
+                {"type":"EXTENDED_LINE","startDate":"2025-01-10","startPrice":-1,"endDate":"2025-01-20","endPrice":53500}
+                """).andExpect(status().isBadRequest());
     }
 
     @Test

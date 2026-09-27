@@ -12,11 +12,11 @@ class ChartDrawingSchemaContractTest {
     @Test
     void manualMysqlMigrationContainsEveryPersistedDrawingType() throws Exception {
         String migration = Files.readString(Path.of(
-                "src/main/resources/db/manual/V7__fix_chart_drawing_type_schema.sql"));
+                "src/main/resources/db/manual/V8__add_extended_line_type.sql"));
 
         for (ChartDrawingType type : ChartDrawingType.values()) {
             assertThat(migration).contains("'" + type.name() + "'");
         }
-        assertThat(migration).contains("MODIFY COLUMN start_price DECIMAL(19,4) NULL");
+        assertThat(migration).contains("MODIFY COLUMN type ENUM");
     }
 }
