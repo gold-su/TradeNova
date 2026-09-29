@@ -18,6 +18,8 @@ public class BetaWaitlist {
     @Enumerated(EnumType.STRING) @Column(name = "investment_experience", nullable = false, length = 40) private InvestmentExperience investmentExperience;
     @Enumerated(EnumType.STRING) @Column(name = "primary_challenge", nullable = false, length = 40) private PrimaryChallenge primaryChallenge;
     @Enumerated(EnumType.STRING) @Column(name = "participation_intent", nullable = false, length = 20) private ParticipationIntent participationIntent;
+    @Column(name = "sms_opt_in", nullable = false) private boolean smsOptIn;
+    @Column(name = "phone_number", length = 11) private String phoneNumber;
     @Column(name = "utm_source", length = 100) private String utmSource;
     @Column(name = "utm_medium", length = 100) private String utmMedium;
     @Column(name = "utm_campaign", length = 100) private String utmCampaign;

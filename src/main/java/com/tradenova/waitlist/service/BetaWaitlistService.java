@@ -31,6 +31,8 @@ public class BetaWaitlistService {
                 .investmentExperience(request.investmentExperience())
                 .primaryChallenge(request.primaryChallenge())
                 .participationIntent(request.participationIntent())
+                .smsOptIn(request.smsOptIn())
+                .phoneNumber(normalizePhoneNumber(request.smsOptIn(), request.phoneNumber()))
                 .utmSource(normalize(attribution == null ? null : attribution.utmSource()))
                 .utmMedium(normalize(attribution == null ? null : attribution.utmMedium()))
                 .utmCampaign(normalize(attribution == null ? null : attribution.utmCampaign()))
@@ -48,5 +50,10 @@ public class BetaWaitlistService {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizePhoneNumber(boolean smsOptIn, String value) {
+        if (!smsOptIn || value == null) return null;
+        return value.replace("-", "").trim();
     }
 }

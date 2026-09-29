@@ -51,6 +51,51 @@ class BetaWaitlistIntegrationTest {
         assertThat(saved.getUtmMedium()).isEqualTo("reels");
         assertThat(saved.getUtmCampaign()).isEqualTo("blind_chart");
         assertThat(saved.getUtmContent()).isEqualTo("reel_01");
+        assertThat(saved.isSmsOptIn()).isFalse();
+        assertThat(saved.getPhoneNumber()).isNull();
+    }
+
+    @Test
+    void storesNormalizedPhoneNumberWhenSmsConsentIsEnabled() throws Exception {
+        mvc.perform(post("/api/waitlist")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest("sms@example.com", true, "010-1234-5678")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.phoneNumber").doesNotExist());
+
+        var saved = repository.findAll().get(0);
+        assertThat(saved.isSmsOptIn()).isTrue();
+        assertThat(saved.getPhoneNumber()).isEqualTo("01012345678");
+    }
+
+    @Test
+    void rejectsSmsConsentWithoutPhoneNumber() throws Exception {
+        mvc.perform(post("/api/waitlist")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest("missing-phone@example.com", true, null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void rejectsInvalidPhoneNumber() throws Exception {
+        mvc.perform(post("/api/waitlist")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest("invalid-phone@example.com", true, "011-123-4567")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void discardsPhoneNumberWhenSmsConsentIsDisabled() throws Exception {
+        mvc.perform(post("/api/waitlist")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest("opt-out@example.com", false, "010-1234-5678")))
+                .andExpect(status().isCreated());
+
+        var saved = repository.findAll().get(0);
+        assertThat(saved.isSmsOptIn()).isFalse();
+        assertThat(saved.getPhoneNumber()).isNull();
     }
 
     @Test
@@ -94,16 +139,23 @@ class BetaWaitlistIntegrationTest {
     }
 
     private String validRequest(String email) throws Exception {
+        return validRequest(email, false, null);
+    }
+
+    private String validRequest(String email, boolean smsOptIn, String phoneNumber) throws Exception {
         return mapper.writeValueAsString(new Request(
                 email,
                 "SIX_MONTHS_TO_TWO_YEARS",
                 "PLAN_DISCIPLINE",
                 "YES",
+                smsOptIn,
+                phoneNumber,
                 new Attribution("instagram", "reels", "blind_chart", "reel_01")
         ));
     }
 
     record Request(String email, String investmentExperience, String primaryChallenge,
-                   String participationIntent, Attribution attribution) {}
+                   String participationIntent, boolean smsOptIn, String phoneNumber,
+                   Attribution attribution) {}
     record Attribution(String utmSource, String utmMedium, String utmCampaign, String utmContent) {}
 }
