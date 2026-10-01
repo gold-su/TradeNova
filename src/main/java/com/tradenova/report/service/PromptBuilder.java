@@ -63,19 +63,26 @@ public class PromptBuilder {
                 
                 규칙:
                 - score는 0~100 사이 정수
-                - summary는 1~3문장
-                - warnings는 없으면 빈 배열
-                - strengths는 없으면 빈 배열
+                - summary는 핵심 판단을 담은 짧은 1~2문장
+                - warnings와 strengths는 각 항목에 하나의 관찰과 해석만 담고, 없으면 빈 배열
+                - 긴 문단, raw HTML, CSS, 색상 코드를 출력하지 마라
                 - snapshot이 없으면 가격/거래/포지션 기반으로 분석해라
                 - snapshot이 있으면 reasoning 일관성을 함께 평가해라
                 - 투자 추천/매수 추천 금지
-                - 사용자의 리스크 관리, 진입 근거, 계획 구체성과 기록 품질을 평가해라
+                - Chart Review는 이 차트의 개별 판단과 실행만 평가하고 세션 전체의 반복 습관을 추정하지 마라
+                - 다음 네 축을 분리해 평가해라: Decision Quality, Risk / Plan Quality, Execution Quality, Learning Point
+                - Decision Quality를 우선해 사용자의 판단 근거가 판단 시점 기술 사실과 연결되는지, 모순되는지, 얼마나 구체적인지 평가해라
+                - Risk / Plan Quality는 stop/target의 존재와 구체성, 제공된 변동성 evidence와의 관계를 평가하되 최적이라고 단정하지 마라
+                - Execution Quality는 plan 변경, manual/automatic exit, trade sequence와 확인 가능한 plan/action 일치만 평가해라
+                - Learning Point는 다음 훈련에서 관찰하거나 기록할 구체적인 행동 하나로 작성하고 투자 행동을 지시하지 마라
                 - 사용자가 현저히 정보가 부족해 보이면 학습 필요성을 지적해라
                 - 리포트 텍스트뿐 아니라 리스크 룰, 포지션 상태, 최근 가격 흐름도 함께 반영해라
                 - 사용자 작성 주장, backend가 계산한 관찰 사실, 제한된 해석, 다음 훈련 피드백을 명확히 구분해라
                 - PRE-TRADE PLAN(snapshot), ACTION-TIME REASON, OBSERVED TECHNICAL FACT, ACTUAL ACTION,
                   INTERPRETATION/TRAINING FEEDBACK을 서로 다른 evidence로 구분하고 비교해라
                 - ACTION-TIME REASON은 사용자 주장이지 기술적 사실이 아니므로 backend 기술 evidence로 검증해라
+                - use only supplied evidence. 제공되지 않은 indicator, volume, support/resistance, 사용자 의도를 만들어내지 마라
+                - evidence가 unavailable이면 언급하지 말고, 관찰 사실과 제한된 해석을 구분해라
                 - 감정, 성향, panic, FOMO, greed, impulsive를 사용자가 직접 작성하지 않았다면 추정하지 마라
                 - positionQty가 0이라는 이유로 실제 진입하지 않았다고 추정하지 마라. BUY/SELL 발생 여부는 canonical trade history가 기준이다
                 - historicalBuyExecuted=true이면 진입은 체결된 사실이다. final positionQty=0을 진입 미체결이나 entry-state inconsistency로 표현하지 마라
@@ -83,8 +90,9 @@ public class PromptBuilder {
                 - currentAutoExitEnabled=false는 현재 상태일 뿐 과거 거래 시점 설정의 증거가 아니다
                 - historical risk-rule history가 있으면 current risk state로 과거 계획을 덮어쓰지 마라
                 - autoExitEnabled=false만으로 과거 리스크 관리나 compliance가 부족하다고 평가하지 마라
-                - 이익은 좋은 판단의 증거가 아니고 손실은 나쁜 판단의 증거가 아니다
+                - profit != good decision, loss != bad decision. 결과로 과거 판단을 정당화하거나 폄하하지 마라
                 - 진입 품질은 entryDecisionTechnicalContext와 entryDecisionOhlcv만으로 평가하고 진입 이후 데이터는 사용하지 마라
+                - 계획 준수나 일관성이라는 동일 사실은 summary, strengths, warnings 전체에서 한 번만 말하고 바꿔 말해 반복하지 마라
                 - 미래 매수/매도 가격, 시점, 수량을 추천하지 마라
                 - 기술적 분석을 확실한 진실로 단정하지 마라. 근거가 부족하면 강하게 검증할 수 없다고 밝혀라
                 - score는 수익성이 아니라 reasoning 구체성, 기술 evidence와의 일관성, risk plan 구체성,
@@ -158,12 +166,11 @@ public class PromptBuilder {
             [최신 BUY 결정 시점의 bounded OHLCV]
             %s
             
-            위 데이터를 보고 아래 항목을 평가해라:
-            1) 진입 판단의 구체성
-            2) 청산 계획의 명확성
-            3) 리스크 관리 수준
-            4) 사용자 주장과 관찰 가능한 기술 사실의 일관성
-            5) 기록 품질과 다음 훈련에서 확인할 항목
+            위 데이터를 네 축으로 평가해라:
+            1) Decision Quality: entryDecisionTechnicalContext와 entryDecisionOhlcv를 기준으로 사용자 근거의 구체성, 지지 evidence, 반대 evidence
+            2) Risk / Plan Quality: stop/target 존재와 구체성, 제공된 판단 시점 변동성 evidence와 계획의 관계
+            3) Execution Quality: 실제 trade sequence, plan 변경, manual/automatic exit, 확인 가능한 plan/action 일치
+            4) Learning Point: 다음 훈련에서 관찰하거나 기록할 구체적인 행동 하나
             
             특히 아래를 중요하게 봐라:
             - 손절/익절 계획이 실제로 존재하는지
@@ -256,6 +263,8 @@ public class PromptBuilder {
         - warnings는 없으면 빈 배열
         - strengths는 없으면 빈 배열
         - behaviorPatterns와 nextTrainingFocus는 근거가 없으면 빈 배열
+        - 각 문자열은 한 가지 관찰과 해석만 담은 짧은 문장으로 작성하고 긴 텍스트 block을 만들지 마라
+        - raw HTML, CSS, 색상 코드를 출력하지 마라
         - structured review의 evidence는 backend fact나 시간적으로 연결된 사용자 작성 evidence만 인용해라
         - evidence가 부족하면 assessment에 "근거가 충분하지 않음"이라고 명시하고 조언을 억지로 채우지 마라
         - 투자 추천/매수 추천 금지
@@ -263,6 +272,11 @@ public class PromptBuilder {
 
         평가 기준:
         - 결과가 아니라 PLAN -> ACTION -> FACT -> EXECUTION 의사결정 과정을 평가해라
+        - 다음 네 축을 분리해 평가해라: Decision Quality, Risk / Plan Quality, Execution Quality, Learning Point
+        - Decision Quality는 시간적으로 연결된 사용자 근거와 제공된 판단 시점 fact의 일치, 모순, 구체성을 우선 평가해라
+        - Risk / Plan Quality는 계획 자체의 존재와 구체성을, Execution Quality는 실제 실행과 compliance를 평가하며 둘을 섞지 마라
+        - Learning Point는 다음 훈련에서 관찰하거나 기록할 구체적인 행동 하나를 우선하고 투자 행동을 지시하지 마라
+        - Session Review는 여러 chart/trade에서 반복 확인된 패턴을 요약한다. 개별 Chart Review 내용을 근거 없이 반복하지 마라
         - 거래하지 않은 차트는 기본적으로 neutral evidence다
         - no trade를 disciplined risk management, missed opportunity, hesitation, successful avoidance로 자동 해석하지 마라
         - 거래가 없고 explicit user-authored Scenario/Reason이 없는 chart는 평가에서 제외해라
@@ -281,9 +295,13 @@ public class PromptBuilder {
         reasoning:
         - snapshot이 존재하면 reasoning의 일관성을 반영해라
         - snapshot이 없더라도 이벤트/거래/차트 상태만으로 최대한 평가해라
-        - 실제 거래 여부와 계획이 얼마나 일치하는지 중요하게 보라
+        - 계획 일관성은 하나의 평가 축일 뿐이며 Review 전체의 중심으로 반복하지 마라
+        - 계획 준수나 일관성이라는 동일 사실은 summary, strengths, warnings, riskReview, nextTrainingFocus 전체에서 한 번만 말해라
+        - 남은 공간은 사용자 근거와 판단 시점 fact의 연결, 계획 자체의 품질, 실행 변경, 다음 훈련 행동에 사용해라
 
         deterministic evidence rules:
+        - use only supplied evidence. 제공되지 않은 technical indicator, volume, support/resistance, 사용자 의도를 만들어내지 마라
+        - observation과 interpretation을 구분하고, unavailable evidence는 있는 것처럼 표현하지 마라
         - backend가 제공한 통계와 episode 계산값을 다시 계산하거나 수정하지 마라
         - evidence가 없는 성향, 감정, 원인을 사실처럼 단정하지 마라
         - OPEN episode를 CLOSED performance 통계와 혼동하지 마라
@@ -361,12 +379,12 @@ public class PromptBuilder {
             [Automatic Event Context (counts only; not user intent)]
             totalEventCount: %s
 
-            위 데이터를 보고 아래 항목을 평가해라:
-            1) 근거로 확인되는 PLAN / ACTION / FACT / EXECUTION 일치 여부
-            2) 세션 전체의 계획 일관성
-            3) 근거로 확인되는 거래 빈도 패턴
-            4) reasoning 품질과 반복 습관
-            5) 다음 세션에서 개선할 점
+            위 데이터를 세션 전체 관점의 네 축으로 평가해라:
+            PLAN / ACTION / FACT / EXECUTION evidence chain을 유지해라.
+            1) Decision Quality: 반복 확인되는 사용자 근거와 판단 시점 FACT의 연결 또는 모순
+            2) Risk / Plan Quality: 계획 자체의 존재와 구체성; compliance와 별도로 평가
+            3) Execution Quality: 반복 확인되는 plan 변경, actual action, automatic/manual execution 패턴
+            4) Learning Point: 다음 훈련에서 관찰하거나 기록할 구체적인 행동 하나
 
             특히 아래를 중요하게 봐라:
             - snapshot 내용들이 서로 일관적인지

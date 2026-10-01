@@ -1,6 +1,8 @@
 package com.tradenova.report.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiAnalysisResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +15,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -72,6 +75,18 @@ class AiAnalysisServiceSessionTest {
         assertEquals(List.of(), result.nextTrainingFocus());
         assertNull(result.decisionReview());
         assertNull(result.riskReview());
+    }
+
+    @Test
+    void malformedStructuredResponseUsesExistingInvalidResponseBehavior() {
+        stubResponse("{not-json");
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyzeSession(request())
+        );
+
+        assertEquals(ErrorCode.AI_RESPONSE_INVALID, exception.getErrorCode());
     }
 
     private void stubResponse(String content) {
