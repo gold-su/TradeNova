@@ -283,7 +283,11 @@ class ReportAnalysisServiceTest {
         assertTrue(prompt.contains("historicalBuyExecuted=true"));
         assertTrue(prompt.contains("terminalLiquidationReason=END_OF_CHART"));
         assertTrue(prompt.contains("CURRENT/FINAL STATE (entry-time state가 아님)"));
-        assertTrue(prompt.contains("CURRENT RISK RULE STATE (historical trade-time plan이 아님)"));
+        assertTrue(prompt.contains("CURRENT RISK RULE STATE (historical trade-time plan이 아님"));
+        assertTrue(prompt.contains("ACTUAL ACTION (canonical trade; raw values, no entry/risk comparison supplied)"));
+        assertTrue(prompt.contains("latestTradePrice:"));
+        assertTrue(prompt.contains("raw prices, no entry-price relation supplied"));
+        assertTrue(prompt.contains("raw numeric value에서 새로운 비교·거리·비율을 계산하지 마라"));
     }
 
     @Test

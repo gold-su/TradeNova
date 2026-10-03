@@ -28,6 +28,13 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("항목당 최대 1~2개 **...**"));
         assertTrue(prompt.contains("** 이외의 Markdown heading, list marker, code block, link 문법은 사용하지 마라"));
         assertTrue(prompt.contains("historicalAutoExitEnabled, currentAutoExitEnabled, actual automatic exit"));
+        assertTrue(prompt.contains("Never perform arithmetic if the result is supplied by backend facts"));
+        assertTrue(prompt.contains("stop과 entry의 대소관계"));
+        assertTrue(prompt.contains("structured risk rule과 narrative scenario plan은 서로 다른 evidence"));
+        assertTrue(prompt.contains("손절 가격은 설정됐지만 그 근거는 충분히 기록되지 않았다"));
+        assertTrue(prompt.contains("When two facts appear inconsistent, explain the scope difference"));
+        assertTrue(prompt.contains("stopLossPrice, takeProfitPrice, exitRiskPlan, autoExitEnabled"));
+        assertTrue(prompt.contains("이번 거래의 핵심 복기 포인트는 **...**입니다"));
     }
 
     @Test
@@ -49,5 +56,11 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("항목당 최대 1~2개 **...**"));
         assertTrue(prompt.contains("exitRiskPlan은 청산 거래 시점의 저장된 plan snapshot"));
         assertTrue(prompt.contains("exact linked execution event로만 확인"));
+        assertTrue(prompt.contains("Never perform arithmetic if the result is supplied by backend facts"));
+        assertTrue(prompt.contains("structured risk rule과 narrative scenario plan을 반드시 분리"));
+        assertTrue(prompt.contains("가격 기준은 설정됐지만 그 이유가 충분히 설명되지 않았다"));
+        assertTrue(prompt.contains("When two facts appear inconsistent, explain the scope difference"));
+        assertTrue(prompt.contains("이번 세션에서 가장 중요한 decision-quality observation 하나"));
+        assertTrue(prompt.contains("실제로 수행할 수 있는 기록 또는 확인 행동"));
     }
 }
