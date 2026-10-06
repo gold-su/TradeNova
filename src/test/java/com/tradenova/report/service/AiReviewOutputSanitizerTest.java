@@ -12,19 +12,29 @@ class AiReviewOutputSanitizerTest {
     @Test
     void removesInternalTokensAndPreservesBoldMarkers() throws Exception {
         String input = "**stopLossPrice가 없음**; exitRiskPlan; Backend Risk Plan Compliance=FOLLOWED; "
-                + "SNAPSHOT#1; ACTION-TIME TRADE REASON; currentAutoExitEnabled=false; COMPLETED";
+                + "snapshot#1; SNAPSHOT#123; tradeId=260 매수; tradeId=999 매도; "
+                + "stopLoss; takeProfit; autoExit; compliance UNKNOWN; UNKNOWN; "
+                + "ACTION-TIME TRADE REASON; currentAutoExitEnabled=false; COMPLETED";
 
         String sanitized = AiReviewOutputSanitizer.sanitize(input);
 
-        assertTrue(sanitized.contains("**손절 가격이 없음**"));
-        assertTrue(sanitized.contains("청산 시점 계획"));
+        assertTrue(sanitized.contains("**손절가가 없음**"));
+        assertTrue(sanitized.contains("청산 계획"));
         assertTrue(sanitized.contains("계획 실행 일치 여부=사전에 정한 기준을 따름"));
-        assertTrue(sanitized.contains("사전 기록"));
+        assertTrue(sanitized.contains("사전 계획"));
+        assertTrue(sanitized.contains("매수; 매도"));
+        assertTrue(sanitized.contains("손절 기준; 익절 기준; 자동 청산 설정"));
+        assertTrue(sanitized.contains("계획 이행 여부를 명확히 판단할 근거가 부족함"));
         assertTrue(sanitized.contains("거래 당시 기록한 이유"));
         assertTrue(sanitized.contains("현재 자동 청산 설정=false"));
         assertFalse(sanitized.contains("stopLossPrice"));
+        assertFalse(sanitized.contains("stopLoss"));
+        assertFalse(sanitized.contains("takeProfit"));
+        assertFalse(sanitized.contains("autoExit"));
+        assertFalse(sanitized.contains("tradeId"));
+        assertFalse(sanitized.contains("UNKNOWN"));
         assertFalse(sanitized.contains("FOLLOWED"));
-        assertFalse(sanitized.contains("SNAPSHOT#"));
+        assertFalse(sanitized.toLowerCase().contains("snapshot#"));
     }
 
     @Test
@@ -37,7 +47,7 @@ class AiReviewOutputSanitizerTest {
         JsonNode sanitized = AiReviewOutputSanitizer.sanitizeTextValues(node);
 
         assertTrue(sanitized.has("riskReview"));
-        assertTrue(sanitized.path("riskReview").path("assessment").asText().contains("청산 시점 계획"));
+        assertTrue(sanitized.path("riskReview").path("assessment").asText().contains("청산 계획"));
         assertTrue(sanitized.path("riskReview").path("evidence").get(0).asText()
                 .contains("**자동 청산 설정=true**"));
     }

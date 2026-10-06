@@ -115,6 +115,12 @@ public class PromptBuilder {
                 - 같은 scope와 시점에 대해 "기준이 있다/없다", "계획이 명확하다/불명확하다"를 동시에 말하지 마라
                 - profit != good decision, loss != bad decision. 결과로 과거 판단을 정당화하거나 폄하하지 마라
                 - 진입 품질은 entryDecisionTechnicalContext와 entryDecisionOhlcv만으로 평가하고 진입 이후 데이터는 사용하지 마라
+                - ENTRY 평가는 entry timestamp까지의 candle, entry decision context, BUY 시점 plan/reason/risk history만 사용해라
+                - EXIT 평가는 exit timestamp까지 exact하게 연결된 exit reason, trigger, 당시 risk plan만 사용해라
+                - exit 이후 값, session final state, 종목 공개 이후 정보를 이전 ENTRY/EXIT 판단의 근거로 사용하지 마라
+                - 현재/종료 시점의 기술 사실을 AS_OF_ENTRY evidence처럼 취급하지 마라
+                - 수량과 현금 잔고만으로 포지션 크기가 적절하다, 과도하지 않다, 위험이 낮다, 무리가 없다고 평가하지 마라
+                - backend가 risk-at-stop, account risk %, position value ratio를 명시하지 않았다면 position-size 평가는 생략해라
                 - 계획 준수나 일관성이라는 동일 사실은 summary, strengths, warnings 전체에서 한 번만 말하고 바꿔 말해 반복하지 마라
                 - 응답 공간은 판단 근거 분석, counter-evidence, 계획 품질, 실행 품질, 다음 훈련 포인트 순으로 사용해라
                 - 단순 사실 요약은 필요한 경우에만 최소한 사용해라
@@ -137,6 +143,10 @@ public class PromptBuilder {
      * 구조화된 텍스트로 만들어 전달한다.
      */
     public String buildUserPrompt(AiAnalysisRequest req) {
+        Object currentCloses = currentOnlyEvidence(req, req.closes());
+        Object currentVolumes = currentOnlyEvidence(req, req.volumes());
+        Object currentTechnicalContext = currentOnlyEvidence(req, req.currentVisibleTechnicalContext());
+        Object currentOhlcv = currentOnlyEvidence(req, req.currentVisibleOhlcv());
         return """
             [분석 타입]
             analysisType: %s
@@ -170,16 +180,16 @@ public class PromptBuilder {
             [Chart Lifecycle / Historical Execution Evidence]
             %s
             
-            [최근 종가]
+            [CURRENT/FINAL 종가 - ENTRY/EXIT 판단 근거 아님]
             %s
             
-            [최근 거래량]
+            [CURRENT/FINAL 거래량 - ENTRY/EXIT 판단 근거 아님]
             %s
 
-            [현재 공개 시점의 backend 계산 기술 사실]
+            [CURRENT/FINAL backend 계산 기술 사실 - ENTRY/EXIT 판단 근거 아님]
             %s
 
-            [최신 BUY 결정 시점의 backend 계산 기술 사실]
+            [AS_OF_ENTRY - 최신 BUY 결정 시점의 backend 계산 기술 사실]
             %s
 
             [최신 BUY의 ACTION-TIME REASON (user-authored claim)]
@@ -188,10 +198,10 @@ public class PromptBuilder {
             [최신 실제 거래의 ACTION-TIME REASON (user-authored claim)]
             %s
 
-            [현재 공개 시점의 bounded OHLCV]
+            [CURRENT/FINAL bounded OHLCV - ENTRY/EXIT 판단 근거 아님]
             %s
 
-            [최신 BUY 결정 시점의 bounded OHLCV]
+            [AS_OF_ENTRY - 최신 BUY 결정 시점까지의 bounded OHLCV]
             %s
             
             위 데이터를 네 축으로 평가해라:
@@ -203,18 +213,24 @@ public class PromptBuilder {
             단순 FACT를 다시 읽어주는 데 응답 공간을 쓰지 말고, 왜 그 evidence가 판단을 지지하거나 약화하는지 해석해라.
             Decision Quality에서는 evidence가 충분할 때 support evidence와 counter-evidence를 모두 비교해라.
             raw numeric value에서 새로운 비교·거리·비율을 계산하지 마라. backend가 명시한 calculated fact만 해석해라.
+            ENTRY 판단은 AS_OF_ENTRY 블록, BUY 시점 사용자 근거와 계획, BUY 시점 risk history만 사용해라.
+            EXIT 판단은 exit timestamp까지 exact하게 연결된 exit reason, execution trigger, 당시 risk plan만 사용해라.
+            exit 이후 또는 session 종료 시점 데이터로 ENTRY/EXIT 판단을 재평가하지 마라.
+            공개 이후 종목 정보나 CURRENT/FINAL 블록을 과거 blind decision 평가에 사용하지 마라.
             
             특히 아래를 중요하게 봐라:
             - 손절/익절 계획이 실제로 존재하는지
             - 리포트 내용과 실제 리스크 룰이 일관적인지
             - 진입 사유가 추상적인지 구체적인지
-            - 포지션 크기와 현금 상태가 과도한지
+            - 수량과 현금 잔고만으로 포지션 위험의 적절성을 평가하지 마라
 
             추가 규칙:
             - analysisType이 FAST면 snapshot 기반 reasoning 평가는 하지 말고,
               거래/포지션/리스크/가격 흐름 중심으로만 평가해라.
             - analysisType이 DEEP면 snapshot의 thesis, entryReason, exitPlan, riskNote를 적극 반영해라.
             - hasSnapshot=false 인 경우 리포트 텍스트가 비어 있어도 정상 상황으로 간주해라.
+            - backend가 risk-at-stop, account risk %%, position value ratio를 명시적으로 제공하지 않았다면
+              포지션 크기가 적절하다, 과도하지 않다, 위험이 낮다, 무리가 없다고 평가하지 말고 해당 평가는 생략해라.
             - 각 판단은 USER CLAIM → OBSERVED TECHNICAL FACT → INTERPRETATION → TRAINING FEEDBACK 순서로 구성해라.
             - swingHigh/swingLow와 rolling high/low는 관찰 evidence이며 support/resistance 확정값이 아니다.
             """.formatted(
@@ -234,15 +250,22 @@ public class PromptBuilder {
                 req.takeProfitPrice(),
                 req.autoExitEnabled(),
                 req.lifecycleEvidence(),
-                req.closes(),
-                req.volumes(),
-                req.currentVisibleTechnicalContext(),
+                currentCloses,
+                currentVolumes,
+                currentTechnicalContext,
                 req.entryDecisionTechnicalContext(),
                 chartActionEvidence(req.entryActionEvidence()),
                 chartActionEvidence(req.latestActionEvidence()),
-                req.currentVisibleOhlcv(),
+                currentOhlcv,
                 req.entryDecisionOhlcv()
         );
+    }
+
+    private Object currentOnlyEvidence(AiAnalysisRequest req, Object evidence) {
+        if (req.entryDecisionTechnicalContext() != null) {
+            return "WITHHELD: post-entry/current evidence is outside the ENTRY decision-time boundary";
+        }
+        return evidence;
     }
 
     private String chartActionEvidence(TradeActionAiEvidence action) {
@@ -317,6 +340,9 @@ public class PromptBuilder {
         - Learning Point는 다음 훈련에서 관찰하거나 기록할 구체적인 행동 하나를 우선하고 투자 행동을 지시하지 마라
         - Session Review의 중심은 이번 세션에서 가장 중요한 decision-quality observation 하나다
         - 그 observation을 지지한 evidence, 약화시킨 evidence, 반복된 planning/execution pattern, 다음 행동 하나 순으로 설명해라
+        - evidence block은 내부 검토용이다. 사용자 응답은 raw log를 나열하지 말고 판단 품질에 대한 해석으로 합성해라
+        - snapshot 번호, trade 식별자, 내부 field 이름, backend 상태 enum을 인용하거나 audit log처럼 시간순 재진술하지 마라
+        - ENTRY 평가는 해당 entry 시점까지의 evidence만 사용하고 이후 가격, indicator, exit 결과, session final state를 섞지 마라
         - Session Review는 여러 chart/trade에서 반복 확인된 패턴을 요약한다. 개별 Chart Review 내용을 근거 없이 반복하지 마라
         - chart/trade가 하나뿐이면 반복 패턴을 만들지 말고 이번 세션에서 가장 중요한 decision-quality observation 하나를 요약해라
         - 반복된 강점/약점, 사용자가 우선해서 본 evidence, plan과 실제 판단 사이의 패턴을 우선하고 단순 execution recap은 최소화해라
@@ -343,6 +369,7 @@ public class PromptBuilder {
         - 남은 공간은 사용자 근거와 판단 시점 fact의 연결, 계획 자체의 품질, 실행 변경, 다음 훈련 행동에 사용해라
         - 응답 공간은 (1) 판단 근거 분석, (2) counter-evidence/놓친 정보, (3) 계획 품질, (4) 실행 품질, (5) 다음 훈련 포인트 순으로 사용해라
         - 매수/매도 수량, 100% 청산, plan/reason/snapshot 존재, 자동 청산 발생, backend enum은 분석 결론에 필요하지 않으면 재진술하지 마라
+        - raw identifier나 내부 상태를 제거한 뒤에도 같은 execution fact를 문장만 바꿔 반복하지 마라
         - deterministic fact는 결론의 근거로 짧게 인용하고, fact recap보다 그 의미와 trade-off 해석에 더 많은 공간을 사용해라
         - 완벽히, 합리적, 효과적, 우수함, 매우 적절함 같은 강한 평가어는 명확한 evidence가 없으면 사용하지 마라
 

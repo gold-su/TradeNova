@@ -105,14 +105,14 @@ class AiAnalysisServiceSessionTest {
 
         SessionAiAnalysisResponse result = service.analyzeSession(request());
 
-        assertEquals("**손절 가격** 없음", result.summary());
+        assertEquals("**손절가** 없음", result.summary());
         assertEquals("사전에 정한 기준을 따름", result.warnings().get(0));
-        assertEquals("사전 기록", result.decisionReview().assessment());
+        assertEquals("사전 계획", result.decisionReview().assessment());
         assertEquals("거래 당시 기록한 이유 확인", result.decisionReview().betterAction());
-        assertEquals("청산 시점 계획", result.riskReview().assessment());
+        assertEquals("청산 계획", result.riskReview().assessment());
         assertEquals("자동 청산 설정", result.riskReview().evidence().get(0));
         assertEquals("현재 자동 청산 설정", result.riskReview().improvement());
-        assertEquals("익절 가격 기록", result.nextTrainingFocus().get(0));
+        assertEquals("익절가 기록", result.nextTrainingFocus().get(0));
     }
 
     @Test
@@ -124,8 +124,8 @@ class AiAnalysisServiceSessionTest {
 
         AiAnalysisResponse result = service.analyze(mock(AiAnalysisRequest.class));
 
-        assertEquals("**손절 가격이 없음**", result.summary());
-        assertEquals("청산 시점 계획 사전에 정한 기준을 따름", result.warnings().get(0));
+        assertEquals("**손절가가 없음**", result.summary());
+        assertEquals("청산 계획 사전에 정한 기준을 따름", result.warnings().get(0));
         assertEquals("현재 자동 청산 설정 확인", result.strengths().get(0));
     }
 
@@ -137,7 +137,7 @@ class AiAnalysisServiceSessionTest {
 
         AiAnalysisResponse result = service.analyze(mock(AiAnalysisRequest.class));
 
-        assertEquals("손절 가격 없음", result.summary());
+        assertEquals("손절가 없음", result.summary());
         assertEquals(List.of(), result.warnings());
         assertEquals(List.of(), result.strengths());
     }

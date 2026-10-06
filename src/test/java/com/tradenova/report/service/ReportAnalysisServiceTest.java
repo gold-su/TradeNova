@@ -43,6 +43,7 @@ import java.time.Instant;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -163,6 +164,12 @@ class ReportAnalysisServiceTest {
         verify(technicalContextService).calculate(CHART_ID, 59);
         verify(technicalContextService).calculate(CHART_ID, 22);
         verify(technicalContextService).boundedOhlcv(CHART_ID, 22);
+
+        String prompt = new PromptBuilder(new SessionAiDeterministicContextFormatter()).buildUserPrompt(request);
+        assertTrue(prompt.contains("AS_OF_ENTRY - 최신 BUY 결정 시점의 backend 계산 기술 사실"));
+        assertTrue(prompt.contains("asOfProgressIndex=22"));
+        assertTrue(prompt.contains("WITHHELD: post-entry/current evidence is outside the ENTRY decision-time boundary"));
+        assertFalse(prompt.contains("asOfProgressIndex=59"));
     }
 
     @Test
