@@ -71,6 +71,51 @@ class SessionRiskComplianceEvidenceResolverTest {
     }
 
     @Test
+    void missingRiskHistoryIdIsNormalUnknownEvidenceInsteadOfImmutableMapNpe() {
+        TrainingTrade buy = trade(248L, TradeSide.BUY, 104);
+        TrainingTrade sell = trade(249L, TradeSide.SELL, 104);
+        buy.setRiskRuleHistoryId(null);
+        sell.setRiskRuleHistoryId(null);
+        ObjectNode manualPayload = payload(104, null, false);
+        manualPayload.remove("riskRuleHistoryId");
+
+        RiskComplianceAiEvidence evidence = resolver.resolve(
+                context(List.of(248L, 249L)), List.of(buy, sell),
+                List.of(event(Type.TRADE, manualPayload))
+        ).get(0);
+
+        assertEquals("UNKNOWN", evidence.compliance());
+        assertNull(evidence.riskRuleHistoryId());
+        assertNull(evidence.stopLossConfigured());
+        assertNull(evidence.takeProfitConfigured());
+        assertNull(evidence.autoExitEnabledAtTrade());
+        assertTrue(evidence.basis().contains("not a violation"));
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void partiallyConfiguredRuleAndTerminalExitRemainSafeNeutralStates() {
+        TrainingRiskRuleHistory partial = TrainingRiskRuleHistory.builder()
+                .id(70L).userId(1L).sessionId(131L).accountId(2L).chartId(605L)
+                .stopLossPrice(null).takeProfitPrice(null).autoExitEnabled(false)
+                .stopLossExitPercent(100).takeProfitExitPercent(100).candleTime(1000L).build();
+        when(repository.findAllByIdIn(Set.of(70L))).thenReturn(List.of(partial));
+
+        var stopEvent = event(Type.TRADE, payload(104, "STOP_LOSS", true));
+        assertEquals("UNKNOWN", resolver.resolve(context(List.of(248L, 249L)), trades(104, 104),
+                List.of(stopEvent)).get(0).compliance());
+
+        TrainingTrade buy = trade(248L, TradeSide.BUY, 104);
+        TrainingTrade sell = trade(249L, TradeSide.SELL, 104);
+        buy.setRiskRuleHistoryId(null);
+        sell.setRiskRuleHistoryId(null);
+        ObjectNode terminalPayload = payload(104, "END_OF_SESSION", true);
+        terminalPayload.remove("riskRuleHistoryId");
+        assertEquals("NOT_APPLICABLE", resolver.resolve(context(List.of(248L, 249L)), List.of(buy, sell),
+                List.of(event(Type.TRADE, terminalPayload))).get(0).compliance());
+    }
+
+    @Test
     void provenTriggerWithManualExecutionIsDeviation() {
         when(repository.findAllByIdIn(Set.of(70L))).thenReturn(List.of(plan(100)));
         var warning = event(Type.WARNING, mapper.createObjectNode().put("tradeId", 249L)

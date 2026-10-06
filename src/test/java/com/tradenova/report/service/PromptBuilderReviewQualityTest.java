@@ -35,6 +35,10 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("When two facts appear inconsistent, explain the scope difference"));
         assertTrue(prompt.contains("stopLossPrice, takeProfitPrice, exitRiskPlan, autoExitEnabled"));
         assertTrue(prompt.contains("이번 거래의 핵심 복기 포인트는 **...**입니다"));
+        assertTrue(prompt.contains("current position state는 현재 상태만 설명"));
+        assertTrue(prompt.contains("historical BUY/SELL trade와 linked event가 authoritative evidence"));
+        assertTrue(prompt.contains("current positionQty=0 또는 avgPrice=0만으로 계획 이행 evidence가 부족하다고 말하지 마라"));
+        assertTrue(prompt.contains("closed position 자체는 missing evidence가 아니다"));
     }
 
     @Test

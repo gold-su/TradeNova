@@ -157,7 +157,7 @@ public class AiAnalysisService {
         JsonNode aiJson = objectMapper.readTree(contentNode.asText());
 
         Integer score = aiJson.path("score").asInt(0);
-        String summary = aiJson.path("summary").asText("");
+        String summary = AiReviewOutputSanitizer.sanitize(aiJson.path("summary").asText(""));
 
         List<String> warnings = objectMapper.convertValue(
                 aiJson.path("warnings"),
@@ -169,7 +169,12 @@ public class AiAnalysisService {
                 objectMapper.getTypeFactory().constructCollectionType(List.class, String.class)
         );
 
-        return new AiAnalysisResponse(score, summary, warnings, strengths);
+        return new AiAnalysisResponse(
+                score,
+                summary,
+                sanitizeTextList(warnings),
+                sanitizeTextList(strengths)
+        );
     }
 
 
@@ -245,7 +250,15 @@ public class AiAnalysisService {
         if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
             throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
         }
-        return objectMapper.treeToValue(objectMapper.readTree(contentNode.asText()), SessionAiAnalysisResponse.class);
+        JsonNode aiJson = objectMapper.readTree(contentNode.asText());
+        return objectMapper.treeToValue(
+                AiReviewOutputSanitizer.sanitizeTextValues(aiJson),
+                SessionAiAnalysisResponse.class
+        );
+    }
+
+    private List<String> sanitizeTextList(List<String> values) {
+        return values == null ? List.of() : values.stream().map(AiReviewOutputSanitizer::sanitize).toList();
     }
 
     /**

@@ -97,6 +97,9 @@ public class PromptBuilder {
                 - positionQty가 0이라는 이유로 실제 진입하지 않았다고 추정하지 마라. BUY/SELL 발생 여부는 canonical trade history가 기준이다
                 - historicalBuyExecuted=true이면 진입은 체결된 사실이다. final positionQty=0을 진입 미체결이나 entry-state inconsistency로 표현하지 마라
                 - END_OF_CHART/END_OF_SESSION 청산 뒤 positionQty=0, avgPrice=0은 정상 terminal state다
+                - current position state는 현재 상태만 설명한다. 과거 execution은 historical BUY/SELL trade와 linked event가 authoritative evidence다
+                - historical trade evidence가 있으면 current positionQty=0 또는 avgPrice=0만으로 계획 이행 evidence가 부족하다고 말하지 마라
+                - closed position 자체는 missing evidence가 아니다
                 - currentAutoExitEnabled=false는 현재 상태일 뿐 과거 거래 시점 설정의 증거가 아니다
                 - historical risk-rule history가 있으면 current risk state로 과거 계획을 덮어쓰지 마라
                 - autoExitEnabled=false만으로 과거 리스크 관리나 compliance가 부족하다고 평가하지 마라
