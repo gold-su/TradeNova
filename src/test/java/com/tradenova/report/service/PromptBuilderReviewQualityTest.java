@@ -39,6 +39,8 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("historical BUY/SELL trade와 linked event가 authoritative evidence"));
         assertTrue(prompt.contains("current positionQty=0 또는 avgPrice=0만으로 계획 이행 evidence가 부족하다고 말하지 마라"));
         assertTrue(prompt.contains("closed position 자체는 missing evidence가 아니다"));
+        assertTrue(prompt.contains("backendFinalScore를 그대로 출력해라"));
+        assertTrue(prompt.contains("자체적으로 재채점하지 마라"));
         assertTrue(prompt.contains("ENTRY 평가는 entry timestamp까지의 candle"));
         assertTrue(prompt.contains("exit 이후 값, session final state, 종목 공개 이후 정보"));
         assertTrue(prompt.contains("수량과 현금 잔고만으로 포지션 크기가 적절하다"));
@@ -74,5 +76,6 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("snapshot 번호, trade 식별자, 내부 field 이름, backend 상태 enum"));
         assertTrue(prompt.contains("이후 가격, indicator, exit 결과, session final state를 섞지 마라"));
         assertTrue(prompt.contains("같은 execution fact를 문장만 바꿔 반복하지 마라"));
+        assertTrue(prompt.contains("backendFinalScore를 그대로 출력해라"));
     }
 }

@@ -53,7 +53,7 @@ class AiAnalysisServiceSessionTest {
 
         SessionAiAnalysisResponse result = service.analyzeSession(request());
 
-        assertEquals(84, result.score());
+        assertEquals(0, result.score());
         assertEquals("grounded", result.summary());
         assertEquals(List.of("w"), result.warnings());
         assertEquals(List.of("s"), result.strengths());
@@ -72,7 +72,7 @@ class AiAnalysisServiceSessionTest {
 
         SessionAiAnalysisResponse result = service.analyzeSession(request());
 
-        assertEquals(70, result.score());
+        assertEquals(0, result.score());
         assertEquals("sparse", result.summary());
         assertEquals(List.of(), result.warnings());
         assertEquals(List.of(), result.strengths());

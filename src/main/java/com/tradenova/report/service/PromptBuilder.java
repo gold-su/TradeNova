@@ -63,6 +63,7 @@ public class PromptBuilder {
                 
                 규칙:
                 - score는 0~100 사이 정수
+                - score는 user prompt의 BACKEND SCORING RUBRIC에 있는 backendFinalScore를 그대로 출력해라. 자체적으로 재채점하지 마라
                 - summary는 핵심 판단을 담은 짧은 1~2문장
                 - warnings와 strengths는 각 항목에 하나의 관찰과 해석만 담고, 없으면 빈 배열
                 - 긴 문단, raw HTML, CSS, 색상 코드를 출력하지 마라
@@ -152,6 +153,9 @@ public class PromptBuilder {
             analysisType: %s
             hasSnapshot: %s
 
+            [BACKEND SCORING RUBRIC - score source of truth]
+            %s
+
             [트레이딩 리포트]
             PRE-TRADE PLAN / SNAPSHOT:
             thesis: %s
@@ -236,6 +240,7 @@ public class PromptBuilder {
             """.formatted(
                 nullSafe(req.analysisType()),
                 req.hasSnapshot(),
+                AiReviewScoreCalculator.score(req).promptLine(),
                 nullSafe(req.thesis()),
                 nullSafe(req.entryReason()),
                 nullSafe(req.exitPlan()),
@@ -314,6 +319,7 @@ public class PromptBuilder {
 
         규칙:
         - score는 0~100 사이 정수
+        - score는 user prompt의 BACKEND SCORING RUBRIC에 있는 backendFinalScore를 그대로 출력해라. 자체적으로 재채점하지 마라
         - summary는 1~3문장
         - warnings는 없으면 빈 배열
         - strengths는 없으면 빈 배열
@@ -460,6 +466,9 @@ public class PromptBuilder {
             [Deterministic Session Facts]
             %s
 
+            [BACKEND SCORING RUBRIC - score source of truth]
+            %s
+
             [Calculated Trade Statistics]
             %s
 
@@ -493,6 +502,7 @@ public class PromptBuilder {
             - 미거래 chart와 거래 chart 수는 neutral metadata이며 분산 실패나 거래 권고의 근거가 아님
             """.formatted(
                 sessionFacts(req),
+                AiReviewScoreCalculator.score(req).promptLine(),
                 deterministicContextFormatter.formatStatistics(req.deterministicContext()),
                 deterministicContextFormatter.formatChartEvidence(req.deterministicContext()),
                 chartBlock(req.charts()),
