@@ -76,6 +76,9 @@ public class PromptBuilder {
                 - 다음 네 축을 분리해 평가해라: Decision Quality, Risk / Plan Quality, Execution Quality, Learning Point
                 - Decision Quality를 우선해 사용자의 판단 근거가 판단 시점 기술 사실과 연결되는지, 모순되는지, 얼마나 구체적인지 평가해라
                 - Decision Quality에는 evidence가 충분할 때 판단을 지지하는 support evidence와 판단을 약화시키는 counter-evidence를 모두 비교해라
+                - Presence is not quality. 이유가 기록됐다는 사실만으로 명확하거나 강하거나 기술적으로 뒷받침된 근거라고 평가하지 마라
+                - "오를 것 같아서", "많이 올라서", "떨어질 것 같아서", "그냥", "느낌이 좋아서" 같은 짧고 일반적인 이유는 추가 조건 evidence가 없으면 low-specificity다
+                - 계획과 실행이 일치해도 약한 이유의 quality를 상향하지 마라
                 - counter-evidence는 당시 기다릴 이유, 불확실성, 확인되지 않은 조건, 사용자 가설과 충돌한 데이터로 설명하고 정답/오답으로 단정하지 마라
                 - Risk / Plan Quality는 stop/target의 존재와 구체성, 제공된 변동성 evidence와의 관계를 평가하되 최적이라고 단정하지 마라
                 - Execution Quality는 plan 변경, manual/automatic exit, trade sequence와 확인 가능한 plan/action 일치만 평가해라
@@ -126,7 +129,7 @@ public class PromptBuilder {
                 - 응답 공간은 판단 근거 분석, counter-evidence, 계획 품질, 실행 품질, 다음 훈련 포인트 순으로 사용해라
                 - 단순 사실 요약은 필요한 경우에만 최소한 사용해라
                 - 수량, 100% 청산, plan/reason/snapshot 존재, 자동 청산 발생, backend 상태명은 분석 결론에 꼭 필요할 때만 최소한 언급해라
-                - stopLossPrice, takeProfitPrice, exitRiskPlan, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
+                - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
                 - summary 또는 warning에는 supplied evidence가 있을 때 "이번 거래의 핵심 복기 포인트는 **...**입니다"처럼 핵심 판단 하나가 드러나게 작성해라
                 - 미래 매수/매도 가격, 시점, 수량을 추천하지 마라
                 - 기술적 분석을 확실한 진실로 단정하지 마라. 근거가 부족하면 강하게 검증할 수 없다고 밝혀라
@@ -276,10 +279,18 @@ public class PromptBuilder {
     private String chartActionEvidence(TradeActionAiEvidence action) {
         if (action == null) return "ACTION-TIME USER CLAIM: unavailable\nLINKED PRE-TRADE PLAN: unresolved";
         String plan = action.scenarioPlan() == null ? "unresolved" : action.scenarioPlan().toString();
-        return "ACTION-TIME USER CLAIM: " + action.reasons()
+        return "ACTION-TIME USER CLAIM: " + actionReasons(action)
                 + "\nACTUAL ACTION: tradeId=" + action.tradeId() + ", side=" + action.side()
                 + ", candleTime=" + action.candleTime()
                 + "\nLINKED PRE-TRADE PLAN: " + plan;
+    }
+
+    private String actionReasons(TradeActionAiEvidence action) {
+        if (action.reasons().isEmpty()) return "unavailable";
+        return action.reasons().stream()
+                .map(reason -> "{reason:" + nullSafe(reason.entryReason())
+                        + ", risk rationale:" + nullSafe(reason.riskNote()) + "}")
+                .toList().toString();
     }
 
     /**
@@ -340,6 +351,10 @@ public class PromptBuilder {
         - 결과가 아니라 PLAN -> ACTION -> FACT -> EXECUTION 의사결정 과정을 평가해라
         - 다음 네 축을 분리해 평가해라: Decision Quality, Risk / Plan Quality, Execution Quality, Learning Point
         - Decision Quality는 시간적으로 연결된 사용자 근거와 제공된 판단 시점 fact의 일치, 모순, 구체성을 우선 평가해라
+        - Presence is not quality. reason 존재와 reason quality를 분리하고, 문장이 저장됐다는 이유만으로 좋은 근거라고 평가하지 마라
+        - "오를 것 같아서", "많이 올라서", "떨어질 것 같아서", "그냥", "느낌이 좋아서"는 추가 structured context가 없으면 low-specificity evidence다
+        - 짧고 일반적인 reason을 clear, strong, technically grounded라고 표현하지 마라
+        - execution이 plan과 일치해도 weak reason의 quality를 높이지 마라
         - evidence가 충분하면 사용자의 판단을 지지한 support evidence와 약화시킨 counter-evidence를 함께 비교해라
         - counter-evidence는 불확실성, 확인되지 않은 조건, 사용자 가설과 충돌한 fact로 설명하고 정답/오답 framing을 사용하지 마라
         - Risk / Plan Quality는 계획 자체의 존재와 구체성을, Execution Quality는 실제 실행과 compliance를 평가하며 둘을 섞지 마라
@@ -382,7 +397,7 @@ public class PromptBuilder {
         deterministic evidence rules:
         - use only supplied evidence. 제공되지 않은 technical indicator, volume, support/resistance, 사용자 의도를 만들어내지 마라
         - observation과 interpretation을 구분하고, unavailable evidence는 있는 것처럼 표현하지 마라
-        - stopLossPrice, takeProfitPrice, exitRiskPlan, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
+        - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
         - 내부 상태와 field는 evidence 해석에만 사용하고 자연스러운 사용자 언어로 바꿔라
         - backend가 제공한 통계와 episode 계산값을 다시 계산하거나 수정하지 마라
         - evidence가 없는 성향, 감정, 원인을 사실처럼 단정하지 마라

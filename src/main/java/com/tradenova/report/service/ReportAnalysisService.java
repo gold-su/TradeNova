@@ -382,7 +382,7 @@ public class ReportAnalysisService {
                 matched.getChartId(),       // 차트 ID
                 matched.getType().name(),   // 타입 (AI)
                 matched.getSummary(),       // 한 줄 요약
-                matched.getPayloadJson(),   // 상세 분석 JSON
+                AiReviewOutputSanitizer.sanitizedCopy(matched.getPayloadJson()), // 상세 분석 JSON
                 matched.getCreatedAt()      // 생성 시간
         );
     }

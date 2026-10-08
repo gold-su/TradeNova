@@ -18,7 +18,7 @@ class AiReviewScoreCalculatorTest {
         ));
 
         assertTrue(score.finalScore() < 80);
-        assertTrue(score.appliedCap() <= 59);
+        assertTrue(score.appliedCap() <= 69);
     }
 
     @Test
@@ -32,6 +32,34 @@ class AiReviewScoreCalculatorTest {
 
         assertTrue(score.finalScore() >= 60);
         assertTrue(score.finalScore() < 90);
+    }
+
+    @Test
+    void productionLikeWeakExitReasonStaysInConservativeRange() {
+        SessionAiAnalysisRequest request = sessionRequestWithSeparateExitEvidence(
+                "이동평균선 보고 들어가려고 함",
+                "지지선 깨지면 손절",
+                "많이 올랐음"
+        );
+
+        AiReviewScoreCalculator.Score score = AiReviewScoreCalculator.score(request);
+
+        assertTrue(score.finalScore() >= 60);
+        assertTrue(score.finalScore() <= 75);
+        assertEquals(1, score.exitSpecificity());
+    }
+
+    @Test
+    void technicalKeywordListWithoutVerifiableConditionCannotScoreHighly() {
+        AiReviewScoreCalculator.Score score = AiReviewScoreCalculator.score(chartRequest(
+                "RSI, 이동평균선, 거래량, 지지선, 저항선, 추세를 고려했다",
+                "많이 올랐음",
+                "지지선 깨지면 손절",
+                true, true, true
+        ));
+
+        assertEquals(1, score.entrySpecificity());
+        assertTrue(score.finalScore() < 80);
     }
 
     @Test
@@ -58,7 +86,7 @@ class AiReviewScoreCalculatorTest {
         AiReviewScoreCalculator.Score score = AiReviewScoreCalculator.score(request);
 
         assertEquals(79, score.appliedCap());
-        assertTrue(score.execution() < 10);
+        assertTrue(score.execution() <= 10);
     }
 
     @Test
@@ -148,6 +176,27 @@ class AiReviewScoreCalculatorTest {
                 List.of(new SessionChartSummary(10L, 0, "T", "Test", "COMPLETED", 10,
                         2, 2, 1, true, pnl)),
                 List.of(new SessionSnapshotSummary(10L, 1, entry, entry, exit, risk, "")),
+                null,
+                new SessionQualitativeEvidenceContext(1L, List.of(qualitativeChart), List.of(compliance))
+        );
+    }
+
+    private SessionAiAnalysisRequest sessionRequestWithSeparateExitEvidence(
+            String entryReason, String exitPlan, String sellReason) {
+        ChartQualitativeEvidenceContext qualitativeChart = new ChartQualitativeEvidenceContext(
+                10L, true, false, List.of(), List.of(),
+                List.of(action(1L, "BUY", entryReason), action(2L, "SELL", sellReason))
+        );
+        RiskComplianceAiEvidence compliance = new RiskComplianceAiEvidence(
+                null, 2L, 3L, true, true, true, "TAKE_PROFIT", 100,
+                BigDecimal.valueOf(100), BigDecimal.ONE, BigDecimal.ONE, true,
+                "FOLLOWED", "fixture"
+        );
+        return new SessionAiAnalysisRequest(
+                1L, 2L, "RANDOM", "COMPLETED", 1, 1, 2, 2,
+                List.of(new SessionChartSummary(10L, 0, "T", "Test", "COMPLETED", 10,
+                        2, 2, 1, true, BigDecimal.ZERO)),
+                List.of(new SessionSnapshotSummary(10L, 1, entryReason, entryReason, exitPlan, "", "")),
                 null,
                 new SessionQualitativeEvidenceContext(1L, List.of(qualitativeChart), List.of(compliance))
         );

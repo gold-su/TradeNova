@@ -19,14 +19,23 @@ final class AiReviewScoreCalculator {
             "오를 것 같", "내릴 것 같", "많이 올라", "많이 내려", "그냥", "떨어지면", "이평 보고",
             "이동평균선 보고", "느낌", "왠지"
     );
+    private static final List<String> CONDITION_TERMS = List.of(
+            "돌파", "이탈", "반등", "유지", "접근", "둔화", "증가 시", "감소 시", "깨지", "경우", "이면", "하면"
+    );
+    private static final List<String> ACTION_TERMS = List.of(
+            "진입", "매수", "손절", "익절", "매도", "청산", "관망", "일부"
+    );
 
     private AiReviewScoreCalculator() {
     }
 
     static Score score(AiAnalysisRequest request) {
         int entry = best(entryTexts(request));
-        int exit = best(exitTexts(request));
+        int exitPlan = best(exitPlanTexts(request));
         int risk = best(riskTexts(request));
+        boolean sell = request.lifecycleEvidence() != null
+                && "SELL".equals(request.lifecycleEvidence().latestTradeSide());
+        int exit = sell ? actionSpecificity(request.latestActionEvidence()) : exitPlan;
 
         int decision = decisionScore(entry, exit);
         int plan = planScore(
@@ -34,12 +43,10 @@ final class AiReviewScoreCalculator {
                 request.takeProfitPrice() != null,
                 Boolean.TRUE.equals(request.autoExitEnabled()),
                 risk,
-                exit
+                exitPlan
         );
         boolean buy = request.lifecycleEvidence() != null && request.lifecycleEvidence().historicalBuyExecuted();
-        boolean sell = request.lifecycleEvidence() != null
-                && "SELL".equals(request.lifecycleEvidence().latestTradeSide());
-        int actionReason = best(actionReasonTexts(request.entryActionEvidence(), request.latestActionEvidence()));
+        int actionReason = averageActionSpecificity(request.entryActionEvidence(), request.latestActionEvidence());
         int execution = executionScore(buy, sell, actionReason, false);
         int reviewability = reviewabilityScore(entry, exit, risk);
         return finish(decision, plan, execution, reviewability, entry, exit, risk, buy || sell, actionReason);
@@ -47,20 +54,21 @@ final class AiReviewScoreCalculator {
 
     static Score score(SessionAiAnalysisRequest request) {
         List<String> entryTexts = new ArrayList<>();
-        List<String> exitTexts = new ArrayList<>();
+        List<String> exitPlanTexts = new ArrayList<>();
+        List<String> sellReasonTexts = new ArrayList<>();
         List<String> riskTexts = new ArrayList<>();
         if (request.snapshots() != null) {
             request.snapshots().forEach(snapshot -> {
                 entryTexts.add(snapshot.thesis());
                 entryTexts.add(snapshot.entryReason());
-                exitTexts.add(snapshot.exitPlan());
+                exitPlanTexts.add(snapshot.exitPlan());
                 riskTexts.add(snapshot.riskNote());
             });
         }
 
         boolean buy = false;
         boolean sell = false;
-        int actionReason = 0;
+        List<Integer> actionSpecificities = new ArrayList<>();
         boolean stop = false;
         boolean target = false;
         boolean autoExit = false;
@@ -70,10 +78,10 @@ final class AiReviewScoreCalculator {
                 for (TradeActionAiEvidence action : chart.tradeActions()) {
                     buy |= "BUY".equals(action.side());
                     sell |= "SELL".equals(action.side());
-                    actionReason = Math.max(actionReason, best(actionReasonTexts(action)));
-                    addScenarioTexts(action.scenarioPlan(), entryTexts, exitTexts, riskTexts);
+                    actionSpecificities.add(actionSpecificity(action));
+                    addScenarioTexts(action.scenarioPlan(), entryTexts, exitPlanTexts, riskTexts);
                     if ("BUY".equals(action.side())) addReasonTexts(action, entryTexts, riskTexts);
-                    if ("SELL".equals(action.side())) addReasonTexts(action, exitTexts, riskTexts);
+                    if ("SELL".equals(action.side())) addReasonTexts(action, sellReasonTexts, riskTexts);
                 }
             }
             for (RiskComplianceAiEvidence evidence : request.qualitativeEvidenceContext().riskCompliance()) {
@@ -85,11 +93,13 @@ final class AiReviewScoreCalculator {
         }
 
         int entry = best(entryTexts);
-        int exit = best(exitTexts);
+        int exitPlan = best(exitPlanTexts);
+        int exit = sell ? best(sellReasonTexts) : exitPlan;
         int risk = best(riskTexts);
+        int actionReason = average(actionSpecificities);
         return finish(
                 decisionScore(entry, exit),
-                planScore(stop, target, autoExit, risk, exit),
+                planScore(stop, target, autoExit, risk, exitPlan),
                 executionScore(buy, sell, actionReason, followed),
                 reviewabilityScore(entry, exit, risk),
                 entry, exit, risk, buy || sell, actionReason
@@ -101,32 +111,36 @@ final class AiReviewScoreCalculator {
                                 boolean hasExecutedAction, int actionReasonSpecificity) {
         int raw = decision + plan + execution + reviewability;
         int cap = 100;
-        if (entrySpecificity <= 1 && exitSpecificity <= 1) cap = Math.min(cap, 59);
+        if (entrySpecificity <= 1 && exitSpecificity <= 1) cap = Math.min(cap, plan >= 17 ? 69 : 59);
         if (entrySpecificity <= 2 && exitSpecificity <= 2) cap = Math.min(cap, 79);
         if (entrySpecificity <= 1 && riskSpecificity <= 1) cap = Math.min(cap, 69);
         if (hasExecutedAction && actionReasonSpecificity == 0) cap = Math.min(cap, 79);
-        return new Score(Math.min(raw, cap), decision, plan, execution, reviewability, cap);
+        return new Score(Math.min(raw, cap), decision, plan, execution, reviewability, cap,
+                entrySpecificity, exitSpecificity, riskSpecificity, actionReasonSpecificity);
     }
 
     private static int decisionScore(int entry, int exit) {
-        return points(entry, 0, 10, 18, 25) + points(exit, 0, 5, 10, 15);
+        return points(entry, 0, 13, 18, 25) + points(exit, 0, 7, 10, 15);
     }
 
     private static int planScore(boolean stop, boolean target, boolean autoExit, int risk, int exit) {
-        int score = (stop ? 3 : 0) + (target ? 3 : 0) + (autoExit ? 2 : 0);
-        score += points(risk, 0, 5, 10, 14);
-        score += points(exit, 0, 1, 2, 3);
+        int score = (stop ? 5 : 0) + (target ? 5 : 0) + (autoExit ? 3 : 0);
+        score += points(risk, 0, 3, 6, 9);
+        score += points(exit, 0, 2, 4, 5);
         return Math.min(25, score);
     }
 
     private static int executionScore(boolean buy, boolean sell, int actionReason, boolean followed) {
-        int score = (buy ? 4 : 0) + (sell ? 4 : 0) + points(actionReason, 0, 3, 6, 9);
-        if (followed) score += 3;
+        int score = (buy ? 5 : 0) + (sell ? 5 : 0) + points(actionReason, 0, 3, 6, 9);
+        if (followed) score += 4;
         return Math.min(20, score);
     }
 
     private static int reviewabilityScore(int entry, int exit, int risk) {
-        return Math.min(15, entry * 2 + exit * 2 + risk);
+        return Math.min(15,
+                points(entry, 0, 3, 5, 6)
+                        + points(exit, 0, 3, 5, 6)
+                        + points(risk, 0, 2, 3, 3));
     }
 
     private static int points(int level, int none, int vague, int grounded, int specific) {
@@ -147,9 +161,12 @@ final class AiReviewScoreCalculator {
         String text = value.strip().toLowerCase(Locale.ROOT);
         boolean vague = VAGUE_TERMS.stream().anyMatch(text::contains);
         long evidenceTerms = EVIDENCE_TERMS.stream().filter(text::contains).count();
-        if (vague || text.length() < 12) return 1;
-        if (NUMBER.matcher(text).matches() || (text.length() >= 25 && evidenceTerms >= 3)) return 3;
-        if (evidenceTerms >= 2 || text.length() >= 20) return 2;
+        long conditionTerms = CONDITION_TERMS.stream().filter(text::contains).count();
+        boolean actionLinked = ACTION_TERMS.stream().anyMatch(text::contains);
+        if (vague) return 1;
+        if (NUMBER.matcher(text).matches() && conditionTerms > 0 && actionLinked) return 3;
+        if (evidenceTerms >= 2 && conditionTerms >= 2 && actionLinked) return 3;
+        if ((conditionTerms > 0 && actionLinked) || (evidenceTerms > 0 && conditionTerms > 0)) return 2;
         return 1;
     }
 
@@ -161,11 +178,11 @@ final class AiReviewScoreCalculator {
         return texts;
     }
 
-    private static List<String> exitTexts(AiAnalysisRequest request) {
+    private static List<String> exitPlanTexts(AiAnalysisRequest request) {
         List<String> texts = new ArrayList<>(List.of(nullToEmpty(request.exitPlan())));
-        if (request.latestActionEvidence() != null && "SELL".equals(request.latestActionEvidence().side())) {
-            addReasonTexts(request.latestActionEvidence(), texts, new ArrayList<>());
-        }
+        ScenarioPlanAiEvidence scenario = request.entryActionEvidence() == null
+                ? null : request.entryActionEvidence().scenarioPlan();
+        addScenarioTexts(scenario, new ArrayList<>(), texts, new ArrayList<>());
         return texts;
     }
 
@@ -190,6 +207,26 @@ final class AiReviewScoreCalculator {
         return texts;
     }
 
+    private static int actionSpecificity(TradeActionAiEvidence action) {
+        return action == null ? 0 : best(actionReasonTexts(action));
+    }
+
+    private static int averageActionSpecificity(TradeActionAiEvidence first, TradeActionAiEvidence second) {
+        if (first == null && second == null) return 0;
+        if (first != null && second != null && java.util.Objects.equals(first.tradeId(), second.tradeId())) {
+            return actionSpecificity(first);
+        }
+        List<Integer> values = new ArrayList<>();
+        if (first != null) values.add(actionSpecificity(first));
+        if (second != null) values.add(actionSpecificity(second));
+        return average(values);
+    }
+
+    private static int average(List<Integer> values) {
+        if (values.isEmpty()) return 0;
+        return (int) Math.floor(values.stream().mapToInt(Integer::intValue).average().orElse(0));
+    }
+
     private static void addReasonTexts(TradeActionAiEvidence action, List<String> decision, List<String> risk) {
         if (action == null) return;
         action.reasons().forEach(reason -> {
@@ -212,14 +249,18 @@ final class AiReviewScoreCalculator {
     }
 
     record Score(int finalScore, int decisionEvidence, int planAndRisk, int execution,
-                 int reviewability, int appliedCap) {
+                 int reviewability, int appliedCap, int entrySpecificity, int exitSpecificity,
+                 int riskSpecificity, int actionReasonSpecificity) {
         String promptLine() {
             return "backendFinalScore=" + finalScore
                     + ", decisionEvidence=" + decisionEvidence + "/40"
                     + ", planAndRisk=" + planAndRisk + "/25"
                     + ", execution=" + execution + "/20"
                     + ", reviewability=" + reviewability + "/15"
-                    + ", appliedCap=" + appliedCap;
+                    + ", appliedCap=" + appliedCap
+                    + ", evidenceSpecificity={entry:" + entrySpecificity
+                    + ",exit:" + exitSpecificity + ",risk:" + riskSpecificity
+                    + ",actionReason:" + actionReasonSpecificity + "}";
         }
     }
 }

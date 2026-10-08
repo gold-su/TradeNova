@@ -119,7 +119,8 @@ class TrainingHistoryServiceTest {
         when(documents.countHistoryByChartIdsAndKind(7L, List.of(304L, 305L), ReportKind.SNAPSHOT))
                 .thenReturn(List.of());
         TrainingEvent sessionAi = ai(40L, 304L, "SESSION", 85L, 88);
-        ((ObjectNode) sessionAi.getPayloadJson()).putArray("strengths").add("plan followed");
+        ((ObjectNode) sessionAi.getPayloadJson()).putArray("strengths")
+                .add("entryRiskPlan=none; TradeReasonAiEvidence; compliance UNKNOWN");
         TrainingEvent chartAi = ai(30L, 304L, "CHART", 304L, 73);
         // Same event chart, wrong payload chart: must not attach to either chart.
         TrainingEvent forgedChart = ai(90L, 304L, "CHART", 305L, 100);
@@ -136,7 +137,10 @@ class TrainingHistoryServiceTest {
         TrainingHistoryDetailResponse result = service.detail(7L, 85L);
 
         assertEquals(88, result.session().sessionAiScore());
-        assertEquals("plan followed", result.sessionAiReview().payloadJson().path("strengths").get(0).asText());
+        String persistedReview = result.sessionAiReview().payloadJson().path("strengths").get(0).asText();
+        assertTrue(persistedReview.contains("진입 당시 별도의 가격 기반 리스크 규칙은 설정되어 있지 않음"));
+        assertTrue(persistedReview.contains("계획 이행 여부를 명확히 판단할 근거가 부족함"));
+        assertFalse(persistedReview.contains("TradeReasonAiEvidence"));
         assertEquals(2, result.charts().size());
         assertEquals("T304", result.charts().get(0).symbolTicker());
         assertEquals("ETC", result.charts().get(0).sector());

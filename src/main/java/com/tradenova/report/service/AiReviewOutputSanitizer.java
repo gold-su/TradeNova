@@ -7,10 +7,15 @@ import com.fasterxml.jackson.databind.node.TextNode;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Removes backend vocabulary from user-facing AI text while preserving its structure and Markdown emphasis. */
-final class AiReviewOutputSanitizer {
+public final class AiReviewOutputSanitizer {
 
     private static final List<Map.Entry<String, String>> NATURAL_LANGUAGE = List.of(
             Map.entry("stopLossPrice가", "손절가가"),
@@ -22,7 +27,11 @@ final class AiReviewOutputSanitizer {
             Map.entry("autoExitEnabled", "자동 청산 설정"),
             Map.entry("stopLossPrice", "손절가"),
             Map.entry("takeProfitPrice", "익절가"),
-            Map.entry("exitRiskPlan", "청산 계획"),
+            Map.entry("TradeReasonAiEvidence", ""),
+            Map.entry("RiskComplianceAiEvidence", ""),
+            Map.entry("ScenarioPlanAiEvidence", ""),
+            Map.entry("entryRiskPlan", "진입 당시 리스크 계획"),
+            Map.entry("exitRiskPlan", "청산 시점 리스크 계획"),
             Map.entry("stopLoss", "손절 기준"),
             Map.entry("takeProfit", "익절 기준"),
             Map.entry("autoExit", "자동 청산 설정"),
@@ -40,20 +49,35 @@ final class AiReviewOutputSanitizer {
     private AiReviewOutputSanitizer() {
     }
 
-    static String sanitize(String text) {
+    public static String sanitize(String text) {
         if (text == null || text.isEmpty()) return text;
-        String sanitized = text
+        String sanitized = replaceWrappedPriceAssignment(text, "손절", "stopLossPrice", "손절가");
+        sanitized = replaceWrappedPriceAssignment(sanitized, "익절", "takeProfitPrice", "익절가");
+        sanitized = replacePriceAssignment(sanitized, "stopLossPrice", "손절가");
+        sanitized = replacePriceAssignment(sanitized, "takeProfitPrice", "익절가");
+        sanitized = sanitized
+                .replaceAll("(?i)\\bentryRiskPlan\\s*=\\s*none\\b", "진입 당시 별도의 가격 기반 리스크 규칙은 설정되어 있지 않음")
+                .replaceAll("(?i)\\bexitRiskPlan\\s*=\\s*none\\b", "청산 시점에 별도의 가격 기반 리스크 규칙은 설정되어 있지 않음")
                 .replaceAll("(?i)\\bsnapshot#\\d+", "사전 계획")
                 .replaceAll("(?i)\\btradeId\\s*=\\s*\\d+\\s*", "")
-                .replaceAll("(?i)\\bcompliance\\s*[:=]?\\s*UNKNOWN\\b", "계획 이행 여부를 명확히 판단할 근거가 부족함");
+                .replaceAll("(?i)\\bcompliance\\s*[:=]?\\s*UNKNOWN\\b", "계획 이행 여부를 명확히 판단할 근거가 부족함")
+                .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*true\\b", "자동 청산 설정이 활성화됨")
+                .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*false\\b", "자동 청산 설정이 비활성화됨")
+                .replaceAll("(?i)\\bbackend\\s+기술\\s+사실\\b", "당시 기술적 지표")
+                .replace("리스크 컴플라이언스", "계획 이행 여부");
         for (Map.Entry<String, String> entry : NATURAL_LANGUAGE) {
             sanitized = sanitized.replace(entry.getKey(), entry.getValue());
         }
-        sanitized = sanitized.replaceAll("\\bUNKNOWN\\b", "근거가 충분하지 않음");
-        return sanitized;
+        return sanitized
+                .replaceAll("(?i)\\bNOT_APPLICABLE\\b", "평가 대상 아님")
+                .replaceAll("(?i)\\bUNKNOWN\\b", "근거가 충분하지 않음")
+                .replaceAll("(?i)\\bcompliance\\b", "계획 이행 여부")
+                .replaceAll("(?i)\\bbackend\\b", "시스템이 계산한")
+                .replaceAll("[ \\t]{2,}", " ")
+                .strip();
     }
 
-    static JsonNode sanitizeTextValues(JsonNode node) {
+    public static JsonNode sanitizeTextValues(JsonNode node) {
         if (node == null || node.isNull()) return node;
         if (node.isTextual()) return TextNode.valueOf(sanitize(node.textValue()));
         if (node.isArray()) {
@@ -72,5 +96,43 @@ final class AiReviewOutputSanitizer {
             }
         }
         return node;
+    }
+
+    public static JsonNode sanitizedCopy(JsonNode node) {
+        return node == null ? null : sanitizeTextValues(node.deepCopy());
+    }
+
+    private static String replacePriceAssignment(String text, String field, String label) {
+        Pattern pattern = Pattern.compile(Pattern.quote(field) + "\\s*=\\s*([0-9,]+(?:\\.[0-9]+)?)");
+        Matcher matcher = pattern.matcher(text);
+        StringBuffer result = new StringBuffer();
+        while (matcher.find()) {
+            String replacement = label + " " + formatNumber(matcher.group(1)) + "원";
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
+    private static String replaceWrappedPriceAssignment(String text, String prefix, String field, String label) {
+        Pattern pattern = Pattern.compile(Pattern.quote(prefix) + "\\s*\\(\\s*" + Pattern.quote(field)
+                + "\\s*=\\s*([0-9,]+(?:\\.[0-9]+)?)\\s*\\)");
+        Matcher matcher = pattern.matcher(text);
+        StringBuffer result = new StringBuffer();
+        while (matcher.find()) {
+            String replacement = label + " " + formatNumber(matcher.group(1)) + "원";
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
+    private static String formatNumber(String raw) {
+        BigDecimal value = new BigDecimal(raw.replace(",", ""));
+        NumberFormat format = NumberFormat.getNumberInstance(Locale.KOREA);
+        format.setGroupingUsed(true);
+        format.setMaximumFractionDigits(Math.max(0, value.scale()));
+        format.setMinimumFractionDigits(0);
+        return format.format(value);
     }
 }

@@ -54,7 +54,7 @@ public class SessionQualitativeEvidenceFormatter {
                         .append(", qty=").append(value(action.qty())).append(", price=").append(value(action.price()))
                         .append(", authoredAt=").append(value(action.createdAt()))
                         .append(", timeline=").append(anchor(action.timeline())).append(", reasons=")
-                        .append(action.reasons()).append('\n');
+                        .append(reasons(action)).append('\n');
                 if (action.scenarioPlan() != null) out.append("    LINKED PRE-TRADE PLAN snapshot#")
                         .append(action.scenarioPlan().snapshotId()).append(" text={entryReason:")
                         .append(value(action.scenarioPlan().entryReason())).append(",thesis:")
@@ -74,5 +74,13 @@ public class SessionQualitativeEvidenceFormatter {
 
     private String value(Object value) {
         return value == null ? "undefined" : value.toString().replace('\n', ' ').trim();
+    }
+
+    private String reasons(TradeActionAiEvidence action) {
+        if (action.reasons().isEmpty()) return "unavailable";
+        return action.reasons().stream()
+                .map(reason -> "{reason:" + value(reason.entryReason())
+                        + ", risk rationale:" + value(reason.riskNote()) + "}")
+                .toList().toString();
     }
 }

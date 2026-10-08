@@ -24,7 +24,7 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("raw HTML, CSS, 색상 코드를 출력하지 마라"));
         assertTrue(prompt.contains("support evidence와 판단을 약화시키는 counter-evidence"));
         assertTrue(prompt.contains("단순 사실 요약은 필요한 경우에만 최소한"));
-        assertTrue(prompt.contains("Backend Risk Plan Compliance, FOLLOWED, COMPLETED"));
+        assertTrue(prompt.contains("Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE"));
         assertTrue(prompt.contains("항목당 최대 1~2개 **...**"));
         assertTrue(prompt.contains("** 이외의 Markdown heading, list marker, code block, link 문법은 사용하지 마라"));
         assertTrue(prompt.contains("historicalAutoExitEnabled, currentAutoExitEnabled, actual automatic exit"));
@@ -33,7 +33,7 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("structured risk rule과 narrative scenario plan은 서로 다른 evidence"));
         assertTrue(prompt.contains("손절 가격은 설정됐지만 그 근거는 충분히 기록되지 않았다"));
         assertTrue(prompt.contains("When two facts appear inconsistent, explain the scope difference"));
-        assertTrue(prompt.contains("stopLossPrice, takeProfitPrice, exitRiskPlan, autoExitEnabled"));
+        assertTrue(prompt.contains("stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan"));
         assertTrue(prompt.contains("이번 거래의 핵심 복기 포인트는 **...**입니다"));
         assertTrue(prompt.contains("current position state는 현재 상태만 설명"));
         assertTrue(prompt.contains("historical BUY/SELL trade와 linked event가 authoritative evidence"));
@@ -45,6 +45,8 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("exit 이후 값, session final state, 종목 공개 이후 정보"));
         assertTrue(prompt.contains("수량과 현금 잔고만으로 포지션 크기가 적절하다"));
         assertTrue(prompt.contains("risk-at-stop, account risk %, position value ratio"));
+        assertTrue(prompt.contains("Presence is not quality"));
+        assertTrue(prompt.contains("계획과 실행이 일치해도 약한 이유의 quality를 상향하지 마라"));
     }
 
     @Test
@@ -61,7 +63,7 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("fact recap보다 그 의미와 trade-off 해석"));
         assertTrue(prompt.contains("support evidence와 약화시킨 counter-evidence"));
         assertTrue(prompt.contains("목표 도달이나 자동 익절 성공을 Decision Quality의 근거로 사용하지 마라"));
-        assertTrue(prompt.contains("Backend Risk Plan Compliance, FOLLOWED, COMPLETED"));
+        assertTrue(prompt.contains("Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE"));
         assertTrue(prompt.contains("generic 문구를 사용하지 마라"));
         assertTrue(prompt.contains("항목당 최대 1~2개 **...**"));
         assertTrue(prompt.contains("exitRiskPlan은 청산 거래 시점의 저장된 plan snapshot"));
@@ -77,5 +79,7 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("이후 가격, indicator, exit 결과, session final state를 섞지 마라"));
         assertTrue(prompt.contains("같은 execution fact를 문장만 바꿔 반복하지 마라"));
         assertTrue(prompt.contains("backendFinalScore를 그대로 출력해라"));
+        assertTrue(prompt.contains("reason 존재와 reason quality를 분리"));
+        assertTrue(prompt.contains("짧고 일반적인 reason을 clear, strong, technically grounded라고 표현하지 마라"));
     }
 }

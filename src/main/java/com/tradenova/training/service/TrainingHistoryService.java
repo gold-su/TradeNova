@@ -10,6 +10,7 @@ import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.repository.ReportDocumentRepository;
 import com.tradenova.report.repository.TrainingEventRepository;
+import com.tradenova.report.service.AiReviewOutputSanitizer;
 import com.tradenova.training.dto.*;
 import com.tradenova.training.entity.TrainingChartStatus;
 import com.tradenova.training.entity.TrainingSession;
@@ -159,7 +160,7 @@ public class TrainingHistoryService {
     private TrainingEventResponse response(TrainingEvent event) {
         return event == null ? null : new TrainingEventResponse(
                 event.getId(), event.getChartId(), event.getType().name(), event.getSummary(),
-                event.getPayloadJson(), event.getCreatedAt());
+                AiReviewOutputSanitizer.sanitizedCopy(event.getPayloadJson()), event.getCreatedAt());
     }
 
     private record Evidence(

@@ -346,7 +346,7 @@ public class SessionReportAnalysisService {
                 matched.getChartId(),
                 matched.getType().name(),
                 matched.getSummary(),
-                matched.getPayloadJson(),
+                AiReviewOutputSanitizer.sanitizedCopy(matched.getPayloadJson()),
                 matched.getCreatedAt()
         );
     }
