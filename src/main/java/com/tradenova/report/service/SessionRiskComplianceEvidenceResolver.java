@@ -55,7 +55,10 @@ public class SessionRiskComplianceEvidenceResolver {
                         continue;
                     }
                     if (trade.getSide() != TradeSide.SELL) { complete = false; continue; }
-                    TrainingRiskRuleHistory plan = histories.get(trade.getRiskRuleHistoryId());
+                    Long riskRuleHistoryId = trade.getRiskRuleHistoryId();
+                    // A trade can legitimately have no linked structured risk-rule snapshot.
+                    // Map.of()/Map.copyOf() reject null lookup keys, so preserve that domain state as no plan evidence.
+                    TrainingRiskRuleHistory plan = riskRuleHistoryId == null ? null : histories.get(riskRuleHistoryId);
                     if (plan != null && (!Objects.equals(plan.getUserId(), context.userId())
                             || !Objects.equals(plan.getSessionId(), context.sessionId())
                             || !Objects.equals(plan.getAccountId(), context.accountId())

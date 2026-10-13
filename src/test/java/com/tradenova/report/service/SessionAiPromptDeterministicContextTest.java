@@ -52,6 +52,9 @@ class SessionAiPromptDeterministicContextTest {
         String prompt = promptBuilder.buildSessionUserPrompt(request);
 
         assertTrue(prompt.contains("[Deterministic Session Facts]"));
+        assertTrue(prompt.contains("[BACKEND SCORING RUBRIC - score source of truth]"));
+        assertTrue(prompt.contains("backendFinalScore="));
+        assertTrue(prompt.contains("decisionEvidence="));
         assertFalse(prompt.contains("activeChartCount"));
         assertTrue(prompt.contains("[Calculated Trade Statistics]"));
         assertTrue(prompt.contains("closedEpisodes=1, openEpisodes=1"));

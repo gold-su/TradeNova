@@ -133,7 +133,9 @@ public class TrainingEventService {
                 e.getChartId(),         // chartId
                 e.getType().name(),     // type 문자열 (PROGRESS/TRADE/...)
                 e.getSummary(),         // 한 줄 로그
-                e.getPayloadJson(),     // 상세 JSON
+                e.getType() == Type.AI
+                        ? AiReviewOutputSanitizer.sanitizedCopy(e.getPayloadJson())
+                        : e.getPayloadJson(), // 상세 JSON
                 e.getCreatedAt()        // 생성 시각
         );
     }

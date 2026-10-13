@@ -125,7 +125,9 @@ public class AiAnalysisService {
             }
 
             // 응답 JSON -> AiAnalysisResponse 변환
-            return parseResponse(response.getBody());
+            AiAnalysisResponse parsed = parseResponse(response.getBody());
+            int backendScore = AiReviewScoreCalculator.score(req).finalScore();
+            return new AiAnalysisResponse(backendScore, parsed.summary(), parsed.warnings(), parsed.strengths());
 
         }catch (HttpStatusCodeException e){
             throw new CustomException(ErrorCode.AI_API_CALL_FAILED);
@@ -157,7 +159,7 @@ public class AiAnalysisService {
         JsonNode aiJson = objectMapper.readTree(contentNode.asText());
 
         Integer score = aiJson.path("score").asInt(0);
-        String summary = aiJson.path("summary").asText("");
+        String summary = AiReviewOutputSanitizer.sanitize(aiJson.path("summary").asText(""));
 
         List<String> warnings = objectMapper.convertValue(
                 aiJson.path("warnings"),
@@ -169,7 +171,12 @@ public class AiAnalysisService {
                 objectMapper.getTypeFactory().constructCollectionType(List.class, String.class)
         );
 
-        return new AiAnalysisResponse(score, summary, warnings, strengths);
+        return new AiAnalysisResponse(
+                score,
+                summary,
+                sanitizeTextList(warnings),
+                sanitizeTextList(strengths)
+        );
     }
 
 
@@ -223,7 +230,12 @@ public class AiAnalysisService {
                 throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
             }
             // 8. OpenAI 응답 JSON에서 실제 분석 결과(score, summary 등)를 파싱하여 반환
-            return parseSessionResponse(response.getBody());
+            SessionAiAnalysisResponse parsed = parseSessionResponse(response.getBody());
+            int backendScore = AiReviewScoreCalculator.score(req).finalScore();
+            return new SessionAiAnalysisResponse(
+                    backendScore, parsed.summary(), parsed.warnings(), parsed.strengths(),
+                    parsed.decisionReview(), parsed.riskReview(), parsed.behaviorPatterns(), parsed.nextTrainingFocus()
+            );
 
         } catch (HttpStatusCodeException e) {
             // OpenAI 서버가 4xx / 5xx 응답을 준 경우
@@ -245,7 +257,15 @@ public class AiAnalysisService {
         if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
             throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
         }
-        return objectMapper.treeToValue(objectMapper.readTree(contentNode.asText()), SessionAiAnalysisResponse.class);
+        JsonNode aiJson = objectMapper.readTree(contentNode.asText());
+        return objectMapper.treeToValue(
+                AiReviewOutputSanitizer.sanitizeTextValues(aiJson),
+                SessionAiAnalysisResponse.class
+        );
+    }
+
+    private List<String> sanitizeTextList(List<String> values) {
+        return values == null ? List.of() : values.stream().map(AiReviewOutputSanitizer::sanitize).toList();
     }
 
     /**

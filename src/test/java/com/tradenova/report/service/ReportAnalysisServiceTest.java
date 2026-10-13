@@ -43,6 +43,7 @@ import java.time.Instant;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -163,6 +164,12 @@ class ReportAnalysisServiceTest {
         verify(technicalContextService).calculate(CHART_ID, 59);
         verify(technicalContextService).calculate(CHART_ID, 22);
         verify(technicalContextService).boundedOhlcv(CHART_ID, 22);
+
+        String prompt = new PromptBuilder(new SessionAiDeterministicContextFormatter()).buildUserPrompt(request);
+        assertTrue(prompt.contains("AS_OF_ENTRY - 최신 BUY 결정 시점의 backend 계산 기술 사실"));
+        assertTrue(prompt.contains("asOfProgressIndex=22"));
+        assertTrue(prompt.contains("WITHHELD: post-entry/current evidence is outside the ENTRY decision-time boundary"));
+        assertFalse(prompt.contains("asOfProgressIndex=59"));
     }
 
     @Test
@@ -283,7 +290,11 @@ class ReportAnalysisServiceTest {
         assertTrue(prompt.contains("historicalBuyExecuted=true"));
         assertTrue(prompt.contains("terminalLiquidationReason=END_OF_CHART"));
         assertTrue(prompt.contains("CURRENT/FINAL STATE (entry-time state가 아님)"));
-        assertTrue(prompt.contains("CURRENT RISK RULE STATE (historical trade-time plan이 아님)"));
+        assertTrue(prompt.contains("CURRENT RISK RULE STATE (historical trade-time plan이 아님"));
+        assertTrue(prompt.contains("ACTUAL ACTION (canonical trade; raw values, no entry/risk comparison supplied)"));
+        assertTrue(prompt.contains("latestTradePrice:"));
+        assertTrue(prompt.contains("raw prices, no entry-price relation supplied"));
+        assertTrue(prompt.contains("raw numeric value에서 새로운 비교·거리·비율을 계산하지 마라"));
     }
 
     @Test

@@ -1,6 +1,10 @@
 package com.tradenova.report.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.report.dto.AiAnalysisRequest;
+import com.tradenova.report.dto.AiAnalysisResponse;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiAnalysisResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +17,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -21,11 +26,14 @@ import static org.mockito.Mockito.when;
 class AiAnalysisServiceSessionTest {
     private RestTemplate restTemplate;
     private AiAnalysisService service;
+    private PromptBuilder promptBuilder;
 
     @BeforeEach
     void setUp() {
         restTemplate = mock(RestTemplate.class);
-        PromptBuilder promptBuilder = mock(PromptBuilder.class);
+        promptBuilder = mock(PromptBuilder.class);
+        when(promptBuilder.buildSystemPrompt()).thenReturn("system");
+        when(promptBuilder.buildUserPrompt(any())).thenReturn("user");
         when(promptBuilder.buildSessionSystemPrompt()).thenReturn("system");
         when(promptBuilder.buildSessionUserPrompt(any())).thenReturn("user");
         service = new AiAnalysisService(restTemplate, promptBuilder, new ObjectMapper());
@@ -45,7 +53,7 @@ class AiAnalysisServiceSessionTest {
 
         SessionAiAnalysisResponse result = service.analyzeSession(request());
 
-        assertEquals(84, result.score());
+        assertEquals(0, result.score());
         assertEquals("grounded", result.summary());
         assertEquals(List.of("w"), result.warnings());
         assertEquals(List.of("s"), result.strengths());
@@ -64,7 +72,7 @@ class AiAnalysisServiceSessionTest {
 
         SessionAiAnalysisResponse result = service.analyzeSession(request());
 
-        assertEquals(70, result.score());
+        assertEquals(0, result.score());
         assertEquals("sparse", result.summary());
         assertEquals(List.of(), result.warnings());
         assertEquals(List.of(), result.strengths());
@@ -72,6 +80,66 @@ class AiAnalysisServiceSessionTest {
         assertEquals(List.of(), result.nextTrainingFocus());
         assertNull(result.decisionReview());
         assertNull(result.riskReview());
+    }
+
+    @Test
+    void malformedStructuredResponseUsesExistingInvalidResponseBehavior() {
+        stubResponse("{not-json");
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyzeSession(request())
+        );
+
+        assertEquals(ErrorCode.AI_RESPONSE_INVALID, exception.getErrorCode());
+    }
+
+    @Test
+    void sanitizesInternalTokensAcrossStructuredUserFacingFields() {
+        stubResponse("""
+                {"score":70,"summary":"**stopLossPrice** 없음","warnings":["FOLLOWED"],"strengths":[],
+                 "decisionReview":{"assessment":"SNAPSHOT#1","evidence":[],"betterAction":"ACTION-TIME TRADE REASON 확인"},
+                 "riskReview":{"assessment":"exitRiskPlan","evidence":["autoExitEnabled"],"improvement":"currentAutoExitEnabled"},
+                 "behaviorPatterns":[],"nextTrainingFocus":["takeProfitPrice 기록"]}
+                """);
+
+        SessionAiAnalysisResponse result = service.analyzeSession(request());
+
+        assertEquals("**손절가** 없음", result.summary());
+        assertEquals("사전에 정한 기준을 따름", result.warnings().get(0));
+        assertEquals("사전 계획", result.decisionReview().assessment());
+        assertEquals("거래 당시 기록한 이유 확인", result.decisionReview().betterAction());
+        assertEquals("청산 시점 리스크 계획", result.riskReview().assessment());
+        assertEquals("자동 청산 설정", result.riskReview().evidence().get(0));
+        assertEquals("현재 자동 청산 설정", result.riskReview().improvement());
+        assertEquals("익절가 기록", result.nextTrainingFocus().get(0));
+    }
+
+    @Test
+    void sanitizesChartReviewFieldsAndKeepsBoldMarkers() {
+        stubResponse("""
+                {"score":70,"summary":"**stopLossPrice가 없음**","warnings":["exitRiskPlan FOLLOWED"],
+                 "strengths":["currentAutoExitEnabled 확인"]}
+                """);
+
+        AiAnalysisResponse result = service.analyze(mock(AiAnalysisRequest.class));
+
+        assertEquals("**손절가가 없음**", result.summary());
+        assertEquals("청산 시점 리스크 계획 사전에 정한 기준을 따름", result.warnings().get(0));
+        assertEquals("현재 자동 청산 설정 확인", result.strengths().get(0));
+    }
+
+    @Test
+    void missingChartReviewArraysRemainNullSafeDuringSanitization() {
+        stubResponse("""
+                {"score":70,"summary":"stopLossPrice 없음"}
+                """);
+
+        AiAnalysisResponse result = service.analyze(mock(AiAnalysisRequest.class));
+
+        assertEquals("손절가 없음", result.summary());
+        assertEquals(List.of(), result.warnings());
+        assertEquals(List.of(), result.strengths());
     }
 
     private void stubResponse(String content) {
