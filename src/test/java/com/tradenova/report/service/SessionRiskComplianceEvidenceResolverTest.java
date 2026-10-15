@@ -33,7 +33,7 @@ class SessionRiskComplianceEvidenceResolverTest {
         verifyNoMoreInteractions(repository);
         String formatted = new SessionQualitativeEvidenceFormatter().format(
                 new SessionQualitativeEvidenceContext(131L, List.of(), List.of(evidence)));
-        assertTrue(formatted.contains("compliance=FOLLOWED"));
+        assertTrue(formatted.contains("execution assessment=FOLLOWED"));
         assertTrue(formatted.contains("not overall plan quality"));
         assertTrue(formatted.contains("negative PnL"));
     }

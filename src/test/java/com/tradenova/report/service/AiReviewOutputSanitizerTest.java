@@ -15,7 +15,8 @@ class AiReviewOutputSanitizerTest {
                 + "snapshot#1; SNAPSHOT#123; tradeId=260 매수; tradeId=999 매도; "
                 + "stopLoss; takeProfit; autoExit; compliance UNKNOWN; UNKNOWN; "
                 + "ACTION-TIME TRADE REASON; currentAutoExitEnabled=false; COMPLETED; "
-                + "TradeReasonAiEvidence; entryRiskPlan=none; NOT_APPLICABLE; backend 기술 사실; 리스크 컴플라이언스";
+                + "TradeReasonAiEvidence; entryRiskPlan=none; NOT_APPLICABLE; backend 기술 사실; 리스크 컴플라이언스; "
+                + "entryDecisionTechnicalContext; entryDecisionOhlcv; riskRuleHistoryId; snapshotId";
 
         String sanitized = AiReviewOutputSanitizer.sanitize(input);
 
@@ -44,6 +45,10 @@ class AiReviewOutputSanitizerTest {
         assertFalse(sanitized.toLowerCase().contains("backend"));
         assertFalse(sanitized.toLowerCase().contains("compliance"));
         assertFalse(sanitized.toLowerCase().contains("snapshot#"));
+        assertFalse(sanitized.contains("entryDecisionTechnicalContext"));
+        assertFalse(sanitized.contains("entryDecisionOhlcv"));
+        assertFalse(sanitized.contains("riskRuleHistoryId"));
+        assertFalse(sanitized.contains("snapshotId"));
     }
 
     @Test

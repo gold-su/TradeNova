@@ -167,9 +167,9 @@ class ReportAnalysisServiceTest {
 
         String prompt = new PromptBuilder(new SessionAiDeterministicContextFormatter()).buildUserPrompt(request);
         assertTrue(prompt.contains("AS_OF_ENTRY - 최신 BUY 결정 시점의 backend 계산 기술 사실"));
-        assertTrue(prompt.contains("asOfProgressIndex=22"));
+        assertTrue(prompt.contains("as-of candle=22"));
         assertTrue(prompt.contains("WITHHELD: post-entry/current evidence is outside the ENTRY decision-time boundary"));
-        assertFalse(prompt.contains("asOfProgressIndex=59"));
+        assertFalse(prompt.contains("as-of candle=59"));
     }
 
     @Test

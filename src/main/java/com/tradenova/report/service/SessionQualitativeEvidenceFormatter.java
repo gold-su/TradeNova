@@ -13,9 +13,21 @@ public class SessionQualitativeEvidenceFormatter {
                 + "are excluded from decision-quality evaluation. Missing no-trade reasons are not missing evidence, a warning, "
                 + "or a training need. Never request a no-trade explanation or plan. Chart counts and trade coverage are omitted "
                 + "because they are neither positive nor negative quality signals.\n");
-        out.append("[Backend Risk Plan Compliance / deterministic execution facts, not user intent]\n");
+        out.append("EVIDENCE INTERPRETATION CONTRACT: a pre-trade plan, an action-time user reason, an observed fact, "
+                + "and an executed action are different scopes. A plan preceding an action does not prove causality. "
+                + "Only an exact plan link establishes plan selection, and even that does not prove every condition was observed.\n");
+        out.append("[Deterministic risk execution facts; execution scope only, never user intent]\n");
         for (RiskComplianceAiEvidence risk : context.riskCompliance()) {
-            out.append("  RISK PLAN COMPLIANCE: ").append(risk).append('\n');
+            out.append("  - episode reference=").append(value(risk.episode()))
+                    .append(", configured at trade={stop:").append(value(risk.stopLossConfigured()))
+                    .append(", target:").append(value(risk.takeProfitConfigured()))
+                    .append(", automatic exit:").append(value(risk.autoExitEnabledAtTrade())).append("}")
+                    .append(", observed execution={reason:").append(value(risk.executionReason()))
+                    .append(", automatic:").append(value(risk.actualExitAutomatic()))
+                    .append(", planned percent:").append(value(risk.plannedExitPercent()))
+                    .append(", executed percent:").append(value(risk.executedExitPercent())).append("}")
+                    .append(", execution assessment=").append(value(risk.compliance()))
+                    .append(", basis=").append(value(risk.basis())).append('\n');
         }
         out.append("Compliance describes only the linked trigger/execution, not overall plan quality. "
                 + "FOLLOWED remains FOLLOWED with negative PnL. UNKNOWN is insufficient evidence, not NOT_FOLLOWED. "
@@ -23,13 +35,13 @@ public class SessionQualitativeEvidenceFormatter {
                 + "END_OF_CHART and END_OF_SESSION are forced lifecycle exits, never STOP_LOSS/TAKE_PROFIT triggers. "
                 + "A null executionReason means no confirmed execution reason, not proof that no trigger occurred. "
                 + "plannedExitQty includes integer floor/minimum-one-share rules; executedExitPercent is the actual position fraction.\n");
-        out.append("[User-authored Qualitative Evidence]\n");
+        out.append("[User-authored plans, notes, and action reasons; keep their causal scope separate]\n");
         for (ChartQualitativeEvidenceContext chart : context.charts()) {
             if (chart.snapshots().isEmpty() && chart.notes().isEmpty() && chart.tradeActions().isEmpty()) continue;
-            out.append("- chartId=").append(chart.chartId()).append(", active=").append(chart.active())
+            out.append("- chart reference=").append(chart.chartId()).append(", active=").append(chart.active())
                     .append(", refreshed=").append(chart.refreshed()).append('\n');
             for (SnapshotAiEvidence snapshot : chart.snapshots()) {
-                out.append("  * GENERIC SNAPSHOT CONTEXT / SNAPSHOT#").append(snapshot.version())
+                out.append("  * PRE-TRADE PLAN (generic unless exact action linkage is shown), version ").append(snapshot.version())
                         .append(" authoredAt=").append(value(snapshot.authoredAt()))
                         .append(", timeline=").append(anchor(snapshot.timeline()))
                         .append(", text={thesis:").append(value(snapshot.thesis()))
@@ -39,7 +51,7 @@ public class SessionQualitativeEvidenceFormatter {
                         .append(",freeNote:").append(value(snapshot.freeNote())).append("}\n");
             }
             for (NoteAiEvidence note : chart.notes()) {
-                out.append("  * NOTE#").append(note.eventId()).append(" authoredAt=").append(value(note.authoredAt()))
+                out.append("  * USER NOTE authoredAt=").append(value(note.authoredAt()))
                         .append(", timeline=").append(anchor(note.timeline()))
                         .append(", summary=").append(value(note.summary()));
                 if (note.detail() != null && !note.detail().equals(note.summary())) {
@@ -48,17 +60,18 @@ public class SessionQualitativeEvidenceFormatter {
                 out.append('\n');
             }
             for (TradeActionAiEvidence action : chart.tradeActions()) {
-                out.append("  * ACTION-TIME TRADE REASON event#").append(action.eventId())
-                        .append(", tradeId=").append(action.tradeId()).append(", side=").append(action.side())
+                out.append("  * EXECUTED ACTION side=").append(action.side())
                         .append(", candleTime=").append(value(action.candleTime()))
                         .append(", qty=").append(value(action.qty())).append(", price=").append(value(action.price()))
                         .append(", authoredAt=").append(value(action.createdAt()))
                         .append(", timeline=").append(anchor(action.timeline())).append(", reasons=")
                         .append(reasons(action)).append('\n');
-                if (action.scenarioPlan() != null) out.append("    LINKED PRE-TRADE PLAN snapshot#")
-                        .append(action.scenarioPlan().snapshotId()).append(" text={entryReason:")
+                if (action.scenarioPlan() != null) out.append("    EXACT LINKED PRE-TRADE PLAN text={entry condition:")
                         .append(value(action.scenarioPlan().entryReason())).append(",thesis:")
-                        .append(value(action.scenarioPlan().thesis())).append("}\n");
+                        .append(value(action.scenarioPlan().thesis())).append(",exit condition:")
+                        .append(value(action.scenarioPlan().exitPlan())).append(",risk rationale:")
+                        .append(value(action.scenarioPlan().riskNote())).append("}. Link proves plan selection, not condition confirmation.\n");
+                else out.append("    EXACT PLAN LINK unavailable; do not infer the action reason from a generic snapshot.\n");
             }
         }
         return out.isEmpty() ? "user-authored snapshot/note/trade reason 없음" : out.toString();
@@ -67,9 +80,9 @@ public class SessionQualitativeEvidenceFormatter {
     private String anchor(EvidenceTimelineAnchor anchor) {
         if (anchor == null || "UNRESOLVED".equals(anchor.resolution())) return "UNRESOLVED";
         return "{" + anchor.resolution() + ",progress=" + value(anchor.progressIndex())
-                + ",candleTime=" + value(anchor.candleTime()) + ",tradeId=" + value(anchor.tradeId())
+                + ",candleTime=" + value(anchor.candleTime())
                 + ",episode=" + value(anchor.episodeReference())
-                + ",riskHistoryId=" + value(anchor.riskRuleHistoryId()) + "}";
+                + ",risk rule linked=" + (anchor.riskRuleHistoryId() != null) + "}";
     }
 
     private String value(Object value) {

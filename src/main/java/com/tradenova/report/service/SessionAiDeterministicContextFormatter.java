@@ -7,8 +7,6 @@ import com.tradenova.report.dto.TradeEpisodeAiContext;
 import com.tradenova.training.analytics.SessionTradeStatistics;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 /**
  * Compact, explicit prompt serialization for backend-calculated session evidence.
  */
@@ -21,9 +19,7 @@ public class SessionAiDeterministicContextFormatter {
         if (context == null) {
             return "deterministic context unavailable";
         }
-        return "sessionId=" + context.sessionId()
-                + ", accountId=" + context.accountId()
-                + ", mode=" + context.mode()
+        return "mode=" + context.mode()
                 + ", status=" + context.sessionStatus()
                 + ", totalTradeCount=" + context.totalTradeCount();
     }
@@ -62,8 +58,8 @@ public class SessionAiDeterministicContextFormatter {
             // A no-trade chart without explicit authored evidence has no decision process to evaluate.
             // Qualitative evidence is formatted separately, so suppress descriptive inventory here.
             if (!chart.traded() && chart.episodes().isEmpty()) continue;
-            builder.append("- chartId=").append(chart.chartId())
-                    .append(", chartIndex=").append(chart.chartIndex())
+            builder.append("- CHART GROUP reference=").append(chart.chartId())
+                    .append(", index=").append(chart.chartIndex())
                     .append(", symbol=").append(chart.symbolTicker())
                     .append(", sector=").append(chart.trainingSector())
                     .append(", status=").append(chart.status())
@@ -75,7 +71,7 @@ public class SessionAiDeterministicContextFormatter {
                     .append('\n');
 
             for (TradeEpisodeAiContext episode : chart.episodes()) {
-                builder.append("  * episode=").append(chart.chartId()).append(':').append(episode.episodeIndex())
+                builder.append("  * EPISODE reference=").append(chart.chartId()).append(':').append(episode.episodeIndex())
                         .append(", state=").append(episode.closed() ? "CLOSED" : "OPEN")
                         .append(", entryCount=").append(episode.entryCount())
                         .append(", exitCount=").append(episode.exitCount())
@@ -85,10 +81,8 @@ public class SessionAiDeterministicContextFormatter {
                         .append(", returnPct=").append(value(episode.returnPct()))
                         .append(", holdingBars=").append(value(episode.holdingBars()))
                         .append(", remainingQty=").append(value(episode.remainingQty()))
-                        .append(", entryRiskPlan=").append(formatRiskPlan(episode.entryRiskPlan()))
-                        .append(", exitRiskPlan=").append(formatRiskPlan(episode.exitRiskPlan()))
-                        .append(", tradeRefs={entry:").append(compactIds(episode.entryTradeIds()))
-                        .append(",exit:").append(compactIds(episode.exitTradeIds())).append("}")
+                        .append(", plan captured at entry=").append(formatRiskPlan(episode.entryRiskPlan()))
+                        .append(", plan captured at exit=").append(formatRiskPlan(episode.exitRiskPlan()))
                         .append('\n');
             }
         }
@@ -99,23 +93,12 @@ public class SessionAiDeterministicContextFormatter {
         if (plan == null) {
             return "none";
         }
-        return "{historyId=" + plan.riskRuleHistoryId()
-                + ",stopLoss=" + value(plan.stopLossPrice())
-                + ",takeProfit=" + value(plan.takeProfitPrice())
-                + ",autoExit=" + plan.autoExitEnabled()
-                + ",progressIndex=" + value(plan.progressIndex())
-                + ",candleTime=" + value(plan.candleTime())
+        return "{configured stop=" + value(plan.stopLossPrice())
+                + ", configured target=" + value(plan.takeProfitPrice())
+                + ", automatic exit=" + plan.autoExitEnabled()
+                + ", captured progress=" + value(plan.progressIndex())
+                + ", captured candle=" + value(plan.candleTime())
                 + "}";
-    }
-
-    private String compactIds(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return "[]";
-        }
-        if (ids.size() == 1) {
-            return "[" + ids.get(0) + "]";
-        }
-        return "[" + ids.get(0) + ".." + ids.get(ids.size() - 1) + ";count=" + ids.size() + "]";
     }
 
     private String value(Object value) {

@@ -2,9 +2,10 @@ package com.tradenova.report.service;
 
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
-import com.tradenova.report.dto.SessionChartSummary;
 import com.tradenova.report.dto.SessionSnapshotSummary;
 import com.tradenova.report.dto.TradeActionAiEvidence;
+import com.tradenova.report.dto.ScenarioPlanAiEvidence;
+import com.tradenova.training.analytics.DecisionTechnicalContext;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -64,8 +65,9 @@ public class PromptBuilder {
                 규칙:
                 - score는 0~100 사이 정수
                 - score는 user prompt의 BACKEND SCORING RUBRIC에 있는 backendFinalScore를 그대로 출력해라. 자체적으로 재채점하지 마라
-                - summary는 핵심 판단을 담은 짧은 1~2문장
-                - warnings와 strengths는 각 항목에 하나의 관찰과 해석만 담고, 없으면 빈 배열
+                - summary는 핵심 판단, 계획과 행동의 연결, 다음 훈련 행동을 압축한 2~3문장
+                - warnings는 서로 다른 문제를 2~4개까지, strengths는 실제 evidence가 있는 항목만 0~3개 작성해라
+                - 확인 가능한 강점이 없으면 strengths를 빈 배열로 두어라. 시스템이 지표를 계산했다는 사실을 사용자 강점으로 만들지 마라
                 - 긴 문단, raw HTML, CSS, 색상 코드를 출력하지 마라
                 - 핵심 결론이나 근거의 짧은 phrase만 항목당 최대 1~2개 **...**로 강조해라
                 - 전체 문장을 bold 처리하지 말고, ** 이외의 Markdown heading, list marker, code block, link 문법은 사용하지 마라
@@ -73,6 +75,8 @@ public class PromptBuilder {
                 - snapshot이 있으면 reasoning 일관성을 함께 평가해라
                 - 투자 추천/매수 추천 금지
                 - Chart Review는 이 차트의 개별 판단과 실행만 평가하고 세션 전체의 반복 습관을 추정하지 마라
+                - Chart Review의 중심 질문은 "이 차트에서 사용자가 무엇을 기록했고, 당시 사실이 무엇을 지지하거나 약화했으며, 실제 행동과 어떻게 연결됐는가"다
+                - summary는 핵심 판단 하나, strengths는 검증된 긍정 evidence, warnings는 서로 다른 취약점과 실행 가능한 다음 연습을 담당하게 해 같은 결론을 section마다 반복하지 마라
                 - 다음 네 축을 분리해 평가해라: Decision Quality, Risk / Plan Quality, Execution Quality, Learning Point
                 - Decision Quality를 우선해 사용자의 판단 근거가 판단 시점 기술 사실과 연결되는지, 모순되는지, 얼마나 구체적인지 평가해라
                 - Decision Quality에는 evidence가 충분할 때 판단을 지지하는 support evidence와 판단을 약화시키는 counter-evidence를 모두 비교해라
@@ -89,6 +93,14 @@ public class PromptBuilder {
                 - PRE-TRADE PLAN(snapshot), ACTION-TIME REASON, OBSERVED TECHNICAL FACT, ACTUAL ACTION,
                   INTERPRETATION/TRAINING FEEDBACK을 서로 다른 evidence로 구분하고 비교해라
                 - ACTION-TIME REASON은 사용자 주장이지 기술적 사실이 아니므로 backend 기술 evidence로 검증해라
+                - PRE-TRADE PLAN이 존재하고 이후 action이 발생했다는 시간 순서만으로 그 계획 때문에 행동했다고 단정하지 마라
+                - exact linked plan은 해당 action에 선택된 계획임을 뜻하지만, 계획의 모든 조건이 실제로 확인됐다는 뜻은 아니다
+                - action-time reason이 없으면 "사전 계획에는 조건이 기록됐지만 실제 행동 이유가 별도로 기록되지 않아 직접 연결은 확인하기 어렵다"고 구분해라
+                - SELL은 사전 exit plan, 실제 SELL reason, structured trigger, terminal lifecycle 여부를 서로 분리해 평가해라
+                - 실제 SELL reason이 가격 하락 뒤의 반응만 말하고, 사전에 연결된 청산 기준이나 structured trigger가 없으며 terminal liquidation도 아닐 때만 "사후 가격 움직임에 반응한 청산에 가깝다"고 제한적으로 해석해라
+                - exit plan이 있어도 실제 SELL reason 또는 execution trigger와 exact하게 연결되지 않으면 계획대로 청산했다고 단정하지 마라
+                - END_OF_CHART/END_OF_SESSION은 lifecycle 종료이며 반응적 SELL이나 사용자 판단으로 분류하지 마라
+                - structured risk rule 부재는 위반이 아니라 사전 가격 기준이 확인되지 않는 plan-quality 사실이다
                 - use only supplied evidence. 제공되지 않은 indicator, volume, support/resistance, 사용자 의도를 만들어내지 마라
                 - evidence가 unavailable이면 언급하지 말고, 관찰 사실과 제한된 해석을 구분해라
                 - Never perform arithmetic if the result is supplied by backend facts. Do not recompute or contradict deterministic numeric facts.
@@ -128,6 +140,8 @@ public class PromptBuilder {
                 - 계획 준수나 일관성이라는 동일 사실은 summary, strengths, warnings 전체에서 한 번만 말하고 바꿔 말해 반복하지 마라
                 - 응답 공간은 판단 근거 분석, counter-evidence, 계획 품질, 실행 품질, 다음 훈련 포인트 순으로 사용해라
                 - 단순 사실 요약은 필요한 경우에만 최소한 사용해라
+                - "근거 부족", "구체성 부족", "리스크 계획 부재", "명확하지 않음" 중 같은 결핍을 summary와 warnings에서 반복하지 마라
+                - 한 section에서 결핍을 진단했다면 다른 section은 그 결핍이 판단 검증이나 실행에 미친 의미, 또는 다음 기록 행동으로 확장해라
                 - 수량, 100% 청산, plan/reason/snapshot 존재, 자동 청산 발생, backend 상태명은 분석 결론에 꼭 필요할 때만 최소한 언급해라
                 - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
                 - summary 또는 warning에는 supplied evidence가 있을 때 "이번 거래의 핵심 복기 포인트는 **...**입니다"처럼 핵심 판단 하나가 드러나게 작성해라
@@ -261,7 +275,7 @@ public class PromptBuilder {
                 currentCloses,
                 currentVolumes,
                 currentTechnicalContext,
-                req.entryDecisionTechnicalContext(),
+                entryTechnicalEvidence(req.entryDecisionTechnicalContext()),
                 chartActionEvidence(req.entryActionEvidence()),
                 chartActionEvidence(req.latestActionEvidence()),
                 currentOhlcv,
@@ -277,12 +291,13 @@ public class PromptBuilder {
     }
 
     private String chartActionEvidence(TradeActionAiEvidence action) {
-        if (action == null) return "ACTION-TIME USER CLAIM: unavailable\nLINKED PRE-TRADE PLAN: unresolved";
-        String plan = action.scenarioPlan() == null ? "unresolved" : action.scenarioPlan().toString();
-        return "ACTION-TIME USER CLAIM: " + actionReasons(action)
-                + "\nACTUAL ACTION: tradeId=" + action.tradeId() + ", side=" + action.side()
-                + ", candleTime=" + action.candleTime()
-                + "\nLINKED PRE-TRADE PLAN: " + plan;
+        if (action == null) {
+            return "USER-AUTHORED ACTION REASON: unavailable\n"
+                    + "EXACT PLAN LINK: unavailable; do not infer causality from a generic snapshot";
+        }
+        return "ACTUAL ACTION: " + action.side() + " at candleTime=" + action.candleTime()
+                + "\nUSER-AUTHORED ACTION REASON: " + actionReasons(action)
+                + "\nEXACT PLAN LINK: " + linkedPlan(action.scenarioPlan());
     }
 
     private String actionReasons(TradeActionAiEvidence action) {
@@ -291,6 +306,32 @@ public class PromptBuilder {
                 .map(reason -> "{reason:" + nullSafe(reason.entryReason())
                         + ", risk rationale:" + nullSafe(reason.riskNote()) + "}")
                 .toList().toString();
+    }
+
+    private String linkedPlan(ScenarioPlanAiEvidence plan) {
+        if (plan == null) return "unavailable; a generic/latest snapshot is not an action reason";
+        return "linked before the action {thesis:" + nullSafe(plan.thesis())
+                + ", entry condition:" + nullSafe(plan.entryReason())
+                + ", exit condition:" + nullSafe(plan.exitPlan())
+                + ", risk rationale:" + nullSafe(plan.riskNote()) + "}. "
+                + "The link proves plan selection, not that every condition was observed.";
+    }
+
+    private String entryTechnicalEvidence(DecisionTechnicalContext context) {
+        if (context == null) return "unavailable";
+        return "DECISION-TIME OBSERVATIONS ONLY (select the 1~2 facts most relevant to the user claim; do not imply the user observed them):\n"
+                + "- as-of candle=" + context.asOfCandleTime() + ", close=" + context.currentClose() + "\n"
+                + "- recent returns: 5 bars=" + context.return5BarsPct() + "%, 20 bars=" + context.return20BarsPct() + "%\n"
+                + "- moving averages: SMA20=" + context.sma20() + ", SMA60=" + context.sma60()
+                + ", backend-calculated distance from SMA20=" + context.priceVsSma20Pct()
+                + "%, distance from SMA60=" + context.priceVsSma60Pct() + "%\n"
+                + "- momentum/volatility: RSI(14)=" + context.rsi14() + ", ATR(14)=" + context.atr14()
+                + ", ATR percent=" + context.atr14Pct() + "%\n"
+                + "- volume: current=" + context.currentVolume() + ", 20-bar average=" + context.averageVolume20()
+                + ", backend-calculated ratio=" + context.volumeRatio20() + "\n"
+                + "- rolling structure: distance to 20-bar high=" + context.distanceToHigh20Pct()
+                + "%, distance to 20-bar low=" + context.distanceToLow20Pct() + "%\n"
+                + "These are system observations, not proof of what the user checked.";
     }
 
     /**
@@ -366,6 +407,11 @@ public class PromptBuilder {
         - ENTRY 평가는 해당 entry 시점까지의 evidence만 사용하고 이후 가격, indicator, exit 결과, session final state를 섞지 마라
         - Session Review는 여러 chart/trade에서 반복 확인된 패턴을 요약한다. 개별 Chart Review 내용을 근거 없이 반복하지 마라
         - chart/trade가 하나뿐이면 반복 패턴을 만들지 말고 이번 세션에서 가장 중요한 decision-quality observation 하나를 요약해라
+        - Session Review의 중심 질문은 "이번 세션 전체에서 어떤 판단 기록과 실행 방식이 반복됐는가"다. 개별 차트의 좋고 나쁨을 다시 요약하지 마라
+        - behaviorPatterns를 만들기 전에 각 거래의 plan specificity, action reason specificity, exact plan/action link, exit behavior, risk setup을 내부적으로 비교해라. 이 비교표 자체는 출력하지 마라
+        - 같은 특성이 독립된 action 또는 chart에서 2회 이상 확인될 때만 반복 습관으로 합성하고, evidence에는 그 반복을 뒷받침하는 자연어 사실만 짧게 써라
+        - 여러 거래 중 entry는 계획과 연결되지만 SELL reason이 반복해서 사후 가격 움직임만 설명한다면 entry/exit 기록 비대칭을 세션 패턴으로 해석할 수 있다
+        - 개별 차트의 수치나 거래 순서를 나열하는 대신 반복된 선택 기준, 기록 방식, 계획과 행동 사이의 연결 강도를 해석해라
         - 반복된 강점/약점, 사용자가 우선해서 본 evidence, plan과 실제 판단 사이의 패턴을 우선하고 단순 execution recap은 최소화해라
         - 거래하지 않은 차트는 기본적으로 neutral evidence다
         - no trade를 disciplined risk management, missed opportunity, hesitation, successful avoidance로 자동 해석하지 마라
@@ -391,6 +437,8 @@ public class PromptBuilder {
         - 응답 공간은 (1) 판단 근거 분석, (2) counter-evidence/놓친 정보, (3) 계획 품질, (4) 실행 품질, (5) 다음 훈련 포인트 순으로 사용해라
         - 매수/매도 수량, 100% 청산, plan/reason/snapshot 존재, 자동 청산 발생, backend enum은 분석 결론에 필요하지 않으면 재진술하지 마라
         - raw identifier나 내부 상태를 제거한 뒤에도 같은 execution fact를 문장만 바꿔 반복하지 마라
+        - section ownership: summary는 핵심 세션 패턴, strengths는 반복 검증된 강점, warnings는 서로 다른 취약점, decisionReview는 사용자 주장과 당시 사실의 관계, riskReview는 계획 품질과 실행 범위, behaviorPatterns는 2회 이상 반복, nextTrainingFocus는 한 가지 행동을 담당한다
+        - 같은 결핍을 두 section 이상에서 반복하지 마라. "부족/불명확/부재"를 되풀이하는 대신 원인, 행동상 결과, 다음 연습으로 역할을 나눠라
         - deterministic fact는 결론의 근거로 짧게 인용하고, fact recap보다 그 의미와 trade-off 해석에 더 많은 공간을 사용해라
         - 완벽히, 합리적, 효과적, 우수함, 매우 적절함 같은 강한 평가어는 명확한 evidence가 없으면 사용하지 마라
 
@@ -422,6 +470,7 @@ public class PromptBuilder {
         - panic, greed, fear, impulsive 같은 감정/성향을 거래 활동만으로 선언하지 마라
         - FOMO, 자신감 부족, 충동성, 시장에 대한 두려움은 명시적 사용자 evidence 없이 추론하지 마라
         - 근거가 부족하면 "판단하기에 근거가 부족합니다" 또는 "해당 항목은 이번 세션에서 확인되지 않았습니다"라고 써라
+        - 근거 부족 문구는 필요한 항목에 한 번만 사용하고, 나머지 section을 같은 제한 문구로 채우지 마라
         - behaviorPatterns는 같은 유형의 행동이 2회 이상이거나 명확한 반복 count가 있을 때만 생성해라
         - 단 한 번의 episode/action을 반복 패턴이라고 부르지 마라. 단일 사례는 "이번 세션에서 관찰된 사례" 또는 "한 차례 확인된 행동"으로 제한하고 behaviorPatterns에서 제외해라
         - 제공된 수치(win rate, PnL, episode count, holding period 등)를 재계산하지 마라
@@ -465,6 +514,12 @@ public class PromptBuilder {
         - When two facts appear inconsistent, explain the scope difference rather than choosing one or inventing reconciliation.
         - current/historical, configured/executed, structured/narrative scope를 먼저 밝히고 같은 scope에 상반된 결론을 쓰지 마라
 
+        Exit behavior interpretation:
+        - 실제 SELL reason이 가격 하락 뒤의 반응만 말하고, 사전에 연결된 청산 기준이나 structured execution trigger가 없으며 terminal liquidation도 아닐 때만 "사후 가격 움직임에 반응한 청산에 가깝다"고 제한적으로 해석할 수 있다
+        - 사전 exit plan이 있어도 실제 SELL reason 또는 execution trigger와 exact하게 연결되지 않으면 계획대로 청산했다고 단정하지 말고 연결을 확인할 수 없다고 써라
+        - END_OF_CHART/END_OF_SESSION은 lifecycle 종료이며 반응적 SELL이나 사용자 판단으로 분류하지 마라
+        - structured risk rule 부재는 위반이 아니다. 사전 가격 기준이 확인되지 않는다는 plan-quality 사실로만 다뤄라
+
         Next Training Focus:
         - "추가 분석을 보완하세요", "더 세밀하게 분석하세요", "경험을 축적하세요" 같은 generic 문구를 사용하지 마라
         - supplied evidence와 직접 연결해 다음 훈련에서 관찰하거나 기록할 행동 하나를 구체적으로 제시해라
@@ -490,9 +545,6 @@ public class PromptBuilder {
             [Chart / Episode Evidence]
             %s
 
-            [기존 차트 요약]
-            %s
-
             [Session Qualitative and Risk Execution Evidence]
             %s
 
@@ -515,12 +567,13 @@ public class PromptBuilder {
             - 실제 거래 여부와 계획 메모가 얼마나 연결되는지
             - 근거가 없으면 행동의 이유나 심리를 알 수 없다고 명시할 것
             - 미거래 chart와 거래 chart 수는 neutral metadata이며 분산 실패나 거래 권고의 근거가 아님
+            - 개별 chart의 결론을 반복하지 말고, 독립된 action/chart에서 2회 이상 나타난 기록·판단·실행 특성만 session pattern으로 합성할 것
+            - summary, warnings, decisionReview, riskReview, behaviorPatterns, nextTrainingFocus가 같은 결핍을 바꿔 말하지 않도록 각 section의 역할을 지킬 것
             """.formatted(
                 sessionFacts(req),
                 AiReviewScoreCalculator.score(req).promptLine(),
                 deterministicContextFormatter.formatStatistics(req.deterministicContext()),
                 deterministicContextFormatter.formatChartEvidence(req.deterministicContext()),
-                chartBlock(req.charts()),
                 qualitativeEvidence(req),
                 req.totalEventCount()
         );
@@ -542,30 +595,6 @@ public class PromptBuilder {
                 + ", mode=" + req.mode()
                 + ", status=" + req.sessionStatus()
                 + ", totalTradeCount=" + req.totalTradeCount();
-    }
-
-    // 세션 내 모든 차트의 요약 정보를 문자열로 변환
-    private String chartBlock(List<SessionChartSummary> charts) {
-        if (charts == null || charts.isEmpty()) {
-            return "없음";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (SessionChartSummary c : charts) {
-            if (!c.traded()) continue;
-            sb.append("- chartId=").append(c.chartId())
-                    .append(", chartIndex=").append(c.chartIndex())
-                    .append(", symbol=").append(c.symbolTicker()).append(" / ").append(c.symbolName())
-                    .append(", status=").append(c.status())
-                    .append(", progressIndex=").append(c.progressIndex())
-                    .append(", tradeCount=").append(c.tradeCount())
-                    .append(", eventCount=").append(c.eventCount())
-                    .append(", snapshotCount=").append(c.snapshotCount())
-                    .append(", traded=").append(c.traded())
-                    .append(", finalPnL=").append(c.finalPnL())
-                    .append("\n");
-        }
-        return sb.isEmpty() ? "평가 가능한 거래 차트 없음" : sb.toString();
     }
 
     // 세션 내 snapshot(사용자 분석 기록) 요약 생성
