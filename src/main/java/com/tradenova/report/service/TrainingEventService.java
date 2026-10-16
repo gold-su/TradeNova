@@ -60,6 +60,9 @@ public class TrainingEventService {
         }
 
         validateOwnedChart(userId, chartId);
+        JsonNode payloadForStorage = type == Type.AI
+                ? AiReviewOutputSanitizer.sanitizedCopy(payloadJson)
+                : payloadJson;
         
         // training_event 테이블에 INSERT
         TrainingEvent saved = repo.save(
@@ -69,7 +72,7 @@ public class TrainingEventService {
                         .type(type)              // 이벤트 종류
                         .origin(origin)
                         .summary(title)          // 화면에 바로 뿌릴 한 줄 로그
-                        .payloadJson(payloadJson)// 상세 데이터 JSON
+                        .payloadJson(payloadForStorage)// AI text is sanitized before persistence; reads sanitize again for legacy rows
                         .build()
         );
         // 저장된 엔티티를 응답 DTO로 변환해서 반환

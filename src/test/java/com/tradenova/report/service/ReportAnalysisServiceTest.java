@@ -166,10 +166,9 @@ class ReportAnalysisServiceTest {
         verify(technicalContextService).boundedOhlcv(CHART_ID, 22);
 
         String prompt = new PromptBuilder(new SessionAiDeterministicContextFormatter()).buildUserPrompt(request);
-        assertTrue(prompt.contains("AS_OF_ENTRY - 최신 BUY 결정 시점의 backend 계산 기술 사실"));
-        assertTrue(prompt.contains("asOfProgressIndex=22"));
-        assertTrue(prompt.contains("WITHHELD: post-entry/current evidence is outside the ENTRY decision-time boundary"));
-        assertFalse(prompt.contains("asOfProgressIndex=59"));
+        assertTrue(prompt.contains("DECISION-TIME FACTS (bounded at entry"));
+        assertTrue(prompt.contains("as-of candle time: 22"));
+        assertFalse(prompt.contains("as-of candle time: 59"));
     }
 
     @Test
@@ -287,14 +286,10 @@ class ReportAnalysisServiceTest {
         assertEquals(Boolean.FALSE, request.lifecycleEvidence().currentAutoExitEnabled());
 
         String prompt = new PromptBuilder(new SessionAiDeterministicContextFormatter()).buildUserPrompt(request);
-        assertTrue(prompt.contains("historicalBuyExecuted=true"));
-        assertTrue(prompt.contains("terminalLiquidationReason=END_OF_CHART"));
-        assertTrue(prompt.contains("CURRENT/FINAL STATE (entry-time state가 아님)"));
-        assertTrue(prompt.contains("CURRENT RISK RULE STATE (historical trade-time plan이 아님"));
-        assertTrue(prompt.contains("ACTUAL ACTION (canonical trade; raw values, no entry/risk comparison supplied)"));
-        assertTrue(prompt.contains("latestTradePrice:"));
-        assertTrue(prompt.contains("raw prices, no entry-price relation supplied"));
-        assertTrue(prompt.contains("raw numeric value에서 새로운 비교·거리·비율을 계산하지 마라"));
+        assertTrue(prompt.contains("historical BUY execution: confirmed"));
+        assertTrue(prompt.contains("exit classification: lifecycle-forced liquidation"));
+        assertTrue(prompt.contains("Current settings describe the present state"));
+        assertTrue(prompt.contains("execution alone is not a strength"));
     }
 
     @Test

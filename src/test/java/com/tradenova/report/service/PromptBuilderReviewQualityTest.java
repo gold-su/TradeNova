@@ -47,6 +47,14 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("risk-at-stop, account risk %, position value ratio"));
         assertTrue(prompt.contains("Presence is not quality"));
         assertTrue(prompt.contains("계획과 실행이 일치해도 약한 이유의 quality를 상향하지 마라"));
+        assertTrue(prompt.contains("시간 순서만으로 그 계획 때문에 행동했다고 단정하지 마라"));
+        assertTrue(prompt.contains("실제 SELL reason이 가격 하락 뒤의 반응만 말하고"));
+        assertTrue(prompt.contains("시스템이 지표를 계산했다는 사실을 사용자 강점으로 만들지 마라"));
+        assertTrue(prompt.contains("같은 결핍을 summary와 warnings에서 반복하지 마라"));
+        assertTrue(prompt.contains("지지받고 있는 느낌"));
+        assertTrue(prompt.contains("사용자 주장 자체의 구체성을 높이지 마라"));
+        assertTrue(prompt.contains("사용자가 해당 지표를 직접 근거로 사용했다고 바꾸어 쓰지 마라"));
+        assertTrue(prompt.contains("\"backend\", \"백엔드\", \"evidence\"라는 단어도 쓰지 말고"));
     }
 
     @Test
@@ -81,5 +89,13 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("backendFinalScore를 그대로 출력해라"));
         assertTrue(prompt.contains("reason 존재와 reason quality를 분리"));
         assertTrue(prompt.contains("짧고 일반적인 reason을 clear, strong, technically grounded라고 표현하지 마라"));
+        assertTrue(prompt.contains("이번 세션 전체에서 어떤 판단 기록과 실행 방식이 반복됐는가"));
+        assertTrue(prompt.contains("plan specificity, action reason specificity, exact plan/action link"));
+        assertTrue(prompt.contains("같은 특성이 독립된 action 또는 chart에서 2회 이상"));
+        assertTrue(prompt.contains("section ownership"));
+        assertTrue(prompt.contains("근거 부족 문구는 필요한 항목에 한 번만"));
+        assertTrue(prompt.contains("Chart에서는 모호하다고 하고 Session에서는 명확하다고 뒤집지 마라"));
+        assertTrue(prompt.contains("진입과 청산을 관통하는 상위 행동 특성 하나로 합성"));
+        assertTrue(prompt.contains("JSON의 evidence key는 contract상 유지"));
     }
 }

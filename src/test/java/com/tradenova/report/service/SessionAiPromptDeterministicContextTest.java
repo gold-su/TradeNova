@@ -65,15 +65,16 @@ class SessionAiPromptDeterministicContextTest {
         assertTrue(prompt.contains("state=CLOSED"));
         assertTrue(prompt.contains("state=OPEN"));
         assertTrue(prompt.contains("active=false, refreshed=true"));
-        assertTrue(prompt.contains("entryRiskPlan={historyId=700,stopLoss=95,takeProfit=120"));
-        assertTrue(prompt.contains("exitRiskPlan={historyId=800,stopLoss=98,takeProfit=130,autoExit=false"));
-        assertTrue(prompt.contains("entryRiskPlan=none"));
-        assertTrue(prompt.contains("tradeRefs={entry:[101..102;count=2],exit:[103]}"));
+        assertTrue(prompt.contains("entry-time structured risk={stop configured=true, target configured=true, automatic exit configured=true"));
+        assertTrue(prompt.contains("exit-time structured risk={stop configured=true, target configured=true, automatic exit configured=false"));
+        assertTrue(prompt.contains("entry-time structured risk=none"));
+        assertFalse(prompt.contains("realizedPnl="));
+        assertFalse(prompt.contains("weightedEntryPrice="));
+        assertFalse(prompt.contains("tradeRefs="));
         assertFalse(prompt.contains("101, 102"));
-        assertTrue(prompt.contains("[User-authored Qualitative Evidence]"));
-        assertTrue(prompt.contains("thesis:support held"));
-        assertTrue(prompt.contains("NOTE#90"));
-        assertTrue(prompt.contains("timeline=UNRESOLVED"));
+        assertTrue(prompt.contains("[SESSION QUALITATIVE REVIEW V2 INPUT]"));
+        assertTrue(prompt.contains("thesis: support held"));
+        assertTrue(prompt.contains("USER NOTE (do not assign it to an earlier action"));
         assertTrue(prompt.contains("[Automatic Event Context"));
         assertTrue(prompt.contains("totalEventCount: 7"));
     }
@@ -141,7 +142,7 @@ class SessionAiPromptDeterministicContextTest {
     }
 
     @Test
-    void omitsThreeOfFourNoTradeChartsFromLegacySummaryBlock() {
+    void omitsLegacyChartSummaryAndThreeOfFourNoTradeCharts() {
         List<SessionChartSummary> summaries = List.of(
                 new SessionChartSummary(10L, 0, "TRADED", "Traded", "COMPLETED", 9, 2, 2, 1, true, BigDecimal.ZERO),
                 new SessionChartSummary(11L, 1, "NO_TRADE_A", "A", "COMPLETED", 9, 0, 0, 0, false, BigDecimal.ZERO),
@@ -152,7 +153,9 @@ class SessionAiPromptDeterministicContextTest {
                 summaries, List.of(), contextWithClosedAndOpenEpisodes(), qualitativeContext());
 
         String prompt = promptBuilder.buildSessionUserPrompt(request);
-        assertTrue(prompt.contains("symbol=TRADED"));
+        assertFalse(prompt.contains("[기존 차트 요약]"));
+        assertTrue(prompt.contains("ANALYSIS UNIT 1"));
+        assertFalse(prompt.contains("symbol=TEST"));
         assertFalse(prompt.contains("NO_TRADE_A"));
         assertFalse(prompt.contains("NO_TRADE_B"));
         assertFalse(prompt.contains("NO_TRADE_C"));
@@ -179,8 +182,8 @@ class SessionAiPromptDeterministicContextTest {
         String prompt = promptBuilder.buildSessionUserPrompt(request);
 
         assertTrue(prompt.contains("미거래 chart와 거래 chart 수는 neutral metadata"));
-        assertTrue(prompt.contains("PLAN / ACTION / FACT / EXECUTION"));
-        assertTrue(prompt.contains("GENERIC SNAPSHOT CONTEXT"));
+        assertTrue(prompt.contains("USER CLAIM -> FACT -> GAP -> BEHAVIOR -> IMPLICATION -> NEXT DRILL"));
+        assertTrue(prompt.contains("PRE-TRADE USER CLAIM (generic unless an action below has an exact relation)"));
         assertFalse(prompt.contains("거래가 특정 차트에만 몰렸는지"));
     }
 

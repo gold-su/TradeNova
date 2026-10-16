@@ -1,5 +1,6 @@
 package com.tradenova.report.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradenova.report.entity.EventOrigin;
 import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.entity.Type;
@@ -32,5 +33,28 @@ class TrainingEventOriginTest {
         verify(repository, times(2)).save(captor.capture());
         assertEquals(EventOrigin.USER, captor.getAllValues().get(0).getOrigin());
         assertEquals(EventOrigin.SYSTEM, captor.getAllValues().get(1).getOrigin());
+    }
+
+    @Test
+    void sanitizesAiTextBeforePersistenceAndKeepsBoldMarkers() throws Exception {
+        TrainingEventRepository repository = mock(TrainingEventRepository.class);
+        TrainingSessionChartRepository chartRepository = mock(TrainingSessionChartRepository.class);
+        TrainingEventService service = new TrainingEventService(repository, chartRepository);
+        when(chartRepository.findByIdAndSession_User_Id(10L, 1L))
+                .thenReturn(Optional.of(TrainingSessionChart.builder().id(10L).build()));
+        when(repository.save(any(TrainingEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.append(1L, 10L, Type.AI, "AI review", new ObjectMapper().readTree("""
+                {"summary":"**backend evidence** UNKNOWN", "warnings":["TERMINAL_FORCED_EXIT"]}
+                """));
+
+        ArgumentCaptor<TrainingEvent> captor = ArgumentCaptor.forClass(TrainingEvent.class);
+        verify(repository).save(captor.capture());
+        String persisted = captor.getValue().getPayloadJson().toString();
+        assertEquals(false, persisted.toLowerCase().contains("backend"));
+        assertEquals(false, persisted.toLowerCase().contains("evidence"));
+        assertEquals(false, persisted.contains("UNKNOWN"));
+        assertEquals(false, persisted.contains("TERMINAL_FORCED_EXIT"));
+        assertEquals(true, persisted.contains("**시스템이 계산한 근거**"));
     }
 }
