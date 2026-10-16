@@ -96,6 +96,9 @@ public class PromptBuilder {
                 - PRE-TRADE PLAN이 존재하고 이후 action이 발생했다는 시간 순서만으로 그 계획 때문에 행동했다고 단정하지 마라
                 - exact linked plan은 해당 action에 선택된 계획임을 뜻하지만, 계획의 모든 조건이 실제로 확인됐다는 뜻은 아니다
                 - action-time reason이 없으면 "사전 계획에는 조건이 기록됐지만 실제 행동 이유가 별도로 기록되지 않아 직접 연결은 확인하기 어렵다"고 구분해라
+                - "지지받고 있는 느낌", "매물대 형성 지지"처럼 가격대·구조·확인 조건이 없는 표현은 지지를 의식한 기록일 뿐 명확하거나 구체적인 진입 근거라고 부르지 마라
+                - 시스템이 관찰한 이동평균, RSI, 거래량 사실이 사용자 문구와 함께 존재해도 사용자 주장 자체의 구체성을 높이지 마라
+                - 시스템 관찰 사실은 사용자 주장을 검토하는 별도 사실이다. 사용자가 해당 지표를 직접 근거로 사용했다고 바꾸어 쓰지 마라
                 - SELL은 사전 exit plan, 실제 SELL reason, structured trigger, terminal lifecycle 여부를 서로 분리해 평가해라
                 - 실제 SELL reason이 가격 하락 뒤의 반응만 말하고, 사전에 연결된 청산 기준이나 structured trigger가 없으며 terminal liquidation도 아닐 때만 "사후 가격 움직임에 반응한 청산에 가깝다"고 제한적으로 해석해라
                 - exit plan이 있어도 실제 SELL reason 또는 execution trigger와 exact하게 연결되지 않으면 계획대로 청산했다고 단정하지 마라
@@ -144,6 +147,7 @@ public class PromptBuilder {
                 - 한 section에서 결핍을 진단했다면 다른 section은 그 결핍이 판단 검증이나 실행에 미친 의미, 또는 다음 기록 행동으로 확장해라
                 - 수량, 100% 청산, plan/reason/snapshot 존재, 자동 청산 발생, backend 상태명은 분석 결론에 꼭 필요할 때만 최소한 언급해라
                 - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
+                - 사용자-facing 문자열에는 "backend", "백엔드", "evidence"라는 단어도 쓰지 말고 각각 자연스러운 "시스템이 확인한 사실", "근거", "기록"으로 표현해라
                 - summary 또는 warning에는 supplied evidence가 있을 때 "이번 거래의 핵심 복기 포인트는 **...**입니다"처럼 핵심 판단 하나가 드러나게 작성해라
                 - 미래 매수/매도 가격, 시점, 수량을 추천하지 마라
                 - 기술적 분석을 확실한 진실로 단정하지 마라. 근거가 부족하면 강하게 검증할 수 없다고 밝혀라
@@ -395,6 +399,9 @@ public class PromptBuilder {
         - Presence is not quality. reason 존재와 reason quality를 분리하고, 문장이 저장됐다는 이유만으로 좋은 근거라고 평가하지 마라
         - "오를 것 같아서", "많이 올라서", "떨어질 것 같아서", "그냥", "느낌이 좋아서"는 추가 structured context가 없으면 low-specificity evidence다
         - 짧고 일반적인 reason을 clear, strong, technically grounded라고 표현하지 마라
+        - "지지받고 있는 느낌", "매물대 형성 지지"처럼 가격대·구조·확인 조건이 없는 표현은 Chart와 Session 모두 low-specificity로 동일하게 평가해라
+        - 동일한 사용자 작성 문구의 quality를 Chart에서는 모호하다고 하고 Session에서는 명확하다고 뒤집지 마라
+        - 시스템이 관찰한 SMA, RSI, 거래량 등은 사용자 주장과 분리된 사실이다. 이 사실을 이유로 사용자 기록 자체를 명확하거나 구체적이라고 상향하지 마라
         - execution이 plan과 일치해도 weak reason의 quality를 높이지 마라
         - evidence가 충분하면 사용자의 판단을 지지한 support evidence와 약화시킨 counter-evidence를 함께 비교해라
         - counter-evidence는 불확실성, 확인되지 않은 조건, 사용자 가설과 충돌한 fact로 설명하고 정답/오답 framing을 사용하지 마라
@@ -407,6 +414,7 @@ public class PromptBuilder {
         - ENTRY 평가는 해당 entry 시점까지의 evidence만 사용하고 이후 가격, indicator, exit 결과, session final state를 섞지 마라
         - Session Review는 여러 chart/trade에서 반복 확인된 패턴을 요약한다. 개별 Chart Review 내용을 근거 없이 반복하지 마라
         - chart/trade가 하나뿐이면 반복 패턴을 만들지 말고 이번 세션에서 가장 중요한 decision-quality observation 하나를 요약해라
+        - 단일 chart/trade에서는 개별 사실을 여러 section에 재배치하지 말고, 진입과 청산을 관통하는 상위 행동 특성 하나로 합성해라. 예: 행동 전에 가격대나 확인 조건을 고정하는 습관이 약함
         - Session Review의 중심 질문은 "이번 세션 전체에서 어떤 판단 기록과 실행 방식이 반복됐는가"다. 개별 차트의 좋고 나쁨을 다시 요약하지 마라
         - behaviorPatterns를 만들기 전에 각 거래의 plan specificity, action reason specificity, exact plan/action link, exit behavior, risk setup을 내부적으로 비교해라. 이 비교표 자체는 출력하지 마라
         - 같은 특성이 독립된 action 또는 chart에서 2회 이상 확인될 때만 반복 습관으로 합성하고, evidence에는 그 반복을 뒷받침하는 자연어 사실만 짧게 써라
@@ -439,6 +447,7 @@ public class PromptBuilder {
         - raw identifier나 내부 상태를 제거한 뒤에도 같은 execution fact를 문장만 바꿔 반복하지 마라
         - section ownership: summary는 핵심 세션 패턴, strengths는 반복 검증된 강점, warnings는 서로 다른 취약점, decisionReview는 사용자 주장과 당시 사실의 관계, riskReview는 계획 품질과 실행 범위, behaviorPatterns는 2회 이상 반복, nextTrainingFocus는 한 가지 행동을 담당한다
         - 같은 결핍을 두 section 이상에서 반복하지 마라. "부족/불명확/부재"를 되풀이하는 대신 원인, 행동상 결과, 다음 연습으로 역할을 나눠라
+        - summary에서 진단한 핵심 문제를 strengths, warnings, decisionReview, riskReview에서 같은 문장으로 다시 평가하지 마라. 각 section은 사용자 주장과 사실의 관계, 계획의 사전 고정 정도, 다음 행동 중 하나만 추가해라
         - deterministic fact는 결론의 근거로 짧게 인용하고, fact recap보다 그 의미와 trade-off 해석에 더 많은 공간을 사용해라
         - 완벽히, 합리적, 효과적, 우수함, 매우 적절함 같은 강한 평가어는 명확한 evidence가 없으면 사용하지 마라
 
@@ -446,6 +455,7 @@ public class PromptBuilder {
         - use only supplied evidence. 제공되지 않은 technical indicator, volume, support/resistance, 사용자 의도를 만들어내지 마라
         - observation과 interpretation을 구분하고, unavailable evidence는 있는 것처럼 표현하지 마라
         - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
+        - 사용자-facing 문자열에는 "backend", "백엔드", "evidence"라는 단어도 쓰지 마라. JSON의 evidence key는 contract상 유지하되 그 배열의 문장은 자연스러운 한국어 사실로 작성해라
         - 내부 상태와 field는 evidence 해석에만 사용하고 자연스러운 사용자 언어로 바꿔라
         - backend가 제공한 통계와 episode 계산값을 다시 계산하거나 수정하지 마라
         - evidence가 없는 성향, 감정, 원인을 사실처럼 단정하지 마라

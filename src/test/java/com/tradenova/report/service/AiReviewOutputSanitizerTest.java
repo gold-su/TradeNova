@@ -16,7 +16,8 @@ class AiReviewOutputSanitizerTest {
                 + "stopLoss; takeProfit; autoExit; compliance UNKNOWN; UNKNOWN; "
                 + "ACTION-TIME TRADE REASON; currentAutoExitEnabled=false; COMPLETED; "
                 + "TradeReasonAiEvidence; entryRiskPlan=none; NOT_APPLICABLE; backend 기술 사실; 리스크 컴플라이언스; "
-                + "entryDecisionTechnicalContext; entryDecisionOhlcv; riskRuleHistoryId; snapshotId";
+                + "entryDecisionTechnicalContext; entryDecisionOhlcv; riskRuleHistoryId; snapshotId; "
+                + "NOT_FOLLOWED; STOP_LOSS; TAKE_PROFIT; END_OF_CHART; END_OF_SESSION";
 
         String sanitized = AiReviewOutputSanitizer.sanitize(input);
 
@@ -49,6 +50,11 @@ class AiReviewOutputSanitizerTest {
         assertFalse(sanitized.contains("entryDecisionOhlcv"));
         assertFalse(sanitized.contains("riskRuleHistoryId"));
         assertFalse(sanitized.contains("snapshotId"));
+        assertFalse(sanitized.contains("NOT_FOLLOWED"));
+        assertFalse(sanitized.contains("STOP_LOSS"));
+        assertFalse(sanitized.contains("TAKE_PROFIT"));
+        assertFalse(sanitized.contains("END_OF_CHART"));
+        assertFalse(sanitized.contains("END_OF_SESSION"));
     }
 
     @Test
@@ -76,5 +82,33 @@ class AiReviewOutputSanitizerTest {
         assertTrue(sanitized.path("riskReview").path("assessment").asText().contains("청산 시점 리스크 계획"));
         assertTrue(sanitized.path("riskReview").path("evidence").get(0).asText()
                 .contains("**자동 청산 설정이 활성화됨**"));
+    }
+
+    @Test
+    void removesKoreanBackendAndEnglishEvidenceFromActualQaWording() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode node = mapper.readTree("""
+                {
+                  "summary":"구체적 evidence가 부족함",
+                  "riskReview":{
+                    "assessment":"백엔드 계획 이행 여부는 UNKNOWN으로, 명확한 리스크 트리거가 없음",
+                    "evidence":["백엔드 기술 사실이 판단을 일부 뒷받침"]
+                  }
+                }
+                """);
+
+        JsonNode sanitized = AiReviewOutputSanitizer.sanitizeTextValues(node);
+        String userFacingText = sanitized.path("summary").asText()
+                + sanitized.path("riskReview").path("assessment").asText()
+                + sanitized.path("riskReview").path("evidence").get(0).asText();
+
+        assertFalse(userFacingText.contains("백엔드"));
+        assertFalse(userFacingText.contains("UNKNOWN"));
+        assertFalse(userFacingText.toLowerCase().contains("evidence"));
+        assertTrue(sanitized.path("summary").asText().contains("구체적 근거"));
+        assertTrue(sanitized.path("riskReview").path("assessment").asText()
+                .contains("사전 계획 이행 여부를 명확히 확인할 수 있는 기록이 부족하여"));
+        assertTrue(sanitized.path("riskReview").path("evidence").get(0).asText()
+                .contains("당시 기술적 지표"));
     }
 }

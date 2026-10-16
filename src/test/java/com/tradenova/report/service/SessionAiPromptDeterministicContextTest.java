@@ -73,7 +73,7 @@ class SessionAiPromptDeterministicContextTest {
         assertTrue(prompt.contains("[User-authored plans, notes, and action reasons"));
         assertTrue(prompt.contains("thesis:support held"));
         assertTrue(prompt.contains("USER NOTE authoredAt="));
-        assertTrue(prompt.contains("timeline=UNRESOLVED"));
+        assertTrue(prompt.contains("timeline=연결 시점 확인 불가"));
         assertTrue(prompt.contains("[Automatic Event Context"));
         assertTrue(prompt.contains("totalEventCount: 7"));
     }

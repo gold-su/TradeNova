@@ -33,9 +33,12 @@ class SessionRiskComplianceEvidenceResolverTest {
         verifyNoMoreInteractions(repository);
         String formatted = new SessionQualitativeEvidenceFormatter().format(
                 new SessionQualitativeEvidenceContext(131L, List.of(), List.of(evidence)));
-        assertTrue(formatted.contains("execution assessment=FOLLOWED"));
+        assertTrue(formatted.contains("plan execution meaning=사전에 정한 실행 기준과 실제 청산이 일치함"));
+        assertFalse(formatted.contains("FOLLOWED"));
+        assertFalse(formatted.contains("STOP_LOSS"));
+        assertTrue(formatted.contains("손절 기준 도달"));
         assertTrue(formatted.contains("not overall plan quality"));
-        assertTrue(formatted.contains("negative PnL"));
+        assertTrue(formatted.contains("regardless of PnL"));
     }
 
     @Test

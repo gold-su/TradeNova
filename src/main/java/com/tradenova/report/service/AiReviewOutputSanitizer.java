@@ -43,7 +43,12 @@ public final class AiReviewOutputSanitizer {
             Map.entry("exitPlan", "청산 계획"),
             Map.entry("Backend Risk Plan Compliance", "계획 실행 일치 여부"),
             Map.entry("ACTION-TIME TRADE REASON", "거래 당시 기록한 이유"),
+            Map.entry("NOT_FOLLOWED", "사전에 정한 기준과 실제 실행이 일치하지 않음"),
             Map.entry("FOLLOWED", "사전에 정한 기준을 따름"),
+            Map.entry("STOP_LOSS", "손절 기준 도달"),
+            Map.entry("TAKE_PROFIT", "익절 기준 도달"),
+            Map.entry("END_OF_CHART", "차트 종료에 따른 청산"),
+            Map.entry("END_OF_SESSION", "세션 종료에 따른 청산"),
             Map.entry("COMPLETED", "완료됨"),
             Map.entry("field name", "내부 항목명"),
             Map.entry("entity", "내부 데이터"),
@@ -60,6 +65,7 @@ public final class AiReviewOutputSanitizer {
         sanitized = replacePriceAssignment(sanitized, "stopLossPrice", "손절가");
         sanitized = replacePriceAssignment(sanitized, "takeProfitPrice", "익절가");
         sanitized = sanitized
+                .replaceAll("(?i)백엔드\\s*계획\\s*이행\\s*여부는?\\s*UNKNOWN(?:으로)?", "사전 계획 이행 여부를 명확히 확인할 수 있는 기록이 부족하여")
                 .replaceAll("(?i)\\bentryRiskPlan\\s*=\\s*none\\b", "진입 당시 별도의 가격 기반 리스크 규칙은 설정되어 있지 않음")
                 .replaceAll("(?i)\\bexitRiskPlan\\s*=\\s*none\\b", "청산 시점에 별도의 가격 기반 리스크 규칙은 설정되어 있지 않음")
                 .replaceAll("(?i)\\bsnapshot#\\d+", "사전 계획")
@@ -68,7 +74,9 @@ public final class AiReviewOutputSanitizer {
                 .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*true\\b", "자동 청산 설정이 활성화됨")
                 .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*false\\b", "자동 청산 설정이 비활성화됨")
                 .replaceAll("(?i)\\bbackend\\s+기술\\s+사실\\b", "당시 기술적 지표")
-                .replace("리스크 컴플라이언스", "계획 이행 여부");
+                .replace("리스크 컴플라이언스", "계획 이행 여부")
+                .replace("백엔드 기술 사실", "당시 기술적 지표")
+                .replace("백엔드", "시스템이 확인한");
         for (Map.Entry<String, String> entry : NATURAL_LANGUAGE) {
             sanitized = sanitized.replace(entry.getKey(), entry.getValue());
         }
@@ -77,6 +85,7 @@ public final class AiReviewOutputSanitizer {
                 .replaceAll("(?i)\\bUNKNOWN\\b", "근거가 충분하지 않음")
                 .replaceAll("(?i)\\bcompliance\\b", "계획 이행 여부")
                 .replaceAll("(?i)\\bbackend\\b", "시스템이 계산한")
+                .replaceAll("(?i)(?<![A-Za-z])evidence(?![A-Za-z])", "근거")
                 .replaceAll("[ \\t]{2,}", " ")
                 .strip();
     }
