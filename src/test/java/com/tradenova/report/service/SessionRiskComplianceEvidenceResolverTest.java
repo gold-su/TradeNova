@@ -33,12 +33,11 @@ class SessionRiskComplianceEvidenceResolverTest {
         verifyNoMoreInteractions(repository);
         String formatted = new SessionQualitativeEvidenceFormatter().format(
                 new SessionQualitativeEvidenceContext(131L, List.of(), List.of(evidence)));
-        assertTrue(formatted.contains("plan execution meaning=사전에 정한 실행 기준과 실제 청산이 일치함"));
+        assertTrue(formatted.contains("execution relationship: the configured trigger and executed exit matched"));
         assertFalse(formatted.contains("FOLLOWED"));
         assertFalse(formatted.contains("STOP_LOSS"));
-        assertTrue(formatted.contains("손절 기준 도달"));
-        assertTrue(formatted.contains("not overall plan quality"));
-        assertTrue(formatted.contains("regardless of PnL"));
+        assertTrue(formatted.contains("configured stop trigger"));
+        assertTrue(formatted.contains("not proof of plan quality"));
     }
 
     @Test
@@ -232,8 +231,8 @@ class SessionRiskComplianceEvidenceResolverTest {
         String formatted = new SessionQualitativeEvidenceFormatter().format(new SessionQualitativeEvidenceContext(131L, List.of()));
         assertTrue(system.contains("거래가 없고 explicit user-authored Scenario/Reason이 없는 chart는 평가에서 제외"));
         assertTrue(system.contains("미거래 이유 부재 자체를 warnings, recommendations, nextTrainingFocus"));
-        assertTrue(formatted.contains("NO-TRADE EXCLUSION POLICY"));
-        assertTrue(formatted.contains("Never request a no-trade explanation or plan"));
+        assertTrue(formatted.contains("No-trade charts without an explicit user-authored decision are excluded"));
+        assertTrue(formatted.contains("Chart counts are neutral"));
         assertTrue(system.contains("profit/loss/win/loss alone must not determine process quality"));
         assertTrue(system.contains("avoid \"win\"/\"loss\" as quality labels"));
     }

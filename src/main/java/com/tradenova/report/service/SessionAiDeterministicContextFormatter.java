@@ -50,42 +50,39 @@ public class SessionAiDeterministicContextFormatter {
 
     public String formatChartEvidence(SessionAiDeterministicContext context) {
         if (context == null || context.charts().isEmpty()) {
-            return "chart evidence unavailable";
+            return "session behavior facts unavailable";
         }
 
         StringBuilder builder = new StringBuilder();
+        int unitIndex = 0;
         for (ChartAiDeterministicContext chart : context.charts()) {
             // A no-trade chart without explicit authored evidence has no decision process to evaluate.
             // Qualitative evidence is formatted separately, so suppress descriptive inventory here.
             if (!chart.traded() && chart.episodes().isEmpty()) continue;
-            builder.append("- CHART GROUP reference=").append(chart.chartId())
-                    .append(", index=").append(chart.chartIndex())
-                    .append(", symbol=").append(chart.symbolTicker())
-                    .append(", sector=").append(chart.trainingSector())
-                    .append(", status=").append(chart.status())
+            unitIndex++;
+            builder.append("- ANALYSIS UNIT ").append(unitIndex)
+                    .append(": status=").append(chart.status())
                     .append(", active=").append(chart.active())
                     .append(", refreshed=").append(chart.refreshed())
-                    .append(", progress=").append(chart.progressIndex()).append('/').append(chart.bars())
                     .append(", tradeCount=").append(chart.tradeCount())
                     .append(", episodeCount=").append(chart.episodeCount())
                     .append('\n');
 
+            int episodeIndex = 0;
             for (TradeEpisodeAiContext episode : chart.episodes()) {
-                builder.append("  * EPISODE reference=").append(chart.chartId()).append(':').append(episode.episodeIndex())
-                        .append(", state=").append(episode.closed() ? "CLOSED" : "OPEN")
+                episodeIndex++;
+                builder.append("  * EPISODE ").append(episodeIndex)
+                        .append(": state=").append(episode.closed() ? "CLOSED" : "OPEN")
                         .append(", entryCount=").append(episode.entryCount())
                         .append(", exitCount=").append(episode.exitCount())
-                        .append(", weightedEntryPrice=").append(value(episode.weightedEntryPrice()))
-                        .append(", weightedExitPrice=").append(value(episode.weightedExitPrice()))
-                        .append(", realizedPnl=").append(value(episode.realizedPnl()))
-                        .append(", returnPct=").append(value(episode.returnPct()))
-                        .append(", holdingBars=").append(value(episode.holdingBars()))
                         .append(", remainingQty=").append(value(episode.remainingQty()))
-                        .append(", plan captured at entry=").append(formatRiskPlan(episode.entryRiskPlan()))
-                        .append(", plan captured at exit=").append(formatRiskPlan(episode.exitRiskPlan()))
+                        .append(", entry-time structured risk=").append(formatRiskPlan(episode.entryRiskPlan()))
+                        .append(", exit-time structured risk=").append(formatRiskPlan(episode.exitRiskPlan()))
                         .append('\n');
             }
         }
+        builder.append("Outcome amounts are intentionally omitted from these qualitative behavior facts. ")
+                .append("Use the statistics block only as neutral outcome context, never as process quality.\n");
         return builder.toString();
     }
 
@@ -93,11 +90,9 @@ public class SessionAiDeterministicContextFormatter {
         if (plan == null) {
             return "none";
         }
-        return "{configured stop=" + value(plan.stopLossPrice())
-                + ", configured target=" + value(plan.takeProfitPrice())
-                + ", automatic exit=" + plan.autoExitEnabled()
-                + ", captured progress=" + value(plan.progressIndex())
-                + ", captured candle=" + value(plan.candleTime())
+        return "{stop configured=" + (plan.stopLossPrice() != null)
+                + ", target configured=" + (plan.takeProfitPrice() != null)
+                + ", automatic exit configured=" + plan.autoExitEnabled()
                 + "}";
     }
 

@@ -17,7 +17,8 @@ class AiReviewOutputSanitizerTest {
                 + "ACTION-TIME TRADE REASON; currentAutoExitEnabled=false; COMPLETED; "
                 + "TradeReasonAiEvidence; entryRiskPlan=none; NOT_APPLICABLE; backend 기술 사실; 리스크 컴플라이언스; "
                 + "entryDecisionTechnicalContext; entryDecisionOhlcv; riskRuleHistoryId; snapshotId; "
-                + "NOT_FOLLOWED; STOP_LOSS; TAKE_PROFIT; END_OF_CHART; END_OF_SESSION";
+                + "NOT_FOLLOWED; STOP_LOSS; TAKE_PROFIT; END_OF_CHART; END_OF_SESSION; "
+                + "NO_REASON; OBSERVATION_ONLY; CONDITIONED; TERMINAL_FORCED_EXIT";
 
         String sanitized = AiReviewOutputSanitizer.sanitize(input);
 
@@ -55,6 +56,10 @@ class AiReviewOutputSanitizerTest {
         assertFalse(sanitized.contains("TAKE_PROFIT"));
         assertFalse(sanitized.contains("END_OF_CHART"));
         assertFalse(sanitized.contains("END_OF_SESSION"));
+        assertFalse(sanitized.contains("NO_REASON"));
+        assertFalse(sanitized.contains("OBSERVATION_ONLY"));
+        assertFalse(sanitized.contains("CONDITIONED"));
+        assertFalse(sanitized.contains("TERMINAL_FORCED_EXIT"));
     }
 
     @Test

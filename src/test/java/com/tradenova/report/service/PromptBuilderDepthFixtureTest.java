@@ -29,14 +29,14 @@ class PromptBuilderDepthFixtureTest {
 
         String prompt = promptBuilder.buildUserPrompt(request);
 
-        assertTrue(prompt.contains("entryReason: 이동평균선 돌파"));
-        assertTrue(prompt.contains("USER-AUTHORED ACTION REASON: unavailable"));
-        assertTrue(prompt.contains("do not infer causality from a generic snapshot"));
-        assertTrue(prompt.contains("reason:너무 떨어져서 매도"));
-        assertTrue(prompt.contains("DECISION-TIME OBSERVATIONS ONLY"));
-        assertTrue(prompt.contains("SMA20=101.0, SMA60=98.0"));
-        assertTrue(prompt.contains("RSI(14)=61.7"));
-        assertTrue(prompt.contains("system observations, not proof of what the user checked"));
+        assertTrue(prompt.contains("pre-trade entry statement: 이동평균선 돌파"));
+        assertTrue(prompt.contains("entry action: no canonical action-time reason"));
+        assertTrue(prompt.contains("chronology alone does not establish causality"));
+        assertTrue(prompt.contains("latest action user reason: 너무 떨어져서 매도"));
+        assertTrue(prompt.contains("DECISION-TIME FACTS"));
+        assertTrue(prompt.contains("close relative to SMA20: above"));
+        assertTrue(prompt.contains("RSI14: 61.7"));
+        assertTrue(prompt.contains("Do not imply the user observed them"));
         assertFalse(prompt.contains("DecisionTechnicalContext["));
         assertTrue(AiReviewScoreCalculator.score(request).finalScore() < 80);
     }
@@ -60,9 +60,9 @@ class PromptBuilderDepthFixtureTest {
 
         String prompt = promptBuilder.buildUserPrompt(request);
 
-        assertTrue(prompt.contains("EXACT PLAN LINK: linked before the action"));
-        assertTrue(prompt.contains("The link proves plan selection, not that every condition was observed"));
-        assertTrue(prompt.contains("USER-AUTHORED ACTION REASON"));
+        assertTrue(prompt.contains("exact stored relation confirms this plan was selected"));
+        assertTrue(prompt.contains("does not confirm every condition occurred"));
+        assertTrue(prompt.contains("entry action user reason"));
         assertTrue(AiReviewScoreCalculator.score(request).finalScore() >= 80);
     }
 
@@ -84,9 +84,9 @@ class PromptBuilderDepthFixtureTest {
                 new SessionQualitativeEvidenceContext(1L, List.of(chart))
         );
 
-        assertTrue(formatted.contains("a pre-trade plan, an action-time user reason, an observed fact"));
-        assertTrue(formatted.contains("EXACT LINKED PRE-TRADE PLAN"));
-        assertTrue(formatted.contains("EXACT PLAN LINK unavailable"));
+        assertTrue(formatted.contains("USER CLAIM -> FACT -> GAP -> BEHAVIOR -> IMPLICATION -> NEXT DRILL"));
+        assertTrue(formatted.contains("exact stored relation confirms plan selection"));
+        assertTrue(formatted.contains("no exact stored relation"));
         assertFalse(formatted.contains("TradeReasonAiEvidence"));
         assertFalse(formatted.contains("tradeId="));
         assertFalse(formatted.contains("riskHistoryId="));
@@ -110,11 +110,11 @@ class PromptBuilderDepthFixtureTest {
         String chartContract = promptBuilder.buildSystemPrompt();
         String sessionContract = promptBuilder.buildSessionSystemPrompt();
 
-        assertTrue(userPrompt.contains("entryReason: 매물대 형성 지지"));
-        assertTrue(userPrompt.contains("reason:지지받고 있는 느낌"));
-        assertTrue(userPrompt.contains("reason:너무 많이 올라서 수익화"));
-        assertTrue(userPrompt.contains("RSI(14)=72.0"));
-        assertTrue(userPrompt.contains("system observations, not proof of what the user checked"));
+        assertTrue(userPrompt.contains("pre-trade entry statement: 매물대 형성 지지"));
+        assertTrue(userPrompt.contains("entry action user reason: 지지받고 있는 느낌"));
+        assertTrue(userPrompt.contains("latest action user reason: 너무 많이 올라서 수익화"));
+        assertTrue(userPrompt.contains("RSI14: 72.0"));
+        assertTrue(userPrompt.contains("Do not imply the user observed them"));
         assertTrue(chartContract.contains("명확하거나 구체적인 진입 근거라고 부르지 마라"));
         assertTrue(sessionContract.contains("Chart에서는 모호하다고 하고 Session에서는 명확하다고 뒤집지 마라"));
         assertTrue(sessionContract.contains("상위 행동 특성 하나로 합성"));

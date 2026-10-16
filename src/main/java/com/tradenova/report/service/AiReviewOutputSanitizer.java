@@ -49,6 +49,18 @@ public final class AiReviewOutputSanitizer {
             Map.entry("TAKE_PROFIT", "익절 기준 도달"),
             Map.entry("END_OF_CHART", "차트 종료에 따른 청산"),
             Map.entry("END_OF_SESSION", "세션 종료에 따른 청산"),
+            Map.entry("NO_PRECOMMITMENT", "사전에 기준을 정하지 않음"),
+            Map.entry("NO_REASON", "이유 기록 없음"),
+            Map.entry("VAGUE_TRIGGER", "행동 조건이 구체적이지 않음"),
+            Map.entry("OBSERVATION_ONLY", "관찰은 기록됐지만 행동 조건으로 정리되지 않음"),
+            Map.entry("CONDITIONED", "조건이 기록됨"),
+            Map.entry("NO_INVALIDATION", "무효화 기준이 기록되지 않음"),
+            Map.entry("NO_EXIT_PLAN", "청산 기준이 기록되지 않음"),
+            Map.entry("UNVERIFIED_LINKAGE", "계획과 행동의 직접 연결을 확인할 수 없음"),
+            Map.entry("REACTIVE_EXIT", "가격 변화 이후 재량적 청산"),
+            Map.entry("UNSUPPORTED_CLAIM", "관찰 사실로 확인되지 않은 주장"),
+            Map.entry("PLAN_ACTION_DISCONNECT", "계획과 행동의 연결이 확인되지 않음"),
+            Map.entry("UNEXPLAINED_PLAN_CHANGE", "변경 이유가 기록되지 않은 계획 수정"),
             Map.entry("COMPLETED", "완료됨"),
             Map.entry("field name", "내부 항목명"),
             Map.entry("entity", "내부 데이터"),
@@ -74,6 +86,7 @@ public final class AiReviewOutputSanitizer {
                 .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*true\\b", "자동 청산 설정이 활성화됨")
                 .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*false\\b", "자동 청산 설정이 비활성화됨")
                 .replaceAll("(?i)\\bbackend\\s+기술\\s+사실\\b", "당시 기술적 지표")
+                .replaceAll("(?i)\\bTERMINAL(?:_[A-Z0-9]+)*\\b", "종료 절차에 따른 청산")
                 .replace("리스크 컴플라이언스", "계획 이행 여부")
                 .replace("백엔드 기술 사실", "당시 기술적 지표")
                 .replace("백엔드", "시스템이 확인한");

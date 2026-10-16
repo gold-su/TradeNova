@@ -3,9 +3,6 @@ package com.tradenova.report.service;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionSnapshotSummary;
-import com.tradenova.report.dto.TradeActionAiEvidence;
-import com.tradenova.report.dto.ScenarioPlanAiEvidence;
-import com.tradenova.training.analytics.DecisionTechnicalContext;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -28,16 +25,20 @@ public class PromptBuilder {
 
     private final SessionAiDeterministicContextFormatter deterministicContextFormatter;
     private final SessionQualitativeEvidenceFormatter qualitativeEvidenceFormatter;
+    private final ChartQualitativeReviewV2Formatter chartQualitativeReviewV2Formatter;
 
     @Autowired
     public PromptBuilder(SessionAiDeterministicContextFormatter deterministicContextFormatter,
-                         SessionQualitativeEvidenceFormatter qualitativeEvidenceFormatter) {
+                         SessionQualitativeEvidenceFormatter qualitativeEvidenceFormatter,
+                         ChartQualitativeReviewV2Formatter chartQualitativeReviewV2Formatter) {
         this.deterministicContextFormatter = deterministicContextFormatter;
         this.qualitativeEvidenceFormatter = qualitativeEvidenceFormatter;
+        this.chartQualitativeReviewV2Formatter = chartQualitativeReviewV2Formatter;
     }
 
     public PromptBuilder(SessionAiDeterministicContextFormatter deterministicContextFormatter) {
-        this(deterministicContextFormatter, new SessionQualitativeEvidenceFormatter());
+        this(deterministicContextFormatter, new SessionQualitativeEvidenceFormatter(),
+                new ChartQualitativeReviewV2Formatter());
     }
 
     /**
@@ -74,6 +75,13 @@ public class PromptBuilder {
                 - snapshot이 없으면 가격/거래/포지션 기반으로 분석해라
                 - snapshot이 있으면 reasoning 일관성을 함께 평가해라
                 - 투자 추천/매수 추천 금지
+                - qualitative review는 USER CLAIM -> DECISION-TIME FACT -> GAP -> BEHAVIOR -> IMPLICATION -> NEXT DRILL 순서로 추론해라
+                - USER CLAIM은 원문보다 강하게 바꾸지 마라. "전고점까지 왔음"을 "전고점 돌파"로, "지지받는 느낌"을 "지지선 확인"으로 바꾸면 안 된다
+                - GAP은 단순히 "근거 부족"이라고 반복하지 말고 NO REASON, VAGUE REASON, 관찰은 있으나 조건화되지 않음, 연결 미확인, 계획 이탈, 반응적 청산 중 supplied facts에 맞는 의미로 설명해라
+                - BEHAVIOR는 실제 BUY/WAIT/SELL/자동 리스크 청산/종료 청산을 구분한다. 거래 완료 자체는 판단 품질의 강점이 아니다
+                - IMPLICATION은 심리나 성향을 추정하지 말고, 사전 기준 고정·행동 이유 연결·계획 수정 기록 같은 관찰 가능한 decision-process characteristic으로 써라
+                - NEXT DRILL은 가장 중요한 gap 하나를 다음 훈련에서 수행할 단일 기록 행동으로 바꿔라
+                - WAIT가 명시적으로 기록되고 사전 조건 미충족과 exact하게 연결된 경우 거래하지 않았다는 이유로 낮게 평가하지 말고 실행 규율로 평가할 수 있다
                 - Chart Review는 이 차트의 개별 판단과 실행만 평가하고 세션 전체의 반복 습관을 추정하지 마라
                 - Chart Review의 중심 질문은 "이 차트에서 사용자가 무엇을 기록했고, 당시 사실이 무엇을 지지하거나 약화했으며, 실제 행동과 어떻게 연결됐는가"다
                 - summary는 핵심 판단 하나, strengths는 검증된 긍정 evidence, warnings는 서로 다른 취약점과 실행 가능한 다음 연습을 담당하게 해 같은 결론을 section마다 반복하지 마라
@@ -165,10 +173,6 @@ public class PromptBuilder {
      * 구조화된 텍스트로 만들어 전달한다.
      */
     public String buildUserPrompt(AiAnalysisRequest req) {
-        Object currentCloses = currentOnlyEvidence(req, req.closes());
-        Object currentVolumes = currentOnlyEvidence(req, req.volumes());
-        Object currentTechnicalContext = currentOnlyEvidence(req, req.currentVisibleTechnicalContext());
-        Object currentOhlcv = currentOnlyEvidence(req, req.currentVisibleOhlcv());
         return """
             [분석 타입]
             analysisType: %s
@@ -177,165 +181,26 @@ public class PromptBuilder {
             [BACKEND SCORING RUBRIC - score source of truth]
             %s
 
-            [트레이딩 리포트]
-            PRE-TRADE PLAN / SNAPSHOT:
-            thesis: %s
-            entryReason: %s
-            exitPlan: %s
-            riskNote: %s
-            freeNote: %s
-            
-            [최근 체결 정보]
-            ACTUAL ACTION (canonical trade; raw values, no entry/risk comparison supplied):
-            latestTradePrice: %s
-            qty: %s
-            
-            [현재 포지션 / 계좌]
-            CURRENT/FINAL STATE (entry-time state가 아님):
-            avgPrice: %s
-            positionQty: %s
-            cashBalance: %s
-            
-            [저장된 리스크 룰]
-            CURRENT RISK RULE STATE (historical trade-time plan이 아님; raw prices, no entry-price relation supplied):
-            stopLossPrice: %s
-            takeProfitPrice: %s
-            autoExitEnabled: %s
-
-            [Chart Lifecycle / Historical Execution Evidence]
-            %s
-            
-            [CURRENT/FINAL 종가 - ENTRY/EXIT 판단 근거 아님]
-            %s
-            
-            [CURRENT/FINAL 거래량 - ENTRY/EXIT 판단 근거 아님]
             %s
 
-            [CURRENT/FINAL backend 계산 기술 사실 - ENTRY/EXIT 판단 근거 아님]
+            [AS_OF_ENTRY BOUNDED OHLCV]
+            When BUY exists, entry review may use only these candles and the decision-time facts above. Without BUY, this is the current visible decision boundary:
             %s
 
-            [AS_OF_ENTRY - 최신 BUY 결정 시점의 backend 계산 기술 사실]
-            %s
-
-            [최신 BUY의 ACTION-TIME REASON (user-authored claim)]
-            %s
-
-            [최신 실제 거래의 ACTION-TIME REASON (user-authored claim)]
-            %s
-
-            [CURRENT/FINAL bounded OHLCV - ENTRY/EXIT 판단 근거 아님]
-            %s
-
-            [AS_OF_ENTRY - 최신 BUY 결정 시점까지의 bounded OHLCV]
-            %s
-            
-            위 데이터를 네 축으로 평가해라:
-            1) Decision Quality: entryDecisionTechnicalContext와 entryDecisionOhlcv를 기준으로 사용자 근거의 구체성, 지지 evidence, 반대 evidence
-            2) Risk / Plan Quality: stop/target 존재와 구체성, 제공된 판단 시점 변동성 evidence와 계획의 관계
-            3) Execution Quality: 실제 trade sequence, plan 변경, manual/automatic exit, 확인 가능한 plan/action 일치
-            4) Learning Point: 다음 훈련에서 관찰하거나 기록할 구체적인 행동 하나
-
-            단순 FACT를 다시 읽어주는 데 응답 공간을 쓰지 말고, 왜 그 evidence가 판단을 지지하거나 약화하는지 해석해라.
-            Decision Quality에서는 evidence가 충분할 때 support evidence와 counter-evidence를 모두 비교해라.
-            raw numeric value에서 새로운 비교·거리·비율을 계산하지 마라. backend가 명시한 calculated fact만 해석해라.
-            ENTRY 판단은 AS_OF_ENTRY 블록, BUY 시점 사용자 근거와 계획, BUY 시점 risk history만 사용해라.
-            EXIT 판단은 exit timestamp까지 exact하게 연결된 exit reason, execution trigger, 당시 risk plan만 사용해라.
-            exit 이후 또는 session 종료 시점 데이터로 ENTRY/EXIT 판단을 재평가하지 마라.
-            공개 이후 종목 정보나 CURRENT/FINAL 블록을 과거 blind decision 평가에 사용하지 마라.
-            
-            특히 아래를 중요하게 봐라:
-            - 손절/익절 계획이 실제로 존재하는지
-            - 리포트 내용과 실제 리스크 룰이 일관적인지
-            - 진입 사유가 추상적인지 구체적인지
-            - 수량과 현금 잔고만으로 포지션 위험의 적절성을 평가하지 마라
-
-            추가 규칙:
-            - analysisType이 FAST면 snapshot 기반 reasoning 평가는 하지 말고,
-              거래/포지션/리스크/가격 흐름 중심으로만 평가해라.
-            - analysisType이 DEEP면 snapshot의 thesis, entryReason, exitPlan, riskNote를 적극 반영해라.
-            - hasSnapshot=false 인 경우 리포트 텍스트가 비어 있어도 정상 상황으로 간주해라.
-            - backend가 risk-at-stop, account risk %%, position value ratio를 명시적으로 제공하지 않았다면
-              포지션 크기가 적절하다, 과도하지 않다, 위험이 낮다, 무리가 없다고 평가하지 말고 해당 평가는 생략해라.
-            - 각 판단은 USER CLAIM → OBSERVED TECHNICAL FACT → INTERPRETATION → TRAINING FEEDBACK 순서로 구성해라.
-            - swingHigh/swingLow와 rolling high/low는 관찰 evidence이며 support/resistance 확정값이 아니다.
+            작성 순서:
+            1) summary는 핵심 CLAIM-FACT 관계, 가장 중요한 GAP, 그 GAP이 드러낸 행동 특성을 2~3문장으로 합성한다.
+            2) strengths에는 실제 사전 조건, 명시적 연결, 규율 있는 WAIT/리스크 실행처럼 확인된 process strength만 넣는다. 단순 체결 완료는 제외한다.
+            3) warnings는 summary를 반복하지 말고 판단 연결고리가 실제 행동에 미친 의미와 NEXT DRILL 하나를 나눠 쓴다.
+            4) 기술 사실은 사용자 주장을 검증하거나 맥락화하는 1~3개만 선택한다. 시스템이 가진 지표를 사용자가 확인했다고 쓰지 않는다.
+            5) exact stored plan relation이 없으면 계획대로 행동했다고 쓰지 않는다. relation이 있어도 조건 발생까지 자동 확정하지 않는다.
+            6) terminal lifecycle exit는 discretionary SELL 판단에서 제외한다.
             """.formatted(
                 nullSafe(req.analysisType()),
                 req.hasSnapshot(),
                 AiReviewScoreCalculator.score(req).promptLine(),
-                nullSafe(req.thesis()),
-                nullSafe(req.entryReason()),
-                nullSafe(req.exitPlan()),
-                nullSafe(req.riskNote()),
-                nullSafe(req.freeNote()),
-                req.price(),
-                req.qty(),
-                req.avgPrice(),
-                req.positionQty(),
-                req.cashBalance(),
-                req.stopLossPrice(),
-                req.takeProfitPrice(),
-                req.autoExitEnabled(),
-                req.lifecycleEvidence(),
-                currentCloses,
-                currentVolumes,
-                currentTechnicalContext,
-                entryTechnicalEvidence(req.entryDecisionTechnicalContext()),
-                chartActionEvidence(req.entryActionEvidence()),
-                chartActionEvidence(req.latestActionEvidence()),
-                currentOhlcv,
-                req.entryDecisionOhlcv()
+                chartQualitativeReviewV2Formatter.format(req),
+                req.entryDecisionTechnicalContext() != null ? req.entryDecisionOhlcv() : req.currentVisibleOhlcv()
         );
-    }
-
-    private Object currentOnlyEvidence(AiAnalysisRequest req, Object evidence) {
-        if (req.entryDecisionTechnicalContext() != null) {
-            return "WITHHELD: post-entry/current evidence is outside the ENTRY decision-time boundary";
-        }
-        return evidence;
-    }
-
-    private String chartActionEvidence(TradeActionAiEvidence action) {
-        if (action == null) {
-            return "USER-AUTHORED ACTION REASON: unavailable\n"
-                    + "EXACT PLAN LINK: unavailable; do not infer causality from a generic snapshot";
-        }
-        return "ACTUAL ACTION: " + action.side() + " at candleTime=" + action.candleTime()
-                + "\nUSER-AUTHORED ACTION REASON: " + actionReasons(action)
-                + "\nEXACT PLAN LINK: " + linkedPlan(action.scenarioPlan());
-    }
-
-    private String actionReasons(TradeActionAiEvidence action) {
-        if (action.reasons().isEmpty()) return "unavailable";
-        return action.reasons().stream()
-                .map(reason -> "{reason:" + nullSafe(reason.entryReason())
-                        + ", risk rationale:" + nullSafe(reason.riskNote()) + "}")
-                .toList().toString();
-    }
-
-    private String linkedPlan(ScenarioPlanAiEvidence plan) {
-        if (plan == null) return "unavailable; a generic/latest snapshot is not an action reason";
-        return "linked before the action {thesis:" + nullSafe(plan.thesis())
-                + ", entry condition:" + nullSafe(plan.entryReason())
-                + ", exit condition:" + nullSafe(plan.exitPlan())
-                + ", risk rationale:" + nullSafe(plan.riskNote()) + "}. "
-                + "The link proves plan selection, not that every condition was observed.";
-    }
-
-    private String entryTechnicalEvidence(DecisionTechnicalContext context) {
-        if (context == null) return "unavailable";
-        return "DECISION-TIME OBSERVATIONS ONLY (select the 1~2 facts most relevant to the user claim; do not imply the user observed them):\n"
-                + "- as-of candle=" + context.asOfCandleTime() + ", close=" + context.currentClose() + "\n"
-                + "- recent returns: 5 bars=" + context.return5BarsPct() + "%, 20 bars=" + context.return20BarsPct() + "%\n"
-                + "- moving averages: SMA20=" + context.sma20() + ", SMA60=" + context.sma60()
-                + ", backend-calculated distance from SMA20=" + context.priceVsSma20Pct()
-                + "%, distance from SMA60=" + context.priceVsSma60Pct() + "%\n"
-                + "- momentum/volatility: RSI(14)=" + context.rsi14() + ", ATR(14)=" + context.atr14()
-                + ", ATR percent=" + context.atr14Pct() + "%\n"
-                + "- volume: current=" + context.currentVolume() + ", 20-bar average=" + context.averageVolume20()
-                + ", backend-calculated ratio=" + context.volumeRatio20() + "\n"
-                + "- rolling structure: distance to 20-bar high=" + context.distanceToHigh20Pct()
-                + "%, distance to 20-bar low=" + context.distanceToLow20Pct() + "%\n"
-                + "These are system observations, not proof of what the user checked.";
     }
 
     /**
@@ -380,6 +245,13 @@ public class PromptBuilder {
         - warnings는 없으면 빈 배열
         - strengths는 없으면 빈 배열
         - behaviorPatterns와 nextTrainingFocus는 근거가 없으면 빈 배열
+        - Session qualitative review는 USER CLAIM -> FACT -> GAP -> BEHAVIOR -> IMPLICATION -> NEXT DRILL 순서로 합성해라
+        - USER CLAIM은 원문보다 강하게 바꾸지 마라. 도달을 돌파로, 느낌을 확인된 조건으로, 이유 존재를 좋은 이유로 바꾸면 안 된다
+        - FACT는 사용자 작성 문장과 분리된 시스템 관찰 또는 실행 사실이다. FACT를 사용자가 직접 확인한 근거라고 귀속하지 마라
+        - GAP은 "근거 부족"을 반복하는 대신 이유 없음, 추상적 이유, 조건화되지 않은 관찰, 연결 미확인, 계획 이탈, 반응적 청산을 구분해라
+        - BEHAVIOR는 체결 완료를 강점으로 만들지 말고 사전 기준 고정, exact plan/action 연결, 계획 변경 기록, 청산 유형을 해석해라
+        - IMPLICATION은 심리를 추정하지 말고 이번 세션에서 관찰 가능한 decision-process characteristic으로 합성해라
+        - NEXT DRILL은 가장 중요한 gap 하나를 다음 훈련에서 수행할 단일 행동으로 변환해라
         - 각 문자열은 한 가지 관찰과 해석만 담은 짧은 문장으로 작성하고 긴 텍스트 block을 만들지 마라
         - raw HTML, CSS, 색상 코드를 출력하지 마라
         - 핵심 결론이나 근거의 짧은 phrase만 항목당 최대 1~2개 **...**로 강조해라
@@ -414,6 +286,7 @@ public class PromptBuilder {
         - ENTRY 평가는 해당 entry 시점까지의 evidence만 사용하고 이후 가격, indicator, exit 결과, session final state를 섞지 마라
         - Session Review는 여러 chart/trade에서 반복 확인된 패턴을 요약한다. 개별 Chart Review 내용을 근거 없이 반복하지 마라
         - chart/trade가 하나뿐이면 반복 패턴을 만들지 말고 이번 세션에서 가장 중요한 decision-quality observation 하나를 요약해라
+        - 단일 analysis unit에서는 "반복적으로"라고 쓰지 말고 "이번 세션에서 가장 두드러진 행동 특성"이라고 제한해라
         - 단일 chart/trade에서는 개별 사실을 여러 section에 재배치하지 말고, 진입과 청산을 관통하는 상위 행동 특성 하나로 합성해라. 예: 행동 전에 가격대나 확인 조건을 고정하는 습관이 약함
         - Session Review의 중심 질문은 "이번 세션 전체에서 어떤 판단 기록과 실행 방식이 반복됐는가"다. 개별 차트의 좋고 나쁨을 다시 요약하지 마라
         - behaviorPatterns를 만들기 전에 각 거래의 plan specificity, action reason specificity, exact plan/action link, exit behavior, risk setup을 내부적으로 비교해라. 이 비교표 자체는 출력하지 마라
@@ -562,15 +435,15 @@ public class PromptBuilder {
             totalEventCount: %s
 
             위 데이터를 세션 전체 관점의 네 축으로 평가해라:
-            PLAN / ACTION / FACT / EXECUTION evidence chain을 유지해라.
-            1) Decision Quality: 반복 확인되는 사용자 근거와 판단 시점 FACT의 연결 또는 모순
-            2) Risk / Plan Quality: 계획 자체의 존재와 구체성; compliance와 별도로 평가
-            3) Execution Quality: 반복 확인되는 plan 변경, actual action, automatic/manual execution 패턴
-            4) Learning Point: 다음 훈련에서 관찰하거나 기록할 구체적인 행동 하나
+            qualitative V2 chain인 USER CLAIM -> FACT -> GAP -> BEHAVIOR -> IMPLICATION -> NEXT DRILL을 유지해라.
+            1) decisionReview: 사용자 주장의 원문 강도와 당시 확인되는 사실의 관계
+            2) riskReview: 사전 기준의 고정 정도와 실제 risk execution의 범위; 두 개념을 분리
+            3) behaviorPatterns: 같은 특성이 독립된 action/unit에서 2회 이상인 경우에만 상위 행동 패턴
+            4) nextTrainingFocus: 가장 중요한 gap 하나를 바꾸는 구체적인 다음 훈련 행동 하나
 
-            단순 FACT recap보다 evidence의 의미와 trade-off를 해석해라.
-            evidence가 충분하면 support evidence와 counter-evidence를 함께 비교해라.
-            raw numeric value를 재계산하지 말고 backend가 명시한 calculated fact만 해석해라.
+            단순 사실 recap보다 관찰과 행동 사이에서 끊어진 연결고리와 그 행동상 의미를 해석해라.
+            근거가 충분하면 사용자 주장을 지지하는 사실과 약화시키는 사실을 함께 비교해라.
+            raw numeric value를 재계산하지 말고 시스템이 명시한 calculated fact만 해석해라.
 
             특히 아래를 중요하게 봐라:
             - snapshot 내용들이 서로 일관적인지
