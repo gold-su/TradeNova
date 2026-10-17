@@ -10,6 +10,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AiReviewOutputSanitizerTest {
 
     @Test
+    void convertsDeveloperRiskTermsToNaturalKorean() {
+        String sanitized = AiReviewOutputSanitizer.sanitize(
+                "structured stop loss와 take profit, auto risk rule을 확인했습니다");
+
+        assertFalse(sanitized.contains("structured stop loss"));
+        assertFalse(sanitized.contains("take profit"));
+        assertFalse(sanitized.contains("auto risk rule"));
+        assertTrue(sanitized.contains("사전에 설정한 손절 조건"));
+        assertTrue(sanitized.contains("익절 조건"));
+        assertTrue(sanitized.contains("자동 청산 조건"));
+    }
+
+    @Test
     void removesInternalTokensAndPreservesBoldMarkers() throws Exception {
         String input = "**stopLossPrice가 없음**; exitRiskPlan; Backend Risk Plan Compliance=FOLLOWED; "
                 + "snapshot#1; SNAPSHOT#123; tradeId=260 매수; tradeId=999 매도; "
@@ -33,7 +46,7 @@ class AiReviewOutputSanitizerTest {
         assertTrue(sanitized.contains("자동 청산 설정이 비활성화됨"));
         assertTrue(sanitized.contains("진입 당시 별도의 가격 기반 리스크 규칙은 설정되어 있지 않음"));
         assertTrue(sanitized.contains("평가 대상 아님"));
-        assertTrue(sanitized.contains("당시 기술적 지표"));
+        assertTrue(sanitized.contains("당시 기술적 지표"), sanitized);
         assertFalse(sanitized.contains("stopLossPrice"));
         assertFalse(sanitized.contains("stopLoss"));
         assertFalse(sanitized.contains("takeProfit"));

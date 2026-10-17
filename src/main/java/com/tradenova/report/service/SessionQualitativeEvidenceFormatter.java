@@ -8,6 +8,7 @@ import com.tradenova.report.dto.SnapshotAiEvidence;
 import com.tradenova.report.dto.TradeActionAiEvidence;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /** Builds session-level qualitative units without turning event logs into user-facing prose. */
@@ -43,6 +44,8 @@ public class SessionQualitativeEvidenceFormatter {
                 .append("- actions without exact plan relation: ").append(signals.unlinkedActions).append('\n')
                 .append("- reactive discretionary exit candidates: ").append(signals.reactiveExits).append('\n')
                 .append("- plans without an invalidation rationale: ").append(signals.plansWithoutInvalidation).append('\n')
+                .append("- plan/action deviations: ").append(signals.planActionDeviations).append('\n')
+                .append("- recorded plan adaptations: ").append(signals.planAdaptations).append('\n')
                 .append("Use 'repeated pattern' only when the same characteristic appears in at least two independent actions or units. ")
                 .append("For one unit, describe one prominent behavior characteristic instead.\n")
                 .append("Do not recap every action. Convert the strongest cross-action signal into one implication and one concrete next drill.\n");
@@ -61,7 +64,11 @@ public class SessionQualitativeEvidenceFormatter {
                     .append("  claim quality: ").append(QualitativeEvidenceClassifier.meaning(snapshot.entryReason())).append('\n')
                     .append("- exit condition: ").append(value(snapshot.exitPlan())).append('\n')
                     .append("- invalidation/risk rationale: ").append(value(snapshot.riskNote())).append('\n');
-            if (!present(snapshot.riskNote())) signals.plansWithoutInvalidation++;
+            RiskPrecommitmentV21Analyzer.Precommitment precommitment = RiskPrecommitmentV21Analyzer.classify(
+                    snapshot.exitPlan(), snapshot.riskNote(), null, null, false);
+            out.append("- deterministic precommitment assessment: ")
+                    .append(RiskPrecommitmentV21Analyzer.describe(precommitment)).append('\n');
+            if (!precommitment.exists()) signals.plansWithoutInvalidation++;
         }
     }
 
@@ -78,7 +85,8 @@ public class SessionQualitativeEvidenceFormatter {
             return;
         }
         int actionIndex = 0;
-        for (TradeActionAiEvidence action : actions) {
+        for (int index = 0; index < actions.size(); index++) {
+            TradeActionAiEvidence action = actions.get(index);
             actionIndex++;
             String reason = primaryReason(action);
             QualitativeEvidenceClassifier.Specificity specificity = QualitativeEvidenceClassifier.classify(reason);
@@ -99,6 +107,21 @@ public class SessionQualitativeEvidenceFormatter {
                         .append("- linked entry condition: ").append(value(action.scenarioPlan().entryReason())).append('\n')
                         .append("- linked exit condition: ").append(value(action.scenarioPlan().exitPlan())).append('\n')
                         .append("- linked invalidation rationale: ").append(value(action.scenarioPlan().riskNote())).append('\n');
+            }
+
+            if ("SELL".equalsIgnoreCase(action.side())) {
+                BigDecimal positionBefore = RiskPrecommitmentV21Analyzer.positionBefore(actions, index);
+                RiskPrecommitmentV21Analyzer.Comparison comparison = RiskPrecommitmentV21Analyzer.compare(
+                        action.scenarioPlan(), action, positionBefore);
+                out.append("- plan/action comparison: ")
+                        .append(RiskPrecommitmentV21Analyzer.describe(comparison)).append('\n');
+                if (comparison.relation() == RiskPrecommitmentV21Analyzer.Relation.PARTIAL_DEVIATION
+                        || comparison.relation() == RiskPrecommitmentV21Analyzer.Relation.DEVIATION) {
+                    signals.planActionDeviations++;
+                }
+                if (comparison.relation() == RiskPrecommitmentV21Analyzer.Relation.JUSTIFIED_ADAPTATION) {
+                    signals.planAdaptations++;
+                }
             }
 
             if ("WAIT".equalsIgnoreCase(action.side()) && action.scenarioPlan() != null) {
@@ -128,6 +151,7 @@ public class SessionQualitativeEvidenceFormatter {
                     .append("- execution relationship: ").append(complianceMeaning(risk.compliance())).append('\n');
         }
         out.append("A matched risk execution is not proof of plan quality. A lifecycle-forced liquidation is outside risk-plan compliance and is not a discretionary SELL.\n");
+        out.append("Automatic execution is an execution mechanism, not a prerequisite for valid precommitment or high decision quality.\n");
     }
 
     private String primaryReason(TradeActionAiEvidence action) {
@@ -177,5 +201,7 @@ public class SessionQualitativeEvidenceFormatter {
         private int unlinkedActions;
         private int reactiveExits;
         private int plansWithoutInvalidation;
+        private int planActionDeviations;
+        private int planAdaptations;
     }
 }

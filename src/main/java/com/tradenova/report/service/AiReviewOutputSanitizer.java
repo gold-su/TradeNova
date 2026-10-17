@@ -27,6 +27,10 @@ public final class AiReviewOutputSanitizer {
             Map.entry("autoExitEnabled", "자동 청산 설정"),
             Map.entry("stopLossPrice", "손절가"),
             Map.entry("takeProfitPrice", "익절가"),
+            Map.entry("structured stop loss", "사전에 설정한 손절 조건"),
+            Map.entry("structured stop", "사전에 설정한 손절 조건"),
+            Map.entry("take profit", "익절 조건"),
+            Map.entry("auto risk rule", "자동 청산 조건"),
             Map.entry("TradeReasonAiEvidence", ""),
             Map.entry("RiskComplianceAiEvidence", ""),
             Map.entry("ScenarioPlanAiEvidence", ""),
@@ -85,7 +89,7 @@ public final class AiReviewOutputSanitizer {
                 .replaceAll("(?i)\\bcompliance\\s*[:=]?\\s*UNKNOWN\\b", "계획 이행 여부를 명확히 판단할 근거가 부족함")
                 .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*true\\b", "자동 청산 설정이 활성화됨")
                 .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*false\\b", "자동 청산 설정이 비활성화됨")
-                .replaceAll("(?i)\\bbackend\\s+기술\\s+사실\\b", "당시 기술적 지표")
+                .replaceAll("(?i)backend\\s+기술\\s+사실", "당시 기술적 지표")
                 .replaceAll("(?i)\\bTERMINAL(?:_[A-Z0-9]+)*\\b", "종료 절차에 따른 청산")
                 .replace("리스크 컴플라이언스", "계획 이행 여부")
                 .replace("백엔드 기술 사실", "당시 기술적 지표")

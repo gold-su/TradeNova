@@ -69,9 +69,9 @@ class QualitativeReviewV2FormatterTest {
         ScenarioPlanAiEvidence plan = plan();
         AiAnalysisRequest request = request(
                 plan.entryReason(), plan.exitPlan(), plan.riskNote(),
-                action("BUY", plan.entryReason(), plan),
-                action("SELL", plan.exitPlan(), plan),
-                lifecycle(null), true
+                actionWithQty(1L, "BUY", plan.entryReason(), BigDecimal.ONE, plan),
+                actionWithQty(2L, "SELL", plan.exitPlan(), new BigDecimal("0.5"), plan),
+                lifecycle(null), true, new BigDecimal("0.5")
         );
 
         String formatted = formatter.format(request);
@@ -134,14 +134,56 @@ class QualitativeReviewV2FormatterTest {
         assertFalse(multiple.contains("chart reference="));
     }
 
+    @Test
+    void conditionalRiskPlanIsPrecommitmentAndSizeDeviationBecomesTheDrill() {
+        ScenarioPlanAiEvidence plan = new ScenarioPlanAiEvidence(
+                55L, 1L, 1, Instant.EPOCH, "20일선 지지", "20일선 지지 시 진입",
+                "20일선 이탈 시 50% 매도; 전저점 이탈 시 전량 매도", null, "");
+        TradeActionAiEvidence buy = actionWithQty(1L, "BUY", "20일선 지지 확인", new BigDecimal("100"), plan);
+        TradeActionAiEvidence sell = actionWithQty(2L, "SELL", "20일선 이탈 조건에서 일부 매도", new BigDecimal("75"), plan);
+        AiAnalysisRequest request = request(plan.entryReason(), plan.exitPlan(), null, buy, sell,
+                lifecycle(null), false, new BigDecimal("25"));
+
+        String formatted = formatter.format(request);
+
+        assertTrue(formatted.contains("verifiable structural or conditional exit rule"));
+        assertTrue(formatted.contains("planned 50%, observed 75%"));
+        assertTrue(formatted.contains("position size differs"));
+        assertTrue(formatted.contains("사전에 정한 청산 조건과 비중을 실제 행동에 맞추고"));
+        assertFalse(formatted.contains("무효화 조건이 사전에 고정되지 않음"));
+    }
+
+    @Test
+    void completedBuyAndSellWithoutPlanLinkNeverBecomePlanAdherence() {
+        AiAnalysisRequest request = request(
+                "20일선 지지", "", "",
+                action("BUY", "20일선 지지", null), action("SELL", "매도 완료", null),
+                lifecycle(null), false);
+
+        String formatted = formatter.format(request);
+
+        assertTrue(formatted.contains("Transaction completion alone never establishes plan adherence"));
+        assertTrue(formatted.contains("plan/action relationship cannot be confirmed"));
+        assertFalse(formatted.contains("plan/action relationship: matches"));
+    }
+
     private AiAnalysisRequest request(String entry, String exit, String risk,
                                       TradeActionAiEvidence entryAction,
                                       TradeActionAiEvidence latestAction,
                                       ChartLifecycleAiEvidence lifecycle,
                                       boolean structuredRisk) {
+        return request(entry, exit, risk, entryAction, latestAction, lifecycle, structuredRisk, BigDecimal.ZERO);
+    }
+
+    private AiAnalysisRequest request(String entry, String exit, String risk,
+                                      TradeActionAiEvidence entryAction,
+                                      TradeActionAiEvidence latestAction,
+                                      ChartLifecycleAiEvidence lifecycle,
+                                      boolean structuredRisk,
+                                      BigDecimal positionQty) {
         return new AiAnalysisRequest(
                 "", entry, exit, risk, "", "DEEP", true,
-                BigDecimal.valueOf(100), BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.valueOf(100), BigDecimal.ONE, BigDecimal.ZERO, positionQty,
                 BigDecimal.valueOf(1_000_000),
                 structuredRisk ? BigDecimal.valueOf(95) : null,
                 structuredRisk ? BigDecimal.valueOf(120) : null,
@@ -157,6 +199,16 @@ class QualitativeReviewV2FormatterTest {
                 1L, 1L, 1L, side, 1L, BigDecimal.ONE, BigDecimal.valueOf(100),
                 Instant.EPOCH, reasons, null, plan == null ? "MANUAL" : "SCENARIO",
                 plan == null ? null : plan.snapshotId(), plan
+        );
+    }
+
+    private TradeActionAiEvidence actionWithQty(Long tradeId, String side, String reason,
+                                                 BigDecimal qty, ScenarioPlanAiEvidence plan) {
+        List<TradeReasonAiEvidence> reasons = reason == null ? List.of()
+                : List.of(new TradeReasonAiEvidence("reason", reason, null, Instant.EPOCH));
+        return new TradeActionAiEvidence(
+                tradeId, 1L, tradeId, side, tradeId, qty, BigDecimal.valueOf(100),
+                Instant.EPOCH, reasons, null, "SCENARIO", plan.snapshotId(), plan
         );
     }
 

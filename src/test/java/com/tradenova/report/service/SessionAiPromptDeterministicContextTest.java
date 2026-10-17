@@ -58,10 +58,13 @@ class SessionAiPromptDeterministicContextTest {
         assertFalse(prompt.contains("activeChartCount"));
         assertTrue(prompt.contains("[Calculated Trade Statistics]"));
         assertTrue(prompt.contains("closedEpisodes=1, openEpisodes=1"));
-        assertTrue(prompt.contains("winRate=1"));
-        assertTrue(prompt.contains("payoffRatio=undefined"));
-        assertFalse(prompt.contains("payoffRatio=0"));
-        assertTrue(prompt.contains("expectancy=100"));
+        assertTrue(prompt.contains("Outcome statistics are intentionally excluded"));
+        assertFalse(prompt.contains("P&L"));
+        assertFalse(prompt.contains("winRate="));
+        assertFalse(prompt.contains("payoffRatio="));
+        assertFalse(prompt.contains("expectancy="));
+        assertFalse(prompt.contains("totalRealizedPnl="));
+        assertFalse(prompt.contains("averageReturnPct="));
         assertTrue(prompt.contains("state=CLOSED"));
         assertTrue(prompt.contains("state=OPEN"));
         assertTrue(prompt.contains("active=false, refreshed=true"));
@@ -106,6 +109,9 @@ class SessionAiPromptDeterministicContextTest {
         assertTrue(prompt.contains("Risk Plan Quality와 Risk Plan Compliance를 반드시 분리"));
         assertTrue(prompt.contains("계획된 stop에 따른 손실 청산은 compliance 저하의 근거가 아니다"));
         assertTrue(prompt.contains("계획을 지킨 실행의 compliance는 positive 또는 neutral"));
+        assertTrue(prompt.contains("qualitative review input에서 outcome 수치가 제외된 경우 P&L, 수익, 손실을 추측하거나 언급하지 마라"));
+        assertTrue(prompt.contains("조건형/구조형 청산 계획은 절대 가격이나 자동 설정이 없어도 precommitment"));
+        assertTrue(prompt.contains("numeric stop/target, structural/conditional plan, manual/automatic execution은 서로 독립된 축"));
     }
 
     @Test

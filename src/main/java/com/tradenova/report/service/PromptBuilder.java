@@ -92,7 +92,9 @@ public class PromptBuilder {
                 - "오를 것 같아서", "많이 올라서", "떨어질 것 같아서", "그냥", "느낌이 좋아서" 같은 짧고 일반적인 이유는 추가 조건 evidence가 없으면 low-specificity다
                 - 계획과 실행이 일치해도 약한 이유의 quality를 상향하지 마라
                 - counter-evidence는 당시 기다릴 이유, 불확실성, 확인되지 않은 조건, 사용자 가설과 충돌한 데이터로 설명하고 정답/오답으로 단정하지 마라
-                - Risk / Plan Quality는 stop/target의 존재와 구체성, 제공된 변동성 evidence와의 관계를 평가하되 최적이라고 단정하지 마라
+                - Risk / Plan Quality는 행동 전에 검증 가능한 invalidation/exit condition이 고정됐는지를 평가해라. 절대 가격은 유효한 방식 중 하나일 뿐이다
+                - "20일선 이탈 시 절반 청산", "전저점 이탈 시 전량 청산"처럼 관찰 가능한 구조 조건과 행동·비중이 기록된 manual plan도 유효한 precommitment다
+                - 자동 청산은 execution automation 방식이다. 자동 설정 부재만으로 risk plan 부재, 낮은 discipline, 낮은 plan quality라고 평가하지 마라
                 - Execution Quality는 plan 변경, manual/automatic exit, trade sequence와 확인 가능한 plan/action 일치만 평가해라
                 - Learning Point는 다음 훈련에서 관찰하거나 기록할 구체적인 행동 하나로 작성하고 투자 행동을 지시하지 마라
                 - 사용자가 현저히 정보가 부족해 보이면 학습 필요성을 지적해라
@@ -110,6 +112,11 @@ public class PromptBuilder {
                 - SELL은 사전 exit plan, 실제 SELL reason, structured trigger, terminal lifecycle 여부를 서로 분리해 평가해라
                 - 실제 SELL reason이 가격 하락 뒤의 반응만 말하고, 사전에 연결된 청산 기준이나 structured trigger가 없으며 terminal liquidation도 아닐 때만 "사후 가격 움직임에 반응한 청산에 가깝다"고 제한적으로 해석해라
                 - exit plan이 있어도 실제 SELL reason 또는 execution trigger와 exact하게 연결되지 않으면 계획대로 청산했다고 단정하지 마라
+                - Plan adherence는 PRECOMMITMENT와 ACTUAL ACTION의 trigger, action type, position size를 각각 비교해 판단해라
+                - full exit라는 결과가 같아도 계획 trigger와 실제 reason이 다르면 계획 준수로 평가하지 마라
+                - 계획한 청산 비중과 실제 청산 비중이 다르면 조건 일치와 별개인 partial deviation으로 설명해라
+                - 행동 전에 새 정보와 변경 이유가 기록된 plan change는 justified adaptation일 수 있다. 사후 이유와 구분하고 자동으로 위반 처리하지 마라
+                - BUY/SELL 체결 성공, 거래 완료, 세션 완료, 진입 후 청산 수행 자체는 plan adherence, consistency, discipline의 근거가 아니다
                 - END_OF_CHART/END_OF_SESSION은 lifecycle 종료이며 반응적 SELL이나 사용자 판단으로 분류하지 마라
                 - structured risk rule 부재는 위반이 아니라 사전 가격 기준이 확인되지 않는 plan-quality 사실이다
                 - use only supplied evidence. 제공되지 않은 indicator, volume, support/resistance, 사용자 의도를 만들어내지 마라
@@ -134,13 +141,14 @@ public class PromptBuilder {
                 - structured risk rule은 설정된 손절/익절 가격, 자동 청산 설정, execution trigger를 뜻한다
                 - narrative scenario plan은 진입/관망/계획 변경 조건과 손절·익절 근거를 사용자가 자연어로 기록한 것이다
                 - structured stop이 있어도 narrative 근거가 없을 수 있다. 이 경우 "손절 계획이 없다"가 아니라 "손절 가격은 설정됐지만 그 근거는 충분히 기록되지 않았다"고 구분해라
-                - narrative 손절 의도가 있어도 structured rule이 없을 수 있다. 이 경우 의도는 기록됐지만 실제 자동 청산 규칙은 설정되지 않았다고 구분해라
+                - narrative 손절 의도가 검증 가능한 조건이면 structured rule이 없어도 risk precommitment는 존재한다. 자동 실행이 아니라 manual execution plan이었다고 구분해라
                 - risk plan 존재, historicalAutoExitEnabled, currentAutoExitEnabled, actual automatic exit는 서로 다른 사실이다
                 - 실제 자동 청산 여부와 사유는 exact historical execution/lifecycle evidence만으로 판단하고 currentAutoExitEnabled로 추정하지 마라
                 - 이 서로 다른 시점의 evidence를 섞어 "자동 청산이 비활성화됐다"와 "자동 청산이 실행됐다"처럼 모순되게 평가하지 마라
                 - When two facts appear inconsistent, explain the scope difference rather than choosing one or inventing reconciliation.
                 - 같은 scope와 시점에 대해 "기준이 있다/없다", "계획이 명확하다/불명확하다"를 동시에 말하지 마라
                 - profit != good decision, loss != bad decision. 결과로 과거 판단을 정당화하거나 폄하하지 마라
+                - qualitative 문장에 판단 과정 설명과 무관한 P&L, 수익, 손실을 끌어오지 마라
                 - 진입 품질은 entryDecisionTechnicalContext와 entryDecisionOhlcv만으로 평가하고 진입 이후 데이터는 사용하지 마라
                 - ENTRY 평가는 entry timestamp까지의 candle, entry decision context, BUY 시점 plan/reason/risk history만 사용해라
                 - EXIT 평가는 exit timestamp까지 exact하게 연결된 exit reason, trigger, 당시 risk plan만 사용해라
@@ -194,6 +202,7 @@ public class PromptBuilder {
             4) 기술 사실은 사용자 주장을 검증하거나 맥락화하는 1~3개만 선택한다. 시스템이 가진 지표를 사용자가 확인했다고 쓰지 않는다.
             5) exact stored plan relation이 없으면 계획대로 행동했다고 쓰지 않는다. relation이 있어도 조건 발생까지 자동 확정하지 않는다.
             6) terminal lifecycle exit는 discretionary SELL 판단에서 제외한다.
+            7) deterministic plan/action comparison이 있으면 trigger, action type, size 차이를 핵심 gap으로 사용하고, 자동 설정이나 절대 가격 작성을 기본 drill로 선택하지 않는다.
             """.formatted(
                 nullSafe(req.analysisType()),
                 req.hasSnapshot(),
@@ -250,6 +259,7 @@ public class PromptBuilder {
         - FACT는 사용자 작성 문장과 분리된 시스템 관찰 또는 실행 사실이다. FACT를 사용자가 직접 확인한 근거라고 귀속하지 마라
         - GAP은 "근거 부족"을 반복하는 대신 이유 없음, 추상적 이유, 조건화되지 않은 관찰, 연결 미확인, 계획 이탈, 반응적 청산을 구분해라
         - BEHAVIOR는 체결 완료를 강점으로 만들지 말고 사전 기준 고정, exact plan/action 연결, 계획 변경 기록, 청산 유형을 해석해라
+        - BUY/SELL 체결 성공, 거래 완료, 세션 완료는 시스템 execution fact일 뿐 plan adherence나 consistency의 근거가 아니다
         - IMPLICATION은 심리를 추정하지 말고 이번 세션에서 관찰 가능한 decision-process characteristic으로 합성해라
         - NEXT DRILL은 가장 중요한 gap 하나를 다음 훈련에서 수행할 단일 행동으로 변환해라
         - 각 문자열은 한 가지 관찰과 해석만 담은 짧은 문장으로 작성하고 긴 텍스트 block을 만들지 마라
@@ -278,6 +288,8 @@ public class PromptBuilder {
         - evidence가 충분하면 사용자의 판단을 지지한 support evidence와 약화시킨 counter-evidence를 함께 비교해라
         - counter-evidence는 불확실성, 확인되지 않은 조건, 사용자 가설과 충돌한 fact로 설명하고 정답/오답 framing을 사용하지 마라
         - Risk / Plan Quality는 계획 자체의 존재와 구체성을, Execution Quality는 실제 실행과 compliance를 평가하며 둘을 섞지 마라
+        - 검증 가능한 조건형/구조형 청산 계획은 절대 가격이나 자동 설정이 없어도 precommitment로 인정해라
+        - 자동 청산은 execution automation 방식이며 decision quality의 필수조건이나 우월한 plan quality의 증거가 아니다
         - Learning Point는 다음 훈련에서 관찰하거나 기록할 구체적인 행동 하나를 우선하고 투자 행동을 지시하지 마라
         - Session Review의 중심은 이번 세션에서 가장 중요한 decision-quality observation 하나다
         - 그 observation을 지지한 evidence, 약화시킨 evidence, 반복된 planning/execution pattern, 다음 행동 하나 순으로 설명해라
@@ -319,6 +331,7 @@ public class PromptBuilder {
         - 매수/매도 수량, 100% 청산, plan/reason/snapshot 존재, 자동 청산 발생, backend enum은 분석 결론에 필요하지 않으면 재진술하지 마라
         - raw identifier나 내부 상태를 제거한 뒤에도 같은 execution fact를 문장만 바꿔 반복하지 마라
         - section ownership: summary는 핵심 세션 패턴, strengths는 반복 검증된 강점, warnings는 서로 다른 취약점, decisionReview는 사용자 주장과 당시 사실의 관계, riskReview는 계획 품질과 실행 범위, behaviorPatterns는 2회 이상 반복, nextTrainingFocus는 한 가지 행동을 담당한다
+        - Session section ownership을 지켜 같은 risk-plan 결론을 여러 section에서 반복하지 마라
         - 같은 결핍을 두 section 이상에서 반복하지 마라. "부족/불명확/부재"를 되풀이하는 대신 원인, 행동상 결과, 다음 연습으로 역할을 나눠라
         - summary에서 진단한 핵심 문제를 strengths, warnings, decisionReview, riskReview에서 같은 문장으로 다시 평가하지 마라. 각 section은 사용자 주장과 사실의 관계, 계획의 사전 고정 정도, 다음 행동 중 하나만 추가해라
         - deterministic fact는 결론의 근거로 짧게 인용하고, fact recap보다 그 의미와 trade-off 해석에 더 많은 공간을 사용해라
@@ -366,6 +379,7 @@ public class PromptBuilder {
         - avoid "win"/"loss" as quality labels; 승리/패배 표현을 Session 리뷰에 사용하지 마라
         - summary의 중심은 당시 판단 근거의 설득력과 놓친 evidence다. "승리는 없었습니다", "손실이 누적된 점"을 평가의 핵심 근거로 삼지 마라
         - 필요한 성과 수치는 중립적인 결과 사실로만 표현하고 평가나 조언의 근거로 사용하지 마라
+        - qualitative review input에서 outcome 수치가 제외된 경우 P&L, 수익, 손실을 추측하거나 언급하지 마라
         - 목표 도달이나 자동 익절 성공을 Decision Quality의 근거로 사용하지 마라
         - outcome을 언급해야 하면 당시 판단 품질과 별개의 결과임을 자연스럽게 구분하되 같은 문구를 기계적으로 반복하지 마라
         - return magnitude alone must never determine risk quality
@@ -378,7 +392,8 @@ public class PromptBuilder {
         - structured risk rule은 실제로 설정된 손절/익절 가격, 자동 청산 설정, trigger evidence다
         - narrative scenario plan은 사용자가 기록한 진입/관망/변경 조건과 손절·익절의 이유다
         - structured stop이 존재하고 narrative 근거가 부족하면, 가격 기준은 설정됐지만 그 이유가 충분히 설명되지 않았다고 써라. "손절 계획이 없다"고 쓰지 마라
-        - narrative 손절 의도만 있고 structured rule이 없으면, 의도는 기록됐지만 실제 자동 청산 규칙으로 설정되지는 않았다고 써라
+        - narrative 손절 의도가 관찰 가능한 조건과 행동으로 기록됐다면 structured rule이 없어도 조건형 사전 계획이 존재한다고 써라. 자동 실행이 아니라 직접 실행해야 하는 계획이었다고 구분해라
+        - numeric stop/target, structural/conditional plan, manual/automatic execution은 서로 독립된 축이다. 숫자나 자동화만을 좋은 계획의 필요조건으로 만들지 마라
         - Backend RISK PLAN COMPLIANCE의 FOLLOWED는 해당 trigger에서 계획된 실행을 준수했다는 확정 사실이다
         - negative PnL, 체결가와 stop 가격의 차이, plan quality 부족으로 FOLLOWED를 UNKNOWN/POOR/NOT_FOLLOWED로 낮추지 마라
         - backend UNKNOWN은 근거 부족이며 위반이 아니다. trigger가 관찰되지 않았다는 이유로 미준수라 판단하지 마라
@@ -402,12 +417,16 @@ public class PromptBuilder {
         - 사전 exit plan이 있어도 실제 SELL reason 또는 execution trigger와 exact하게 연결되지 않으면 계획대로 청산했다고 단정하지 말고 연결을 확인할 수 없다고 써라
         - END_OF_CHART/END_OF_SESSION은 lifecycle 종료이며 반응적 SELL이나 사용자 판단으로 분류하지 마라
         - structured risk rule 부재는 위반이 아니다. 사전 가격 기준이 확인되지 않는다는 plan-quality 사실로만 다뤄라
+        - deterministic plan/action comparison이 제공되면 trigger, action type, size를 각각 해석하고, 하나가 같다는 이유로 전체 계획 준수라고 단정하지 마라
+        - 계획과 다른 행동 전에 새 정보와 변경 이유가 기록됐다면 justified adaptation 가능성을 평가하고, 기록이 없으면 이유를 만들어내지 마라
 
         Next Training Focus:
         - "추가 분석을 보완하세요", "더 세밀하게 분석하세요", "경험을 축적하세요" 같은 generic 문구를 사용하지 마라
         - supplied evidence와 직접 연결해 다음 훈련에서 관찰하거나 기록할 행동 하나를 구체적으로 제시해라
         - "다음 훈련에서" 실제로 수행할 수 있는 기록 또는 확인 행동을 한 문장으로 써라
         - 해당 indicator나 조건이 supplied evidence에 없으면 훈련 항목으로 만들어내지 마라
+        - 조건형 계획이 이미 존재하면 "구체적인 손절 가격을 쓰라"거나 "자동 청산을 설정하라"를 기본 개선점으로 제시하지 마라
+        - 실제 gap이 trigger/action/size deviation이면 계획한 조건과 비중을 실행에 맞추고, 변경 시 실행 전에 이유를 기록하는 drill을 우선해라
         """;
     }
 
@@ -440,6 +459,13 @@ public class PromptBuilder {
             2) riskReview: 사전 기준의 고정 정도와 실제 risk execution의 범위; 두 개념을 분리
             3) behaviorPatterns: 같은 특성이 독립된 action/unit에서 2회 이상인 경우에만 상위 행동 패턴
             4) nextTrainingFocus: 가장 중요한 gap 하나를 바꾸는 구체적인 다음 훈련 행동 하나
+
+            Session section ownership:
+            - summary: 세션의 상위 행동 특성 하나
+            - decisionReview: user claim과 decision-time fact 관계
+            - riskReview: 사전 조건의 존재·품질과 manual/automatic 실행 방식의 구분
+            - behaviorPatterns: 독립된 action/unit에서 2회 이상 반복된 경우만
+            - nextTrainingFocus: trigger/action/size 중 가장 중요한 실제 gap 하나
 
             단순 사실 recap보다 관찰과 행동 사이에서 끊어진 연결고리와 그 행동상 의미를 해석해라.
             근거가 충분하면 사용자 주장을 지지하는 사실과 약화시키는 사실을 함께 비교해라.

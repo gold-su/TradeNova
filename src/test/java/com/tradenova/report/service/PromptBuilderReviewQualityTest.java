@@ -55,6 +55,9 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("사용자 주장 자체의 구체성을 높이지 마라"));
         assertTrue(prompt.contains("사용자가 해당 지표를 직접 근거로 사용했다고 바꾸어 쓰지 마라"));
         assertTrue(prompt.contains("\"backend\", \"백엔드\", \"evidence\"라는 단어도 쓰지 말고"));
+        assertTrue(prompt.contains("manual plan도 유효한 precommitment"));
+        assertTrue(prompt.contains("trigger, action type, position size를 각각 비교"));
+        assertTrue(prompt.contains("체결 성공, 거래 완료, 세션 완료"));
     }
 
     @Test
@@ -97,5 +100,8 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("Chart에서는 모호하다고 하고 Session에서는 명확하다고 뒤집지 마라"));
         assertTrue(prompt.contains("진입과 청산을 관통하는 상위 행동 특성 하나로 합성"));
         assertTrue(prompt.contains("JSON의 evidence key는 contract상 유지"));
+        assertTrue(prompt.contains("자동 청산은 execution automation 방식"));
+        assertTrue(prompt.contains("Session section ownership"));
+        assertTrue(prompt.contains("조건형 계획이 이미 존재하면 \"구체적인 손절 가격을 쓰라\""));
     }
 }
