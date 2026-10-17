@@ -29,7 +29,7 @@ class PromptBuilderDepthFixtureTest {
 
         String prompt = promptBuilder.buildUserPrompt(request);
 
-        assertTrue(prompt.contains("pre-trade entry statement: 이동평균선 돌파"));
+        assertTrue(prompt.contains("entry statement: 이동평균선 돌파"));
         assertTrue(prompt.contains("entry action: no canonical action-time reason"));
         assertTrue(prompt.contains("chronology alone does not establish causality"));
         assertTrue(prompt.contains("latest action user reason: 너무 떨어져서 매도"));
@@ -110,7 +110,7 @@ class PromptBuilderDepthFixtureTest {
         String chartContract = promptBuilder.buildSystemPrompt();
         String sessionContract = promptBuilder.buildSessionSystemPrompt();
 
-        assertTrue(userPrompt.contains("pre-trade entry statement: 매물대 형성 지지"));
+        assertTrue(userPrompt.contains("entry statement: 매물대 형성 지지"));
         assertTrue(userPrompt.contains("entry action user reason: 지지받고 있는 느낌"));
         assertTrue(userPrompt.contains("latest action user reason: 너무 많이 올라서 수익화"));
         assertTrue(userPrompt.contains("RSI14: 72.0"));

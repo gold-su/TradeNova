@@ -80,7 +80,7 @@ class RiskPrecommitmentV21AnalyzerTest {
     }
 
     @Test
-    void recognizesExplicitPreActionPlanChangeAsPossibleAdaptation() {
+    void recognizesActionTimePlanChangeWithRationaleAsAdaptationCandidate() {
         ScenarioPlanAiEvidence plan = plan("전저점 이탈 시 전량 매도");
         TradeActionAiEvidence sell = action(
                 "새 정보로 기존 계획을 변경: 거래량 둔화가 확인되어 지금 전량 매도",
@@ -88,8 +88,19 @@ class RiskPrecommitmentV21AnalyzerTest {
 
         var comparison = RiskPrecommitmentV21Analyzer.compare(plan, sell, new BigDecimal("100"));
 
-        assertEquals(RiskPrecommitmentV21Analyzer.Relation.JUSTIFIED_ADAPTATION, comparison.relation());
+        assertEquals(RiskPrecommitmentV21Analyzer.Relation.ADAPTATION_CANDIDATE, comparison.relation());
         assertTrue(comparison.planChangeRecorded());
+    }
+
+    @Test
+    void planChangeLabelWithoutRationaleIsNotTreatedAsJustifiedAdaptation() {
+        ScenarioPlanAiEvidence plan = plan("전저점 이탈 시 전량 매도");
+        TradeActionAiEvidence sell = action("기존 계획 변경 후 전량 매도", new BigDecimal("100"), plan);
+
+        var comparison = RiskPrecommitmentV21Analyzer.compare(plan, sell, new BigDecimal("100"));
+
+        assertFalse(comparison.planChangeRecorded());
+        assertEquals(RiskPrecommitmentV21Analyzer.Relation.UNVERIFIABLE, comparison.relation());
     }
 
     @Test

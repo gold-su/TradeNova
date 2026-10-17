@@ -36,7 +36,7 @@ class TrainingEventOriginTest {
     }
 
     @Test
-    void sanitizesAiTextBeforePersistenceAndKeepsBoldMarkers() throws Exception {
+    void sanitizesAiTextBeforePersistenceAndRemovesUnsupportedMarkdown() throws Exception {
         TrainingEventRepository repository = mock(TrainingEventRepository.class);
         TrainingSessionChartRepository chartRepository = mock(TrainingSessionChartRepository.class);
         TrainingEventService service = new TrainingEventService(repository, chartRepository);
@@ -55,6 +55,7 @@ class TrainingEventOriginTest {
         assertEquals(false, persisted.toLowerCase().contains("evidence"));
         assertEquals(false, persisted.contains("UNKNOWN"));
         assertEquals(false, persisted.contains("TERMINAL_FORCED_EXIT"));
-        assertEquals(true, persisted.contains("**시스템이 계산한 근거**"));
+        assertEquals(true, persisted.contains("시스템이 계산한 근거"));
+        assertEquals(false, persisted.contains("**"));
     }
 }

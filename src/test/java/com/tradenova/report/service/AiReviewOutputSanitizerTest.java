@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,7 +24,7 @@ class AiReviewOutputSanitizerTest {
     }
 
     @Test
-    void removesInternalTokensAndPreservesBoldMarkers() throws Exception {
+    void removesInternalTokensAndUnsupportedMarkdown() throws Exception {
         String input = "**stopLossPrice가 없음**; exitRiskPlan; Backend Risk Plan Compliance=FOLLOWED; "
                 + "snapshot#1; SNAPSHOT#123; tradeId=260 매수; tradeId=999 매도; "
                 + "stopLoss; takeProfit; autoExit; compliance UNKNOWN; UNKNOWN; "
@@ -35,7 +36,8 @@ class AiReviewOutputSanitizerTest {
 
         String sanitized = AiReviewOutputSanitizer.sanitize(input);
 
-        assertTrue(sanitized.contains("**손절가가 없음**"));
+        assertTrue(sanitized.contains("손절가가 없음"));
+        assertFalse(sanitized.contains("**"));
         assertTrue(sanitized.contains("청산 시점 리스크 계획"));
         assertTrue(sanitized.contains("계획 실행 일치 여부=사전에 정한 기준을 따름"));
         assertTrue(sanitized.contains("사전 계획"));
@@ -76,6 +78,15 @@ class AiReviewOutputSanitizerTest {
     }
 
     @Test
+    void softensKnownImperativeEndingsWithoutBroadSentenceRewriting() {
+        String sanitized = AiReviewOutputSanitizer.sanitize(
+                "다음에는 이유를 기록하라. 조건을 확인하라. 습관을 들여라."
+        );
+
+        assertEquals("다음에는 이유를 기록해 보세요. 조건을 확인해 보세요. 습관을 들여 보세요.", sanitized);
+    }
+
+    @Test
     void naturalizesKnownPriceAssignmentsAndPreservesValues() {
         String sanitized = AiReviewOutputSanitizer.sanitize(
                 "손절(stopLossPrice=46455), 익절(takeProfitPrice=58680)"
@@ -99,7 +110,8 @@ class AiReviewOutputSanitizerTest {
         assertTrue(sanitized.has("riskReview"));
         assertTrue(sanitized.path("riskReview").path("assessment").asText().contains("청산 시점 리스크 계획"));
         assertTrue(sanitized.path("riskReview").path("evidence").get(0).asText()
-                .contains("**자동 청산 설정이 활성화됨**"));
+                .contains("자동 청산 설정이 활성화됨"));
+        assertFalse(sanitized.path("riskReview").path("evidence").get(0).asText().contains("**"));
     }
 
     @Test

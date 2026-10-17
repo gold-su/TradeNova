@@ -70,8 +70,8 @@ public class PromptBuilder {
                 - warnings는 서로 다른 문제를 2~4개까지, strengths는 실제 evidence가 있는 항목만 0~3개 작성해라
                 - 확인 가능한 강점이 없으면 strengths를 빈 배열로 두어라. 시스템이 지표를 계산했다는 사실을 사용자 강점으로 만들지 마라
                 - 긴 문단, raw HTML, CSS, 색상 코드를 출력하지 마라
-                - 핵심 결론이나 근거의 짧은 phrase만 항목당 최대 1~2개 **...**로 강조해라
-                - 전체 문장을 bold 처리하지 말고, ** 이외의 Markdown heading, list marker, code block, link 문법은 사용하지 마라
+                - 사용자 화면은 plain text contract다. **, __, heading, list marker, code block, link 등 Markdown 문법을 출력하지 마라
+                - 모든 사용자-facing 문장은 자연스러운 한국어 존댓말로 작성해라. "기록하라/높여라/들여라/수행하라" 대신 "기록해 보세요/높여 보세요/습관을 들여 보세요/수행해 보세요"처럼 써라
                 - snapshot이 없으면 가격/거래/포지션 기반으로 분석해라
                 - snapshot이 있으면 reasoning 일관성을 함께 평가해라
                 - 투자 추천/매수 추천 금지
@@ -103,6 +103,7 @@ public class PromptBuilder {
                 - PRE-TRADE PLAN(snapshot), ACTION-TIME REASON, OBSERVED TECHNICAL FACT, ACTUAL ACTION,
                   INTERPRETATION/TRAINING FEEDBACK을 서로 다른 evidence로 구분하고 비교해라
                 - ACTION-TIME REASON은 사용자 주장이지 기술적 사실이 아니므로 backend 기술 evidence로 검증해라
+                - action-time reason에 "3.5% 상승"처럼 구체적 수치가 있어도, action 이전 exact linked plan에 없으면 사후 설명일 뿐 precommitment로 분류하지 마라
                 - PRE-TRADE PLAN이 존재하고 이후 action이 발생했다는 시간 순서만으로 그 계획 때문에 행동했다고 단정하지 마라
                 - exact linked plan은 해당 action에 선택된 계획임을 뜻하지만, 계획의 모든 조건이 실제로 확인됐다는 뜻은 아니다
                 - action-time reason이 없으면 "사전 계획에는 조건이 기록됐지만 실제 행동 이유가 별도로 기록되지 않아 직접 연결은 확인하기 어렵다"고 구분해라
@@ -164,7 +165,7 @@ public class PromptBuilder {
                 - 수량, 100% 청산, plan/reason/snapshot 존재, 자동 청산 발생, backend 상태명은 분석 결론에 꼭 필요할 때만 최소한 언급해라
                 - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
                 - 사용자-facing 문자열에는 "backend", "백엔드", "evidence"라는 단어도 쓰지 말고 각각 자연스러운 "시스템이 확인한 사실", "근거", "기록"으로 표현해라
-                - summary 또는 warning에는 supplied evidence가 있을 때 "이번 거래의 핵심 복기 포인트는 **...**입니다"처럼 핵심 판단 하나가 드러나게 작성해라
+                - summary 또는 warning에는 supplied evidence가 있을 때 "이번 거래의 핵심 복기 포인트는 ...입니다"처럼 핵심 판단 하나가 드러나게 작성해라
                 - 미래 매수/매도 가격, 시점, 수량을 추천하지 마라
                 - 기술적 분석을 확실한 진실로 단정하지 마라. 근거가 부족하면 강하게 검증할 수 없다고 밝혀라
                 - score는 수익성이 아니라 reasoning 구체성, 기술 evidence와의 일관성, risk plan 구체성,
@@ -264,8 +265,8 @@ public class PromptBuilder {
         - NEXT DRILL은 가장 중요한 gap 하나를 다음 훈련에서 수행할 단일 행동으로 변환해라
         - 각 문자열은 한 가지 관찰과 해석만 담은 짧은 문장으로 작성하고 긴 텍스트 block을 만들지 마라
         - raw HTML, CSS, 색상 코드를 출력하지 마라
-        - 핵심 결론이나 근거의 짧은 phrase만 항목당 최대 1~2개 **...**로 강조해라
-        - 전체 문장을 bold 처리하지 말고, ** 이외의 Markdown heading, list marker, code block, link 문법은 사용하지 마라
+        - 사용자 화면은 plain text contract다. **, __, heading, list marker, code block, link 등 Markdown 문법을 출력하지 마라
+        - 모든 사용자-facing 문장은 자연스러운 한국어 존댓말로 작성해라. "기록하라/높여라/들여라/수행하라" 대신 "기록해 보세요/높여 보세요/습관을 들여 보세요/수행해 보세요"처럼 써라
         - structured review의 evidence는 backend fact나 시간적으로 연결된 사용자 작성 evidence만 인용해라
         - evidence가 부족하면 assessment에 "근거가 충분하지 않음"이라고 명시하고 조언을 억지로 채우지 마라
         - 투자 추천/매수 추천 금지
@@ -284,6 +285,7 @@ public class PromptBuilder {
         - "지지받고 있는 느낌", "매물대 형성 지지"처럼 가격대·구조·확인 조건이 없는 표현은 Chart와 Session 모두 low-specificity로 동일하게 평가해라
         - 동일한 사용자 작성 문구의 quality를 Chart에서는 모호하다고 하고 Session에서는 명확하다고 뒤집지 마라
         - 시스템이 관찰한 SMA, RSI, 거래량 등은 사용자 주장과 분리된 사실이다. 이 사실을 이유로 사용자 기록 자체를 명확하거나 구체적이라고 상향하지 마라
+        - SELL 당시 "3.5% 올라서 매도"처럼 수치가 포함된 이유는 action-time explanation이다. action 이전 exact linked plan에 같은 조건이 없으면 precommitment로 바꾸지 마라
         - execution이 plan과 일치해도 weak reason의 quality를 높이지 마라
         - evidence가 충분하면 사용자의 판단을 지지한 support evidence와 약화시킨 counter-evidence를 함께 비교해라
         - counter-evidence는 불확실성, 확인되지 않은 조건, 사용자 가설과 충돌한 fact로 설명하고 정답/오답 framing을 사용하지 마라
@@ -427,6 +429,7 @@ public class PromptBuilder {
         - 해당 indicator나 조건이 supplied evidence에 없으면 훈련 항목으로 만들어내지 마라
         - 조건형 계획이 이미 존재하면 "구체적인 손절 가격을 쓰라"거나 "자동 청산을 설정하라"를 기본 개선점으로 제시하지 마라
         - 실제 gap이 trigger/action/size deviation이면 계획한 조건과 비중을 실행에 맞추고, 변경 시 실행 전에 이유를 기록하는 drill을 우선해라
+        - nextTrainingFocus는 가장 중요한 한 가지 문장만 반환해라. 지원되는 gap이 없으면 빈 배열로 두고 여러 개선 과제를 나열하지 마라
         """;
     }
 

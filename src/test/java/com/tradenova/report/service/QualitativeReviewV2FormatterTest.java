@@ -5,6 +5,7 @@ import com.tradenova.report.dto.ChartLifecycleAiEvidence;
 import com.tradenova.report.dto.ChartQualitativeEvidenceContext;
 import com.tradenova.report.dto.ScenarioPlanAiEvidence;
 import com.tradenova.report.dto.SessionQualitativeEvidenceContext;
+import com.tradenova.report.dto.SnapshotAiEvidence;
 import com.tradenova.report.dto.TradeActionAiEvidence;
 import com.tradenova.report.dto.TradeReasonAiEvidence;
 import com.tradenova.training.analytics.DecisionTechnicalContext;
@@ -14,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -149,7 +151,7 @@ class QualitativeReviewV2FormatterTest {
         assertTrue(formatted.contains("verifiable structural or conditional exit rule"));
         assertTrue(formatted.contains("planned 50%, observed 75%"));
         assertTrue(formatted.contains("position size differs"));
-        assertTrue(formatted.contains("사전에 정한 청산 조건과 비중을 실제 행동에 맞추고"));
+        assertTrue(formatted.contains("사전에 정한 청산 조건과 비중을 실제 행동에 맞춰 보세요"));
         assertFalse(formatted.contains("무효화 조건이 사전에 고정되지 않음"));
     }
 
@@ -165,6 +167,41 @@ class QualitativeReviewV2FormatterTest {
         assertTrue(formatted.contains("Transaction completion alone never establishes plan adherence"));
         assertTrue(formatted.contains("plan/action relationship cannot be confirmed"));
         assertFalse(formatted.contains("plan/action relationship: matches"));
+    }
+
+    @Test
+    void postHocNumericSellReasonDoesNotBecomePrecommitment() {
+        AiAnalysisRequest request = request(
+                "20일선 지지", "3.5% 올라서 매도", "",
+                action("BUY", "20일선 지지", null),
+                action("SELL", "3.5% 올라서 매도", null),
+                lifecycle(null), false);
+
+        String formatted = formatter.format(request);
+
+        assertTrue(formatted.contains("action-time explanation specificity"));
+        assertTrue(formatted.contains("specificity at action time does not make this a pre-action commitment"));
+        assertTrue(formatted.contains("exact action-linked narrative plan: not confirmed"));
+        assertTrue(formatted.contains("no pre-action invalidation or exit condition was recorded"));
+        assertEquals(0, AiReviewScoreCalculator.score(request).planAndRisk());
+    }
+
+    @Test
+    void genericSnapshotContextIsNotCountedAsPrecommitmentWithoutExactLink() {
+        SnapshotAiEvidence generic = new SnapshotAiEvidence(
+                99L, 2, Instant.ofEpochSecond(20), null, "사후 복기", "20일선 지지",
+                "20일선 이탈 시 50% 매도", "전저점 이탈 시 무효", "", null);
+        ChartQualitativeEvidenceContext chart = new ChartQualitativeEvidenceContext(
+                1L, true, false, List.of(generic), List.of(),
+                List.of(action("BUY", "20일선 지지", null)));
+
+        String formatted = new SessionQualitativeEvidenceFormatter().format(
+                new SessionQualitativeEvidenceContext(1L, List.of(chart)));
+
+        assertTrue(formatted.contains("timing and action attribution are unresolved"));
+        assertTrue(formatted.contains("do not score or describe this as precommitment"));
+        assertTrue(formatted.contains("plans without an invalidation rationale: 0"));
+        assertTrue(formatted.contains("PLAN_ACTION_LINKAGE"));
     }
 
     private AiAnalysisRequest request(String entry, String exit, String risk,

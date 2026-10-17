@@ -189,7 +189,7 @@ class SessionAiPromptDeterministicContextTest {
 
         assertTrue(prompt.contains("미거래 chart와 거래 chart 수는 neutral metadata"));
         assertTrue(prompt.contains("USER CLAIM -> FACT -> GAP -> BEHAVIOR -> IMPLICATION -> NEXT DRILL"));
-        assertTrue(prompt.contains("PRE-TRADE USER CLAIM (generic unless an action below has an exact relation)"));
+        assertTrue(prompt.contains("USER-AUTHORED SNAPSHOT CONTEXT (timing and action attribution are unresolved"));
         assertFalse(prompt.contains("거래가 특정 차트에만 몰렸는지"));
     }
 

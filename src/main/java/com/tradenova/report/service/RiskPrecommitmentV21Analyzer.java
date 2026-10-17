@@ -27,7 +27,7 @@ final class RiskPrecommitmentV21Analyzer {
         MATCH,
         PARTIAL_DEVIATION,
         DEVIATION,
-        JUSTIFIED_ADAPTATION,
+        ADAPTATION_CANDIDATE,
         UNVERIFIABLE
     }
 
@@ -54,8 +54,9 @@ final class RiskPrecommitmentV21Analyzer {
     }
 
     private static final Pattern PERCENT = Pattern.compile("(\\d{1,3}(?:\\.\\d+)?)\\s*%");
-    private static final Pattern PLAN_CHANGE = Pattern.compile(
-            ".*(계획.{0,8}(변경|수정)|변경.{0,8}(계획|이유)|새로운?\\s*정보|new information).*"
+    private static final Pattern PLAN_CHANGE = Pattern.compile(".*(계획.{0,8}(변경|수정)|(변경|수정).{0,8}계획).*");
+    private static final Pattern CHANGE_RATIONALE = Pattern.compile(
+            ".*(새로운?\\s*정보|new information|이유|때문|따라|확인되어|확인돼|관찰되어|관찰돼).*"
     );
 
     private RiskPrecommitmentV21Analyzer() {
@@ -106,13 +107,15 @@ final class RiskPrecommitmentV21Analyzer {
 
         Relation relation;
         if (adaptation) {
-            relation = Relation.JUSTIFIED_ADAPTATION;
+            relation = Relation.ADAPTATION_CANDIDATE;
         } else {
             long matches = List.of(triggerRelation, actionRelation, sizeRelation).stream()
                     .filter(value -> value == DimensionRelation.MATCH).count();
             long mismatches = List.of(triggerRelation, actionRelation, sizeRelation).stream()
                     .filter(value -> value == DimensionRelation.MISMATCH).count();
-            if (mismatches == 0 && matches > 0) relation = Relation.MATCH;
+            long unresolved = List.of(triggerRelation, actionRelation, sizeRelation).stream()
+                    .filter(value -> value == DimensionRelation.UNVERIFIABLE).count();
+            if (mismatches == 0 && unresolved == 0 && matches > 0) relation = Relation.MATCH;
             else if (mismatches > 0 && matches > 0) relation = Relation.PARTIAL_DEVIATION;
             else if (mismatches > 0) relation = Relation.DEVIATION;
             else relation = Relation.UNVERIFIABLE;
@@ -147,8 +150,8 @@ final class RiskPrecommitmentV21Analyzer {
         if (comparison.relation() == Relation.UNVERIFIABLE) {
             return "plan/action relationship cannot be confirmed from the exact linked records";
         }
-        if (comparison.relation() == Relation.JUSTIFIED_ADAPTATION) {
-            return "a plan change was recorded with the action; assess whether the new information and timing justify adaptation rather than calling it an automatic violation";
+        if (comparison.relation() == Relation.ADAPTATION_CANDIDATE) {
+            return "the action-time record states both a plan change and its rationale; treat this as a possible adaptation, but do not call it justified unless pre-action timing is confirmed";
         }
         List<String> parts = new ArrayList<>();
         parts.add("trigger " + relationText(comparison.trigger()));
@@ -279,7 +282,21 @@ final class RiskPrecommitmentV21Analyzer {
     }
 
     private static boolean isPlanChange(String reason) {
-        return present(reason) && PLAN_CHANGE.matcher(reason.toLowerCase(Locale.ROOT)).matches();
+        if (!present(reason)) return false;
+        String normalized = reason.toLowerCase(Locale.ROOT);
+        return PLAN_CHANGE.matcher(normalized).matches() && CHANGE_RATIONALE.matcher(normalized).matches();
+    }
+
+    static Precommitment stronger(Precommitment left, Precommitment right) {
+        return rank(right.type()) > rank(left.type()) ? right : left;
+    }
+
+    private static int rank(PlanType type) {
+        return switch (type) {
+            case NO_PLAN -> 0;
+            case VAGUE -> 1;
+            case CONDITIONAL, PRICE_BASED, AUTOMATED -> 2;
+        };
     }
 
     private static boolean containsPercent(String value) {

@@ -56,6 +56,19 @@ class ScenarioPlanAiEvidenceResolverTest {
         assertNull(result.scenarioPlan());
     }
 
+    @Test
+    void rejectsScenarioAuthoredAfterTheAction() {
+        ReportDocument postAction = snapshot(55L, 1L, 10L, ReportKind.SNAPSHOT, "SCENARIO", 1);
+        postAction.setCreatedAt(Instant.ofEpochSecond(101));
+
+        TradeActionAiEvidence result = resolver.link(
+                action("SCENARIO", 55L), 1L, Map.of(55L, postAction));
+
+        assertNotNull(result);
+        assertNull(result.scenarioPlan());
+        assertEquals(55L, result.scenarioSnapshotId());
+    }
+
     private void assertRejected(ReportDocument document) {
         TradeActionAiEvidence result = resolver.link(action("SCENARIO", 55L), 1L, Map.of(55L, document));
         assertNotNull(result);
@@ -64,7 +77,7 @@ class ScenarioPlanAiEvidenceResolverTest {
 
     private TradeActionAiEvidence action(String mode, Long snapshotId) {
         return new TradeActionAiEvidence(1L, 10L, 101L, "BUY", 22L, null, null,
-                Instant.EPOCH, List.of(), null, mode, snapshotId, null);
+                Instant.ofEpochSecond(100), List.of(), null, mode, snapshotId, null);
     }
 
     private ReportDocument snapshot(Long id, Long userId, Long chartId, ReportKind kind, String tag, int version) {

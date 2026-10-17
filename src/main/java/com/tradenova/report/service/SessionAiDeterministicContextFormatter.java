@@ -73,7 +73,7 @@ public class SessionAiDeterministicContextFormatter {
             }
         }
         builder.append("Outcome amounts are intentionally omitted from these qualitative behavior facts. ")
-                .append("Use the statistics block only as neutral outcome context, never as process quality.\n");
+                .append("Use the remaining counts only as neutral activity context, never as process quality.\n");
         return builder.toString();
     }
 

@@ -14,7 +14,7 @@ import java.text.NumberFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Removes backend vocabulary from user-facing AI text while preserving its structure and Markdown emphasis. */
+/** Removes internal vocabulary and unsupported formatting from user-facing AI text. */
 public final class AiReviewOutputSanitizer {
 
     private static final List<Map.Entry<String, String>> NATURAL_LANGUAGE = List.of(
@@ -65,6 +65,12 @@ public final class AiReviewOutputSanitizer {
             Map.entry("UNSUPPORTED_CLAIM", "관찰 사실로 확인되지 않은 주장"),
             Map.entry("PLAN_ACTION_DISCONNECT", "계획과 행동의 연결이 확인되지 않음"),
             Map.entry("UNEXPLAINED_PLAN_CHANGE", "변경 이유가 기록되지 않은 계획 수정"),
+            Map.entry("PLAN_ACTION_CONSISTENCY", "계획과 실제 행동의 일관성"),
+            Map.entry("RISK_PRECOMMITMENT", "사전 위험 기준 설정"),
+            Map.entry("EVIDENCE_DISCIPLINE", "근거 기록의 구체성"),
+            Map.entry("PLAN_ACTION_LINKAGE", "계획과 행동의 연결"),
+            Map.entry("PARTIAL_DEVIATION", "계획과 실제 행동의 일부 차이"),
+            Map.entry("ADAPTATION_CANDIDATE", "근거가 기록된 계획 변경 가능성"),
             Map.entry("COMPLETED", "완료됨"),
             Map.entry("field name", "내부 항목명"),
             Map.entry("entity", "내부 데이터"),
@@ -97,6 +103,8 @@ public final class AiReviewOutputSanitizer {
         for (Map.Entry<String, String> entry : NATURAL_LANGUAGE) {
             sanitized = sanitized.replace(entry.getKey(), entry.getValue());
         }
+        sanitized = sanitized.replace("**", "").replace("__", "");
+        sanitized = softenImperatives(sanitized);
         return sanitized
                 .replaceAll("(?i)\\bNOT_APPLICABLE\\b", "평가 대상 아님")
                 .replaceAll("(?i)\\bUNKNOWN\\b", "근거가 충분하지 않음")
@@ -105,6 +113,17 @@ public final class AiReviewOutputSanitizer {
                 .replaceAll("(?i)(?<![A-Za-z])evidence(?![A-Za-z])", "근거")
                 .replaceAll("[ \\t]{2,}", " ")
                 .strip();
+    }
+
+    private static String softenImperatives(String text) {
+        String boundary = "(?=\\s|[.!?]|$)";
+        return text
+                .replaceAll("기록하라" + boundary, "기록해 보세요")
+                .replaceAll("확인하라" + boundary, "확인해 보세요")
+                .replaceAll("적용하라" + boundary, "적용해 보세요")
+                .replaceAll("수행하라" + boundary, "수행해 보세요")
+                .replaceAll("높여라" + boundary, "높여 보세요")
+                .replaceAll("들여라" + boundary, "들여 보세요");
     }
 
     public static JsonNode sanitizeTextValues(JsonNode node) {
