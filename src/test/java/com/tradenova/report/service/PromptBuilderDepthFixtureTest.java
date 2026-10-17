@@ -94,7 +94,7 @@ class PromptBuilderDepthFixtureTest {
     }
 
     @Test
-    void actualQaFixtureKeepsWeakClaimQualityConsistentWithoutChangingScore() {
+    void actualQaFixtureKeepsWeakClaimQualityWithoutTransactionCompletionBonus() {
         DecisionTechnicalContext overboughtContext = technicalContext(72.0);
         AiAnalysisRequest request = request(
                 "매물대 형성 지지",
@@ -118,7 +118,7 @@ class PromptBuilderDepthFixtureTest {
         assertTrue(chartContract.contains("명확하거나 구체적인 진입 근거라고 부르지 마라"));
         assertTrue(sessionContract.contains("Chart에서는 모호하다고 하고 Session에서는 명확하다고 뒤집지 마라"));
         assertTrue(sessionContract.contains("상위 행동 특성 하나로 합성"));
-        assertEquals(39, AiReviewScoreCalculator.score(request).finalScore());
+        assertEquals(30, AiReviewScoreCalculator.score(request).finalScore());
     }
 
     private AiAnalysisRequest request(String entryReason, String exitPlan, String riskNote,

@@ -2,6 +2,7 @@ package com.tradenova.report.service;
 
 import com.tradenova.report.dto.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -38,16 +39,19 @@ final class AiReviewScoreCalculator {
         int exit = sell ? actionSpecificity(request.latestActionEvidence()) : exitPlan;
 
         int decision = decisionScore(entry, exit);
+        RiskPrecommitmentV21Analyzer.Precommitment precommitment = RiskPrecommitmentV21Analyzer.classify(
+                request.exitPlan(), request.riskNote(), request.stopLossPrice(),
+                request.takeProfitPrice(), request.autoExitEnabled());
         int plan = planScore(
                 request.stopLossPrice() != null,
                 request.takeProfitPrice() != null,
-                Boolean.TRUE.equals(request.autoExitEnabled()),
+                precommitment,
                 risk,
                 exitPlan
         );
         boolean buy = request.lifecycleEvidence() != null && request.lifecycleEvidence().historicalBuyExecuted();
         int actionReason = averageActionSpecificity(request.entryActionEvidence(), request.latestActionEvidence());
-        int execution = executionScore(buy, sell, actionReason, false);
+        int execution = executionScore(actionReason, false);
         int reviewability = reviewabilityScore(entry, exit, risk);
         return finish(decision, plan, execution, reviewability, entry, exit, risk, buy || sell, actionReason);
     }
@@ -71,8 +75,9 @@ final class AiReviewScoreCalculator {
         List<Integer> actionSpecificities = new ArrayList<>();
         boolean stop = false;
         boolean target = false;
-        boolean autoExit = false;
         boolean followed = false;
+        RiskPrecommitmentV21Analyzer.Precommitment precommitment = RiskPrecommitmentV21Analyzer.classify(
+                null, null, null, null, false);
         if (request.qualitativeEvidenceContext() != null) {
             for (ChartQualitativeEvidenceContext chart : request.qualitativeEvidenceContext().charts()) {
                 for (TradeActionAiEvidence action : chart.tradeActions()) {
@@ -80,6 +85,8 @@ final class AiReviewScoreCalculator {
                     sell |= "SELL".equals(action.side());
                     actionSpecificities.add(actionSpecificity(action));
                     addScenarioTexts(action.scenarioPlan(), entryTexts, exitPlanTexts, riskTexts);
+                    precommitment = stronger(precommitment,
+                            RiskPrecommitmentV21Analyzer.classify(action.scenarioPlan()));
                     if ("BUY".equals(action.side())) addReasonTexts(action, entryTexts, riskTexts);
                     if ("SELL".equals(action.side())) addReasonTexts(action, sellReasonTexts, riskTexts);
                 }
@@ -87,8 +94,18 @@ final class AiReviewScoreCalculator {
             for (RiskComplianceAiEvidence evidence : request.qualitativeEvidenceContext().riskCompliance()) {
                 stop |= Boolean.TRUE.equals(evidence.stopLossConfigured());
                 target |= Boolean.TRUE.equals(evidence.takeProfitConfigured());
-                autoExit |= Boolean.TRUE.equals(evidence.autoExitEnabledAtTrade());
+                precommitment = stronger(precommitment, RiskPrecommitmentV21Analyzer.classify(
+                        null, null,
+                        Boolean.TRUE.equals(evidence.stopLossConfigured()) ? BigDecimal.ONE : null,
+                        Boolean.TRUE.equals(evidence.takeProfitConfigured()) ? BigDecimal.ONE : null,
+                        evidence.autoExitEnabledAtTrade()));
                 followed |= "FOLLOWED".equals(evidence.compliance());
+            }
+        }
+        if (request.snapshots() != null) {
+            for (SessionSnapshotSummary snapshot : request.snapshots()) {
+                precommitment = stronger(precommitment, RiskPrecommitmentV21Analyzer.classify(
+                        snapshot.exitPlan(), snapshot.riskNote(), null, null, false));
             }
         }
 
@@ -99,8 +116,8 @@ final class AiReviewScoreCalculator {
         int actionReason = average(actionSpecificities);
         return finish(
                 decisionScore(entry, exit),
-                planScore(stop, target, autoExit, risk, exitPlan),
-                executionScore(buy, sell, actionReason, followed),
+                planScore(stop, target, precommitment, risk, exitPlan),
+                executionScore(actionReason, followed),
                 reviewabilityScore(entry, exit, risk),
                 entry, exit, risk, buy || sell, actionReason
         );
@@ -123,17 +140,39 @@ final class AiReviewScoreCalculator {
         return points(entry, 0, 13, 18, 25) + points(exit, 0, 7, 10, 15);
     }
 
-    private static int planScore(boolean stop, boolean target, boolean autoExit, int risk, int exit) {
-        int score = (stop ? 5 : 0) + (target ? 5 : 0) + (autoExit ? 3 : 0);
-        score += points(risk, 0, 3, 6, 9);
-        score += points(exit, 0, 2, 4, 5);
+    private static int planScore(boolean stop, boolean target,
+                                 RiskPrecommitmentV21Analyzer.Precommitment precommitment,
+                                 int risk, int exit) {
+        int structuredBasis = (stop ? 5 : 0) + (target ? 5 : 0);
+        int semanticBasis = switch (precommitment.type()) {
+            case NO_PLAN -> 0;
+            case VAGUE -> 3;
+            case CONDITIONAL, PRICE_BASED, AUTOMATED -> 10;
+        };
+        int score = Math.max(structuredBasis, semanticBasis);
+        score += points(risk, 0, 1, 4, 8);
+        score += points(exit, 0, 1, 4, 7);
         return Math.min(25, score);
     }
 
-    private static int executionScore(boolean buy, boolean sell, int actionReason, boolean followed) {
-        int score = (buy ? 5 : 0) + (sell ? 5 : 0) + points(actionReason, 0, 3, 6, 9);
-        if (followed) score += 4;
+    private static int executionScore(int actionReason, boolean followed) {
+        int score = points(actionReason, 0, 4, 8, 12);
+        if (followed) score += 8;
         return Math.min(20, score);
+    }
+
+    private static RiskPrecommitmentV21Analyzer.Precommitment stronger(
+            RiskPrecommitmentV21Analyzer.Precommitment left,
+            RiskPrecommitmentV21Analyzer.Precommitment right) {
+        return rank(right.type()) > rank(left.type()) ? right : left;
+    }
+
+    private static int rank(RiskPrecommitmentV21Analyzer.PlanType type) {
+        return switch (type) {
+            case NO_PLAN -> 0;
+            case VAGUE -> 1;
+            case CONDITIONAL, PRICE_BASED, AUTOMATED -> 2;
+        };
     }
 
     private static int reviewabilityScore(int entry, int exit, int risk) {
@@ -164,6 +203,7 @@ final class AiReviewScoreCalculator {
         long conditionTerms = CONDITION_TERMS.stream().filter(text::contains).count();
         boolean actionLinked = ACTION_TERMS.stream().anyMatch(text::contains);
         if (vague) return 1;
+        if (NUMBER.matcher(text).matches() && evidenceTerms >= 2 && actionLinked) return 3;
         if (NUMBER.matcher(text).matches() && conditionTerms > 0 && actionLinked) return 3;
         if (evidenceTerms >= 2 && conditionTerms >= 2 && actionLinked) return 3;
         if ((conditionTerms > 0 && actionLinked) || (evidenceTerms > 0 && conditionTerms > 0)) return 2;

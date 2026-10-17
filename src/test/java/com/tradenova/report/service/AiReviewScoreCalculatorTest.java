@@ -30,7 +30,7 @@ class AiReviewScoreCalculatorTest {
                 true, false, true
         ));
 
-        assertTrue(score.finalScore() >= 60);
+        assertTrue(score.finalScore() >= 60, score.toString());
         assertTrue(score.finalScore() < 90);
     }
 
@@ -44,8 +44,8 @@ class AiReviewScoreCalculatorTest {
 
         AiReviewScoreCalculator.Score score = AiReviewScoreCalculator.score(request);
 
-        assertTrue(score.finalScore() >= 60);
-        assertTrue(score.finalScore() <= 75);
+        assertTrue(score.finalScore() >= 45, score.toString());
+        assertTrue(score.finalScore() <= 59, score.toString());
         assertEquals(1, score.exitSpecificity());
     }
 
@@ -71,7 +71,7 @@ class AiReviewScoreCalculatorTest {
                 true, true, true
         ));
 
-        assertTrue(score.finalScore() >= 80);
+        assertTrue(score.finalScore() >= 80, score.toString());
     }
 
     @Test
@@ -132,6 +132,26 @@ class AiReviewScoreCalculatorTest {
         int difference = Math.abs(AiReviewScoreCalculator.score(chart).finalScore()
                 - AiReviewScoreCalculator.score(session).finalScore());
         assertTrue(difference <= 15);
+    }
+
+    @Test
+    void conditionalPlanIsNotUndervaluedAgainstAutomaticPricePlan() {
+        AiReviewScoreCalculator.Score conditional = AiReviewScoreCalculator.score(chartRequest(
+                "20일선 지지 시 진입",
+                "20일선 이탈 시 50% 매도; 전저점 이탈 시 전량 매도",
+                "전저점 이탈 시 시나리오 무효", false, false, true));
+        AiReviewScoreCalculator.Score automated = AiReviewScoreCalculator.score(chartRequest(
+                "20일선 지지 시 진입", "", "", true, true, true));
+
+        assertTrue(conditional.planAndRisk() >= automated.planAndRisk());
+    }
+
+    @Test
+    void transactionCompletionWithoutReasonOrComplianceAddsNoExecutionQuality() {
+        AiReviewScoreCalculator.Score score = AiReviewScoreCalculator.score(chartRequest(
+                "20일선 지지", "", "", false, false, false));
+
+        assertEquals(0, score.execution());
     }
 
     private AiAnalysisRequest chartRequest(String entry, String exit, String risk,
