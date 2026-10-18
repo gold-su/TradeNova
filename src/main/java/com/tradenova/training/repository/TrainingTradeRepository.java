@@ -11,6 +11,18 @@ import java.util.Optional;
 public interface TrainingTradeRepository extends JpaRepository<TrainingTrade, Long> {
     //특정 훈련 세션(sessionId)에 속한 모든 매매 기록을, id 오름차순으로 조회한다.
     List<TrainingTrade> findAllByChartIdOrderByIdAsc(Long ChartId);
+
+    /**
+     * Canonical account/symbol history before a chart's first local trade.
+     *
+     * Paper positions are shared by account and symbol, so a training chart can
+     * legitimately start with inventory opened in an earlier session.
+     */
+    List<TrainingTrade> findAllByAccountIdAndSymbolIdAndIdLessThanOrderByIdAsc(
+            Long accountId,
+            Long symbolId,
+            Long id
+    );
     //특정 세션의 거래를 id 내림차순으로 가져온다.
     List<TrainingTrade> findAllByChartIdOrderByIdDesc(Long ChartId);
     //특정 세션에 거래가 몇 건 있는지 숫자만 가져온다.

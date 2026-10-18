@@ -26,6 +26,13 @@ public class TradeEpisodeAnalysisService {
     @Transactional(readOnly = true)
     public TradeEpisodeAnalysisResult analyzeChart(Long chartId) {
         List<TrainingTrade> trades = tradeRepository.findAllByChartIdOrderByIdAsc(chartId);
+        List<TrainingTrade> priorAccountSymbolTrades = trades.isEmpty()
+                ? List.of()
+                : tradeRepository.findAllByAccountIdAndSymbolIdAndIdLessThanOrderByIdAsc(
+                        trades.get(0).getAccountId(),
+                        trades.get(0).getSymbolId(),
+                        trades.get(0).getId()
+                );
         Map<Long, Integer> candleIndexes = candleRepository.findAllByChartIdOrderByIdxAsc(chartId)
                 .stream()
                 .collect(Collectors.toMap(
@@ -33,6 +40,9 @@ public class TradeEpisodeAnalysisService {
                         TrainingSessionCandle::getIdx,
                         (first, ignored) -> first
                 ));
-        return new TradeEpisodeAnalysisResult(chartId, calculator.calculate(trades, candleIndexes));
+        return new TradeEpisodeAnalysisResult(
+                chartId,
+                calculator.calculate(trades, candleIndexes, priorAccountSymbolTrades)
+        );
     }
 }

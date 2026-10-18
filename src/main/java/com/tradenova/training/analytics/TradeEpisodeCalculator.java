@@ -32,11 +32,44 @@ public class TradeEpisodeCalculator {
             List<TrainingTrade> trades,
             Map<Long, Integer> candleIndexes
     ) {
+        return calculate(trades, candleIndexes, List.of());
+    }
+
+    /**
+     * Reconstructs chart-local episodes with an account/symbol opening position.
+     *
+     * PaperPosition is scoped to account + symbol rather than chart, so the
+     * position at a chart's first trade can have been opened in an earlier
+     * session. The prior history is reduced strictly in canonical id order; an
+     * unproven or oversold opening position remains a data error.
+     */
+    public List<TradeEpisode> calculate(
+            List<TrainingTrade> trades,
+            Map<Long, Integer> candleIndexes,
+            List<TrainingTrade> priorAccountSymbolTrades
+    ) {
         List<TrainingTrade> ordered = new ArrayList<>(trades);
         validateAndSort(ordered);
 
+        if (ordered.isEmpty()) {
+            return List.of();
+        }
+
+        TrainingTrade firstLocalTrade = ordered.get(0);
+        validateTrade(firstLocalTrade);
+        OpeningPosition openingPosition = reconstructOpeningPosition(
+                priorAccountSymbolTrades,
+                firstLocalTrade
+        );
+
         List<TradeEpisode> episodes = new ArrayList<>();
-        EpisodeAccumulator current = null;
+        EpisodeAccumulator current = openingPosition.quantity().signum() == 0
+                ? null
+                : EpisodeAccumulator.fromOpeningPosition(
+                        episodes.size() + 1,
+                        firstLocalTrade,
+                        openingPosition
+                );
 
         for (TrainingTrade trade : ordered) {
             validateTrade(trade);
@@ -67,6 +100,55 @@ public class TradeEpisodeCalculator {
             episodes.add(current.toEpisode(candleIndexes));
         }
         return List.copyOf(episodes);
+    }
+
+    private OpeningPosition reconstructOpeningPosition(
+            List<TrainingTrade> priorTrades,
+            TrainingTrade firstLocalTrade
+    ) {
+        List<TrainingTrade> orderedPriorTrades = new ArrayList<>(priorTrades);
+        validateAndSort(orderedPriorTrades);
+
+        BigDecimal quantity = BigDecimal.ZERO;
+        BigDecimal cost = BigDecimal.ZERO;
+        BigDecimal averageCost = BigDecimal.ZERO;
+
+        for (TrainingTrade trade : orderedPriorTrades) {
+            validateTrade(trade);
+            if (!firstLocalTrade.getAccountId().equals(trade.getAccountId())
+                    || !firstLocalTrade.getSymbolId().equals(trade.getSymbolId())) {
+                throw invalid(trade, "prior trade changes account/symbol");
+            }
+            if (trade.getId().compareTo(firstLocalTrade.getId()) >= 0) {
+                throw invalid(trade, "prior trade id must precede first chart trade id="
+                        + firstLocalTrade.getId());
+            }
+
+            if (trade.getSide() == TradeSide.BUY) {
+                quantity = quantity.add(trade.getQty());
+                cost = cost.add(trade.getPrice().multiply(trade.getQty()));
+                averageCost = positionAverage(cost, quantity);
+                cost = averageCost.multiply(quantity);
+                continue;
+            }
+
+            if (quantity.signum() == 0) {
+                throw invalid(trade, "SELL has no reconstructed account/symbol position");
+            }
+            if (trade.getQty().compareTo(quantity) > 0) {
+                throw invalid(trade, "SELL quantity exceeds reconstructed account/symbol position: held="
+                        + quantity + ", sold=" + trade.getQty());
+            }
+            quantity = quantity.subtract(trade.getQty());
+            if (quantity.signum() == 0) {
+                cost = BigDecimal.ZERO;
+                averageCost = BigDecimal.ZERO;
+            } else {
+                cost = averageCost.multiply(quantity);
+            }
+        }
+
+        return new OpeningPosition(quantity, cost, averageCost);
     }
 
     private void validateAndSort(List<TrainingTrade> trades) {
@@ -108,6 +190,13 @@ public class TradeEpisodeCalculator {
         return cost.divide(quantity, POSITION_AVERAGE_SCALE, RoundingMode.HALF_UP);
     }
 
+    private record OpeningPosition(
+            BigDecimal quantity,
+            BigDecimal cost,
+            BigDecimal averageCost
+    ) {
+    }
+
     private static final class EpisodeAccumulator {
         private final int index;
         private final Long chartId;
@@ -136,6 +225,32 @@ public class TradeEpisodeCalculator {
             this.symbolId = firstEntry.getSymbolId();
             this.openedAt = firstEntry.getCandleTime();
             this.firstEntryRiskHistoryId = firstEntry.getRiskRuleHistoryId();
+        }
+
+        private EpisodeAccumulator(
+                int index,
+                TrainingTrade firstLocalTrade,
+                OpeningPosition openingPosition
+        ) {
+            this.index = index;
+            this.chartId = firstLocalTrade.getChartId();
+            this.accountId = firstLocalTrade.getAccountId();
+            this.symbolId = firstLocalTrade.getSymbolId();
+            this.openedAt = null;
+            this.firstEntryRiskHistoryId = null;
+            this.entryQty = openingPosition.quantity();
+            this.entryCost = openingPosition.cost();
+            this.remainingQty = openingPosition.quantity();
+            this.remainingCost = openingPosition.cost();
+            this.averageCost = openingPosition.averageCost();
+        }
+
+        private static EpisodeAccumulator fromOpeningPosition(
+                int index,
+                TrainingTrade firstLocalTrade,
+                OpeningPosition openingPosition
+        ) {
+            return new EpisodeAccumulator(index, firstLocalTrade, openingPosition);
         }
 
         private void verifyIdentity(TrainingTrade trade) {
