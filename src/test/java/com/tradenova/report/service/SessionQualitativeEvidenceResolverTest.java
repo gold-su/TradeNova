@@ -148,6 +148,25 @@ class SessionQualitativeEvidenceResolverTest {
         assertEquals("EXPLICIT_SCENARIO_WAIT", wait.timeline().resolution());
     }
 
+    @Test
+    void ignoresUnlinkedWaitSoNoTradeRemainsNeutral() {
+        ObjectNode waitPayload = mapper.createObjectNode()
+                .put("side", "WAIT")
+                .put("candleTime", 1_500L);
+        waitPayload.putArray("reasons").addObject()
+                .put("title", "관망")
+                .put("entryReason", "거래하지 않음")
+                .put("createdAt", "2026-01-01T00:00:00Z");
+
+        SessionQualitativeEvidenceContext resolved = resolver.resolve(
+                context(), List.of(), List.of(event(90L, Type.TRADE, EventOrigin.USER, "wait", waitPayload, 4)));
+
+        assertTrue(resolved.charts().get(0).tradeActions().isEmpty());
+        String formatted = new SessionQualitativeEvidenceFormatter().format(resolved);
+        assertTrue(formatted.contains("analyzed units: 0"));
+        assertTrue(formatted.contains("none; do not invent a focus"));
+    }
+
     private ReportDocument scenario(Long id, String thesis) {
         ObjectNode content = mapper.createObjectNode().put("thesis", thesis);
         content.putArray("tags").add("SCENARIO");

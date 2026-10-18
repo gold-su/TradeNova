@@ -87,6 +87,20 @@ class AiReviewOutputSanitizerTest {
     }
 
     @Test
+    void removesInternalLinkAndTaxonomyLanguage() {
+        String sanitized = AiReviewOutputSanitizer.sanitize(
+                "canonical exact link가 있고 계획 선택 관계가 저장됨. PLAN_EXECUTION_PARTIAL_DEVIATION, MISMATCH"
+        );
+
+        assertFalse(sanitized.contains("exact link"));
+        assertFalse(sanitized.contains("계획 선택 관계가 저장됨"));
+        assertFalse(sanitized.contains("PLAN_EXECUTION"));
+        assertFalse(sanitized.contains("MISMATCH"));
+        assertTrue(sanitized.contains("직접 연결된 기록이 있고"));
+        assertTrue(sanitized.contains("계획과 실제 행동의 일부 차이"));
+    }
+
+    @Test
     void naturalizesKnownPriceAssignmentsAndPreservesValues() {
         String sanitized = AiReviewOutputSanitizer.sanitize(
                 "손절(stopLossPrice=46455), 익절(takeProfitPrice=58680)"

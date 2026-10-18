@@ -153,13 +153,15 @@ class QualitativeReviewV2FormatterTest {
         assertTrue(formatted.contains("position size differs"));
         assertTrue(formatted.contains("사전에 정한 청산 조건과 비중을 실제 행동에 맞춰 보세요"));
         assertFalse(formatted.contains("무효화 조건이 사전에 고정되지 않음"));
+        assertFalse(formatted.contains("절대 손절 가격"));
+        assertFalse(formatted.contains("자동 청산 미설정"));
     }
 
     @Test
     void completedBuyAndSellWithoutPlanLinkNeverBecomePlanAdherence() {
         AiAnalysisRequest request = request(
                 "20일선 지지", "", "",
-                action("BUY", "20일선 지지", null), action("SELL", "매도 완료", null),
+                action("BUY", null, null), action("SELL", null, null),
                 lifecycle(null), false);
 
         String formatted = formatter.format(request);
@@ -167,6 +169,7 @@ class QualitativeReviewV2FormatterTest {
         assertTrue(formatted.contains("Transaction completion alone never establishes plan adherence"));
         assertTrue(formatted.contains("plan/action relationship cannot be confirmed"));
         assertFalse(formatted.contains("plan/action relationship: matches"));
+        assertEquals(0, AiReviewScoreCalculator.score(request).execution());
     }
 
     @Test

@@ -163,8 +163,10 @@ public class PromptBuilder {
                 - "근거 부족", "구체성 부족", "리스크 계획 부재", "명확하지 않음" 중 같은 결핍을 summary와 warnings에서 반복하지 마라
                 - 한 section에서 결핍을 진단했다면 다른 section은 그 결핍이 판단 검증이나 실행에 미친 의미, 또는 다음 기록 행동으로 확장해라
                 - 수량, 100% 청산, plan/reason/snapshot 존재, 자동 청산 발생, backend 상태명은 분석 결론에 꼭 필요할 때만 최소한 언급해라
-                - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
+                - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, exact link, canonical exact link, exact stored relation, enum 이름, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
+                - "계획 선택 관계가 저장됨" 같은 구현 설명 대신, 필요할 때만 "사전 계획과 행동의 연결 기록이 확인됩니다"처럼 사용자 행동 중심의 자연스러운 문장으로 써라
                 - 사용자-facing 문자열에는 "backend", "백엔드", "evidence"라는 단어도 쓰지 말고 각각 자연스러운 "시스템이 확인한 사실", "근거", "기록"으로 표현해라
+                - exact link, canonical exact link, exact stored relation, enum 이름, "계획 선택 관계가 저장됨" 같은 내부 구현 표현을 사용자-facing 문장에 출력하지 마라
                 - summary 또는 warning에는 supplied evidence가 있을 때 "이번 거래의 핵심 복기 포인트는 ...입니다"처럼 핵심 판단 하나가 드러나게 작성해라
                 - 미래 매수/매도 가격, 시점, 수량을 추천하지 마라
                 - 기술적 분석을 확실한 진실로 단정하지 마라. 근거가 부족하면 강하게 검증할 수 없다고 밝혀라
@@ -342,8 +344,9 @@ public class PromptBuilder {
         deterministic evidence rules:
         - use only supplied evidence. 제공되지 않은 technical indicator, volume, support/resistance, 사용자 의도를 만들어내지 마라
         - observation과 interpretation을 구분하고, unavailable evidence는 있는 것처럼 표현하지 마라
-        - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
+        - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, exact link, canonical exact link, exact stored relation, enum 이름, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
         - 사용자-facing 문자열에는 "backend", "백엔드", "evidence"라는 단어도 쓰지 마라. JSON의 evidence key는 contract상 유지하되 그 배열의 문장은 자연스러운 한국어 사실로 작성해라
+        - exact link, canonical exact link, exact stored relation, enum 이름, "계획 선택 관계가 저장됨" 같은 내부 구현 표현을 사용자-facing 문장에 출력하지 마라
         - 내부 상태와 field는 evidence 해석에만 사용하고 자연스러운 사용자 언어로 바꿔라
         - backend가 제공한 통계와 episode 계산값을 다시 계산하거나 수정하지 마라
         - evidence가 없는 성향, 감정, 원인을 사실처럼 단정하지 마라

@@ -54,9 +54,9 @@ class RiskPrecommitmentV21AnalyzerTest {
     }
 
     @Test
-    void detectsTriggerDeviationEvenWhenBothActionsAreFullExit() {
-        ScenarioPlanAiEvidence plan = plan("전저점 이탈 시 전량 매도");
-        TradeActionAiEvidence sell = action("4% 올라서 풀매도", new BigDecimal("100"), plan);
+    void detectsLossVersusGainTriggerDeviationEvenWhenBothActionsAreFullExit() {
+        ScenarioPlanAiEvidence plan = plan("-5% 손실 시 전량 매도");
+        TradeActionAiEvidence sell = action("+8% 상승 구간에서 전량 매도", new BigDecimal("100"), plan);
 
         var comparison = RiskPrecommitmentV21Analyzer.compare(plan, sell, new BigDecimal("100"));
 
@@ -64,6 +64,8 @@ class RiskPrecommitmentV21AnalyzerTest {
         assertEquals(RiskPrecommitmentV21Analyzer.DimensionRelation.MISMATCH, comparison.trigger());
         assertEquals(RiskPrecommitmentV21Analyzer.DimensionRelation.MATCH, comparison.action());
         assertEquals(RiskPrecommitmentV21Analyzer.DimensionRelation.MATCH, comparison.size());
+        assertEquals(RiskPrecommitmentV21Analyzer.PlanType.CONDITIONAL,
+                RiskPrecommitmentV21Analyzer.classify(plan).type());
     }
 
     @Test

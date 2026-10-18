@@ -148,7 +148,7 @@ final class RiskPrecommitmentV21Analyzer {
 
     static String describe(Comparison comparison) {
         if (comparison.relation() == Relation.UNVERIFIABLE) {
-            return "plan/action relationship cannot be confirmed from the exact linked records";
+            return "plan/action relationship cannot be confirmed from the available pre-action and action-time records";
         }
         if (comparison.relation() == Relation.ADAPTATION_CANDIDATE) {
             return "the action-time record states both a plan change and its rationale; treat this as a possible adaptation, but do not call it justified unless pre-action timing is confirmed";

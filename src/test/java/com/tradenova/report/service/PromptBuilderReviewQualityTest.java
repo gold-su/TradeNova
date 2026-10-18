@@ -60,6 +60,8 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("trigger, action type, position size를 각각 비교"));
         assertTrue(prompt.contains("체결 성공, 거래 완료, 세션 완료"));
         assertTrue(prompt.contains("action 이전 exact linked plan에 없으면 사후 설명"));
+        assertTrue(prompt.contains("계획 선택 관계가 저장됨"));
+        assertTrue(prompt.contains("구현 설명 대신"));
     }
 
     @Test
@@ -108,5 +110,7 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("조건형 계획이 이미 존재하면 \"구체적인 손절 가격을 쓰라\""));
         assertTrue(prompt.contains("nextTrainingFocus는 가장 중요한 한 가지 문장만"));
         assertTrue(prompt.contains("action 이전 exact linked plan에 같은 조건이 없으면 precommitment로 바꾸지 마라"));
+        assertTrue(prompt.contains("exact stored relation"));
+        assertTrue(prompt.contains("내부 구현 표현을 사용자-facing 문장에 출력하지 마라"));
     }
 }
