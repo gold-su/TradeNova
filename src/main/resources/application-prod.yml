@@ -1,0 +1,47 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+    show-sql: false
+
+  sql:
+    init:
+      mode: never
+
+  jackson:
+    time-zone: UTC
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
+  dev:
+    allow-any-verify-code: ${APP_DEV_ALLOW_ANY_VERIFY_CODE:false}
+
+tradenova:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-validity-in-seconds: ${JWT_EXPIRE_SECONDS:3600}
+
+kis:
+  base-url: https://openapi.koreainvestment.com:9443
+  appkey: ${KIS_APPKEY}
+  appsecret: ${KIS_APPSECRET}
+  custtype: P
+
+openai:
+  api-key: ${OPENAI_API_KEY}
+  model: gpt-4.1-mini
+
+server:
+  port: ${PORT:8080}
