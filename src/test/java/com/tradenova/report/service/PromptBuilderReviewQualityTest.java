@@ -25,8 +25,9 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("support evidence와 판단을 약화시키는 counter-evidence"));
         assertTrue(prompt.contains("단순 사실 요약은 필요한 경우에만 최소한"));
         assertTrue(prompt.contains("Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE"));
-        assertTrue(prompt.contains("항목당 최대 1~2개 **...**"));
-        assertTrue(prompt.contains("** 이외의 Markdown heading, list marker, code block, link 문법은 사용하지 마라"));
+        assertTrue(prompt.contains("plain text contract"));
+        assertTrue(prompt.contains("Markdown 문법을 출력하지 마라"));
+        assertTrue(prompt.contains("자연스러운 한국어 존댓말"));
         assertTrue(prompt.contains("historicalAutoExitEnabled, currentAutoExitEnabled, actual automatic exit"));
         assertTrue(prompt.contains("Never perform arithmetic if the result is supplied by backend facts"));
         assertTrue(prompt.contains("stop과 entry의 대소관계"));
@@ -34,7 +35,7 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("손절 가격은 설정됐지만 그 근거는 충분히 기록되지 않았다"));
         assertTrue(prompt.contains("When two facts appear inconsistent, explain the scope difference"));
         assertTrue(prompt.contains("stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan"));
-        assertTrue(prompt.contains("이번 거래의 핵심 복기 포인트는 **...**입니다"));
+        assertTrue(prompt.contains("이번 거래의 핵심 복기 포인트"));
         assertTrue(prompt.contains("current position state는 현재 상태만 설명"));
         assertTrue(prompt.contains("historical BUY/SELL trade와 linked event가 authoritative evidence"));
         assertTrue(prompt.contains("current positionQty=0 또는 avgPrice=0만으로 계획 이행 evidence가 부족하다고 말하지 마라"));
@@ -55,6 +56,12 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("사용자 주장 자체의 구체성을 높이지 마라"));
         assertTrue(prompt.contains("사용자가 해당 지표를 직접 근거로 사용했다고 바꾸어 쓰지 마라"));
         assertTrue(prompt.contains("\"backend\", \"백엔드\", \"evidence\"라는 단어도 쓰지 말고"));
+        assertTrue(prompt.contains("manual plan도 유효한 precommitment"));
+        assertTrue(prompt.contains("trigger, action type, position size를 각각 비교"));
+        assertTrue(prompt.contains("체결 성공, 거래 완료, 세션 완료"));
+        assertTrue(prompt.contains("action 이전 exact linked plan에 없으면 사후 설명"));
+        assertTrue(prompt.contains("계획 선택 관계가 저장됨"));
+        assertTrue(prompt.contains("구현 설명 대신"));
     }
 
     @Test
@@ -73,7 +80,8 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("목표 도달이나 자동 익절 성공을 Decision Quality의 근거로 사용하지 마라"));
         assertTrue(prompt.contains("Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE"));
         assertTrue(prompt.contains("generic 문구를 사용하지 마라"));
-        assertTrue(prompt.contains("항목당 최대 1~2개 **...**"));
+        assertTrue(prompt.contains("plain text contract"));
+        assertTrue(prompt.contains("자연스러운 한국어 존댓말"));
         assertTrue(prompt.contains("exitRiskPlan은 청산 거래 시점의 저장된 plan snapshot"));
         assertTrue(prompt.contains("exact linked execution event로만 확인"));
         assertTrue(prompt.contains("Never perform arithmetic if the result is supplied by backend facts"));
@@ -97,5 +105,12 @@ class PromptBuilderReviewQualityTest {
         assertTrue(prompt.contains("Chart에서는 모호하다고 하고 Session에서는 명확하다고 뒤집지 마라"));
         assertTrue(prompt.contains("진입과 청산을 관통하는 상위 행동 특성 하나로 합성"));
         assertTrue(prompt.contains("JSON의 evidence key는 contract상 유지"));
+        assertTrue(prompt.contains("자동 청산은 execution automation 방식"));
+        assertTrue(prompt.contains("Session section ownership"));
+        assertTrue(prompt.contains("조건형 계획이 이미 존재하면 \"구체적인 손절 가격을 쓰라\""));
+        assertTrue(prompt.contains("nextTrainingFocus는 가장 중요한 한 가지 문장만"));
+        assertTrue(prompt.contains("action 이전 exact linked plan에 같은 조건이 없으면 precommitment로 바꾸지 마라"));
+        assertTrue(prompt.contains("exact stored relation"));
+        assertTrue(prompt.contains("내부 구현 표현을 사용자-facing 문장에 출력하지 마라"));
     }
 }

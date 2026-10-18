@@ -14,7 +14,7 @@ import java.text.NumberFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Removes backend vocabulary from user-facing AI text while preserving its structure and Markdown emphasis. */
+/** Removes internal vocabulary and unsupported formatting from user-facing AI text. */
 public final class AiReviewOutputSanitizer {
 
     private static final List<Map.Entry<String, String>> NATURAL_LANGUAGE = List.of(
@@ -27,6 +27,10 @@ public final class AiReviewOutputSanitizer {
             Map.entry("autoExitEnabled", "자동 청산 설정"),
             Map.entry("stopLossPrice", "손절가"),
             Map.entry("takeProfitPrice", "익절가"),
+            Map.entry("structured stop loss", "사전에 설정한 손절 조건"),
+            Map.entry("structured stop", "사전에 설정한 손절 조건"),
+            Map.entry("take profit", "익절 조건"),
+            Map.entry("auto risk rule", "자동 청산 조건"),
             Map.entry("TradeReasonAiEvidence", ""),
             Map.entry("RiskComplianceAiEvidence", ""),
             Map.entry("ScenarioPlanAiEvidence", ""),
@@ -61,6 +65,35 @@ public final class AiReviewOutputSanitizer {
             Map.entry("UNSUPPORTED_CLAIM", "관찰 사실로 확인되지 않은 주장"),
             Map.entry("PLAN_ACTION_DISCONNECT", "계획과 행동의 연결이 확인되지 않음"),
             Map.entry("UNEXPLAINED_PLAN_CHANGE", "변경 이유가 기록되지 않은 계획 수정"),
+            Map.entry("PLAN_ACTION_CONSISTENCY", "계획과 실제 행동의 일관성"),
+            Map.entry("RISK_PRECOMMITMENT", "사전 위험 기준 설정"),
+            Map.entry("EVIDENCE_DISCIPLINE", "근거 기록의 구체성"),
+            Map.entry("PLAN_ACTION_LINKAGE", "계획과 행동의 연결"),
+            Map.entry("PLAN_EXECUTION_PARTIAL_DEVIATION", "계획과 실제 행동의 일부 차이"),
+            Map.entry("PLAN_EXECUTION_DEVIATION", "계획과 실제 행동의 차이"),
+            Map.entry("PLAN_EXECUTION_MATCH", "계획과 실제 행동이 일치함"),
+            Map.entry("PARTIAL_DEVIATION", "계획과 실제 행동의 일부 차이"),
+            Map.entry("ADAPTATION_CANDIDATE", "근거가 기록된 계획 변경 가능성"),
+            Map.entry("CONDITIONAL_RISK_PLAN", "조건형 사전 위험 계획"),
+            Map.entry("PRICE_BASED_RISK_PLAN", "가격 기준 사전 위험 계획"),
+            Map.entry("AUTOMATED_RISK_PLAN", "자동 실행 방식의 사전 위험 계획"),
+            Map.entry("NO_RISK_PLAN", "사전 위험 계획이 확인되지 않음"),
+            Map.entry("VAGUE_RISK_PLAN", "사전 위험 계획의 조건이 구체적이지 않음"),
+            Map.entry("NO_PLAN", "사전 계획이 확인되지 않음"),
+            Map.entry("PRICE_BASED", "가격 기준 사전 계획"),
+            Map.entry("CONDITIONAL", "조건형 사전 계획"),
+            Map.entry("AUTOMATED", "자동 실행 방식의 사전 계획"),
+            Map.entry("VAGUE", "계획 조건이 구체적이지 않음"),
+            Map.entry("UNVERIFIABLE", "확인할 수 없음"),
+            Map.entry("MISMATCH", "불일치"),
+            Map.entry("MATCH", "일치"),
+            Map.entry("canonical exact link가", "직접 연결된 기록이"),
+            Map.entry("exact stored relation이", "직접 연결된 기록이"),
+            Map.entry("exact link가", "직접 연결된 기록이"),
+            Map.entry("canonical exact link", "직접 연결된 기록"),
+            Map.entry("exact stored relation", "직접 연결된 기록"),
+            Map.entry("exact link", "직접 연결된 기록"),
+            Map.entry("계획 선택 관계가 저장됨", "사전 계획과 행동의 연결 기록이 확인됨"),
             Map.entry("COMPLETED", "완료됨"),
             Map.entry("field name", "내부 항목명"),
             Map.entry("entity", "내부 데이터"),
@@ -85,7 +118,7 @@ public final class AiReviewOutputSanitizer {
                 .replaceAll("(?i)\\bcompliance\\s*[:=]?\\s*UNKNOWN\\b", "계획 이행 여부를 명확히 판단할 근거가 부족함")
                 .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*true\\b", "자동 청산 설정이 활성화됨")
                 .replaceAll("(?i)\\b(?:currentAutoExitEnabled|historicalAutoExitEnabled|autoExitEnabled|autoExit)\\s*=\\s*false\\b", "자동 청산 설정이 비활성화됨")
-                .replaceAll("(?i)\\bbackend\\s+기술\\s+사실\\b", "당시 기술적 지표")
+                .replaceAll("(?i)backend\\s+기술\\s+사실", "당시 기술적 지표")
                 .replaceAll("(?i)\\bTERMINAL(?:_[A-Z0-9]+)*\\b", "종료 절차에 따른 청산")
                 .replace("리스크 컴플라이언스", "계획 이행 여부")
                 .replace("백엔드 기술 사실", "당시 기술적 지표")
@@ -93,6 +126,8 @@ public final class AiReviewOutputSanitizer {
         for (Map.Entry<String, String> entry : NATURAL_LANGUAGE) {
             sanitized = sanitized.replace(entry.getKey(), entry.getValue());
         }
+        sanitized = sanitized.replace("**", "").replace("__", "");
+        sanitized = softenImperatives(sanitized);
         return sanitized
                 .replaceAll("(?i)\\bNOT_APPLICABLE\\b", "평가 대상 아님")
                 .replaceAll("(?i)\\bUNKNOWN\\b", "근거가 충분하지 않음")
@@ -101,6 +136,17 @@ public final class AiReviewOutputSanitizer {
                 .replaceAll("(?i)(?<![A-Za-z])evidence(?![A-Za-z])", "근거")
                 .replaceAll("[ \\t]{2,}", " ")
                 .strip();
+    }
+
+    private static String softenImperatives(String text) {
+        String boundary = "(?=\\s|[.!?]|$)";
+        return text
+                .replaceAll("기록하라" + boundary, "기록해 보세요")
+                .replaceAll("확인하라" + boundary, "확인해 보세요")
+                .replaceAll("적용하라" + boundary, "적용해 보세요")
+                .replaceAll("수행하라" + boundary, "수행해 보세요")
+                .replaceAll("높여라" + boundary, "높여 보세요")
+                .replaceAll("들여라" + boundary, "들여 보세요");
     }
 
     public static JsonNode sanitizeTextValues(JsonNode node) {

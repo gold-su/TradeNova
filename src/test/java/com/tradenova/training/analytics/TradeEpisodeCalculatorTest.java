@@ -73,6 +73,50 @@ class TradeEpisodeCalculatorTest {
     }
 
     @Test
+    void reconstructsCarriedPositionBeforeSessionTerminalSell() {
+        List<TrainingTrade> priorAccountSymbolTrades = List.of(
+                trade(142, 491, TradeSide.BUY, 11, 26193, 1000),
+                trade(143, 491, TradeSide.SELL, 11, 24788, 2000),
+                trade(144, 491, TradeSide.BUY, 1, 24788, 2000)
+        );
+        TrainingTrade terminalSell = trade(
+                281, 635, TradeSide.SELL, 1, 25390, 3000
+        );
+
+        TradeEpisode episode = calculator.calculate(
+                List.of(terminalSell),
+                Map.of(3000L, 199),
+                priorAccountSymbolTrades
+        ).get(0);
+
+        assertEquals(635L, episode.chartId());
+        assertEquals(List.of(), episode.entryTradeIds());
+        assertEquals(List.of(281L), episode.exitTradeIds());
+        assertEquals(List.of(281L), episode.allTradeIds());
+        assertEquals(0, episode.entryCount());
+        assertEquals(1, episode.exitCount());
+        decimalEquals("1", episode.totalEntryQty());
+        decimalEquals("24788", episode.weightedEntryPrice());
+        decimalEquals("602", episode.realizedPnl());
+        assertTrue(episode.closed());
+        assertNull(episode.openedAtCandleTime());
+        assertNull(episode.holdingBars());
+    }
+
+    @Test
+    void stillRejectsSellWithoutChartOrAccountSymbolPosition() {
+        TrainingTrade orphanSell = trade(281, 635, TradeSide.SELL, 1, 25390, 3000);
+
+        TradeEpisodeDataException error = assertThrows(
+                TradeEpisodeDataException.class,
+                () -> calculator.calculate(List.of(orphanSell), Map.of(), List.of())
+        );
+
+        assertTrue(error.getMessage().contains("id=281"));
+        assertTrue(error.getMessage().contains("no reconstructed position"));
+    }
+
+    @Test
     void includesOpenEpisodeWithoutUnrealizedPnl() {
         TradeEpisode episode = only(
                 trade(1, TradeSide.BUY, 10, 100, 1000, null),
@@ -151,6 +195,26 @@ class TradeEpisodeCalculatorTest {
                 .price(BigDecimal.valueOf(price))
                 .candleTime(candleTime)
                 .riskRuleHistoryId(riskHistoryId)
+                .build();
+    }
+
+    private TrainingTrade trade(
+            long id,
+            long chartId,
+            TradeSide side,
+            int qty,
+            int price,
+            long candleTime
+    ) {
+        return TrainingTrade.builder()
+                .id(id)
+                .chartId(chartId)
+                .accountId(2L)
+                .symbolId(3L)
+                .side(side)
+                .qty(BigDecimal.valueOf(qty))
+                .price(BigDecimal.valueOf(price))
+                .candleTime(candleTime)
                 .build();
     }
 

@@ -32,20 +32,11 @@ public class SessionAiDeterministicContextFormatter {
         return "totalEpisodes=" + statistics.totalEpisodeCount()
                 + ", closedEpisodes=" + statistics.closedEpisodeCount()
                 + ", openEpisodes=" + statistics.openEpisodeCount()
-                + ", wins=" + statistics.winningClosedEpisodeCount()
-                + ", losses=" + statistics.losingClosedEpisodeCount()
-                + ", breakeven=" + statistics.breakevenClosedEpisodeCount()
                 + ", holdingBarsSampleCount=" + statistics.holdingBarsSampleCount()
-                + "\nwinRate=" + value(statistics.winRate())
-                + ", averageWinPnl=" + value(statistics.averageWinningRealizedPnl())
-                + ", averageLossPnl=" + value(statistics.averageLosingRealizedPnl())
-                + ", payoffRatio=" + value(statistics.payoffRatio())
-                + ", expectancy=" + value(statistics.expectancy())
-                + ", totalRealizedPnl=" + value(statistics.totalRealizedPnl())
-                + "\naverageReturnPct=" + value(statistics.averageReturnPct())
-                + ", averageHoldingBars=" + value(statistics.averageHoldingBars())
+                + "\naverageHoldingBars=" + value(statistics.averageHoldingBars())
                 + ", averageEntryCount=" + value(statistics.averageEntryCount())
-                + ", averageExitCount=" + value(statistics.averageExitCount());
+                + ", averageExitCount=" + value(statistics.averageExitCount())
+                + "\nOutcome statistics are intentionally excluded from qualitative review input.";
     }
 
     public String formatChartEvidence(SessionAiDeterministicContext context) {
@@ -82,7 +73,7 @@ public class SessionAiDeterministicContextFormatter {
             }
         }
         builder.append("Outcome amounts are intentionally omitted from these qualitative behavior facts. ")
-                .append("Use the statistics block only as neutral outcome context, never as process quality.\n");
+                .append("Use the remaining counts only as neutral activity context, never as process quality.\n");
         return builder.toString();
     }
 

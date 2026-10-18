@@ -29,7 +29,7 @@ class PromptBuilderDepthFixtureTest {
 
         String prompt = promptBuilder.buildUserPrompt(request);
 
-        assertTrue(prompt.contains("pre-trade entry statement: 이동평균선 돌파"));
+        assertTrue(prompt.contains("entry statement: 이동평균선 돌파"));
         assertTrue(prompt.contains("entry action: no canonical action-time reason"));
         assertTrue(prompt.contains("chronology alone does not establish causality"));
         assertTrue(prompt.contains("latest action user reason: 너무 떨어져서 매도"));
@@ -94,7 +94,7 @@ class PromptBuilderDepthFixtureTest {
     }
 
     @Test
-    void actualQaFixtureKeepsWeakClaimQualityConsistentWithoutChangingScore() {
+    void actualQaFixtureKeepsWeakClaimQualityWithoutTransactionCompletionBonus() {
         DecisionTechnicalContext overboughtContext = technicalContext(72.0);
         AiAnalysisRequest request = request(
                 "매물대 형성 지지",
@@ -110,7 +110,7 @@ class PromptBuilderDepthFixtureTest {
         String chartContract = promptBuilder.buildSystemPrompt();
         String sessionContract = promptBuilder.buildSessionSystemPrompt();
 
-        assertTrue(userPrompt.contains("pre-trade entry statement: 매물대 형성 지지"));
+        assertTrue(userPrompt.contains("entry statement: 매물대 형성 지지"));
         assertTrue(userPrompt.contains("entry action user reason: 지지받고 있는 느낌"));
         assertTrue(userPrompt.contains("latest action user reason: 너무 많이 올라서 수익화"));
         assertTrue(userPrompt.contains("RSI14: 72.0"));
@@ -118,7 +118,7 @@ class PromptBuilderDepthFixtureTest {
         assertTrue(chartContract.contains("명확하거나 구체적인 진입 근거라고 부르지 마라"));
         assertTrue(sessionContract.contains("Chart에서는 모호하다고 하고 Session에서는 명확하다고 뒤집지 마라"));
         assertTrue(sessionContract.contains("상위 행동 특성 하나로 합성"));
-        assertEquals(39, AiReviewScoreCalculator.score(request).finalScore());
+        assertEquals(30, AiReviewScoreCalculator.score(request).finalScore());
     }
 
     private AiAnalysisRequest request(String entryReason, String exitPlan, String riskNote,

@@ -126,11 +126,52 @@ class SessionQualitativeEvidenceResolverTest {
         assertNull(action.scenarioPlan());
     }
 
+    @Test
+    void resolvesExplicitScenarioLinkedWaitWithoutTreatingNoTradeAsEvidence() {
+        ObjectNode waitPayload = mapper.createObjectNode()
+                .put("side", "WAIT")
+                .put("reasonMode", "SCENARIO")
+                .put("scenarioSnapshotId", 55L)
+                .put("candleTime", 1_500L);
+        waitPayload.putArray("reasons").addObject()
+                .put("title", "관망")
+                .put("entryReason", "거래량 증가 조건이 충족되지 않아 관망")
+                .put("createdAt", "2026-01-01T00:00:00Z");
+
+        TradeActionAiEvidence wait = resolver.resolve(context(), List.of(scenario(55L, "wait plan")),
+                List.of(event(90L, Type.TRADE, EventOrigin.USER, "wait", waitPayload, 4)))
+                .charts().get(0).tradeActions().get(0);
+
+        assertEquals("WAIT", wait.side());
+        assertNull(wait.tradeId());
+        assertEquals(55L, wait.scenarioPlan().snapshotId());
+        assertEquals("EXPLICIT_SCENARIO_WAIT", wait.timeline().resolution());
+    }
+
+    @Test
+    void ignoresUnlinkedWaitSoNoTradeRemainsNeutral() {
+        ObjectNode waitPayload = mapper.createObjectNode()
+                .put("side", "WAIT")
+                .put("candleTime", 1_500L);
+        waitPayload.putArray("reasons").addObject()
+                .put("title", "관망")
+                .put("entryReason", "거래하지 않음")
+                .put("createdAt", "2026-01-01T00:00:00Z");
+
+        SessionQualitativeEvidenceContext resolved = resolver.resolve(
+                context(), List.of(), List.of(event(90L, Type.TRADE, EventOrigin.USER, "wait", waitPayload, 4)));
+
+        assertTrue(resolved.charts().get(0).tradeActions().isEmpty());
+        String formatted = new SessionQualitativeEvidenceFormatter().format(resolved);
+        assertTrue(formatted.contains("analyzed units: 0"));
+        assertTrue(formatted.contains("none; do not invent a focus"));
+    }
+
     private ReportDocument scenario(Long id, String thesis) {
         ObjectNode content = mapper.createObjectNode().put("thesis", thesis);
         content.putArray("tags").add("SCENARIO");
         return ReportDocument.builder().id(id).userId(1L).chartId(10L).kind(ReportKind.SNAPSHOT)
-                .version(id.intValue()).contentJson(content).createdAt(Instant.ofEpochSecond(id)).build();
+                .version(id.intValue()).contentJson(content).createdAt(Instant.EPOCH).build();
     }
 
     private ObjectNode tradePayload(Long tradeId, String side) {

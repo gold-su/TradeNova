@@ -30,7 +30,7 @@ class AiReviewScoreCalculatorTest {
                 true, false, true
         ));
 
-        assertTrue(score.finalScore() >= 60);
+        assertTrue(score.finalScore() >= 60, score.toString());
         assertTrue(score.finalScore() < 90);
     }
 
@@ -44,8 +44,8 @@ class AiReviewScoreCalculatorTest {
 
         AiReviewScoreCalculator.Score score = AiReviewScoreCalculator.score(request);
 
-        assertTrue(score.finalScore() >= 60);
-        assertTrue(score.finalScore() <= 75);
+        assertTrue(score.finalScore() >= 45, score.toString());
+        assertTrue(score.finalScore() <= 59, score.toString());
         assertEquals(1, score.exitSpecificity());
     }
 
@@ -71,7 +71,7 @@ class AiReviewScoreCalculatorTest {
                 true, true, true
         ));
 
-        assertTrue(score.finalScore() >= 80);
+        assertTrue(score.finalScore() >= 80, score.toString());
     }
 
     @Test
@@ -134,10 +134,32 @@ class AiReviewScoreCalculatorTest {
         assertTrue(difference <= 15);
     }
 
+    @Test
+    void conditionalPlanIsNotUndervaluedAgainstAutomaticPricePlan() {
+        AiReviewScoreCalculator.Score conditional = AiReviewScoreCalculator.score(chartRequest(
+                "20일선 지지 시 진입",
+                "20일선 이탈 시 50% 매도; 전저점 이탈 시 전량 매도",
+                "전저점 이탈 시 시나리오 무효", false, false, true));
+        AiReviewScoreCalculator.Score automated = AiReviewScoreCalculator.score(chartRequest(
+                "20일선 지지 시 진입", "", "", true, true, true));
+
+        assertTrue(conditional.planAndRisk() >= automated.planAndRisk());
+    }
+
+    @Test
+    void transactionCompletionWithoutReasonOrComplianceAddsNoExecutionQuality() {
+        AiReviewScoreCalculator.Score score = AiReviewScoreCalculator.score(chartRequest(
+                "20일선 지지", "", "", false, false, false));
+
+        assertEquals(0, score.execution());
+    }
+
     private AiAnalysisRequest chartRequest(String entry, String exit, String risk,
                                            boolean structuredRisk, boolean autoExit, boolean actionReasons) {
-        TradeActionAiEvidence buy = action(1L, "BUY", actionReasons ? entry : null);
-        TradeActionAiEvidence sell = action(2L, "SELL", actionReasons ? exit : null);
+        ScenarioPlanAiEvidence plan = new ScenarioPlanAiEvidence(
+                55L, 10L, 1, Instant.EPOCH, entry, entry, exit, risk, "");
+        TradeActionAiEvidence buy = action(1L, "BUY", actionReasons ? entry : null, plan);
+        TradeActionAiEvidence sell = action(2L, "SELL", actionReasons ? exit : null, plan);
         return new AiAnalysisRequest(
                 entry, entry, exit, risk, "", "DEEP", true,
                 BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.TEN,
@@ -145,15 +167,20 @@ class AiReviewScoreCalculatorTest {
                 structuredRisk ? BigDecimal.valueOf(20) : null,
                 autoExit, List.of(), List.of(), null, null, List.of(), List.of(), buy, sell,
                 new ChartLifecycleAiEvidence("COMPLETED", true, 1L, 2L, "SELL", true,
-                        null, null, null, autoExit, false)
+                        null, null, structuredRisk ? 7L : null, autoExit, false)
         );
     }
 
     private TradeActionAiEvidence action(Long id, String side, String reason) {
+        return action(id, side, reason, null);
+    }
+
+    private TradeActionAiEvidence action(Long id, String side, String reason, ScenarioPlanAiEvidence plan) {
         List<TradeReasonAiEvidence> reasons = reason == null ? List.of()
                 : List.of(new TradeReasonAiEvidence("reason", reason, null, Instant.EPOCH));
         return new TradeActionAiEvidence(id, 10L, id, side, id, BigDecimal.ONE, BigDecimal.TEN,
-                Instant.EPOCH, reasons, null, "MANUAL", null, null);
+                Instant.EPOCH, reasons, null, plan == null ? "MANUAL" : "SCENARIO",
+                plan == null ? null : plan.snapshotId(), plan);
     }
 
     private SessionAiAnalysisRequest sessionRequest(String entry, String exit, String risk, boolean followed) {

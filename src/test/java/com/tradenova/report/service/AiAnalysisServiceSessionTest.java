@@ -105,7 +105,7 @@ class AiAnalysisServiceSessionTest {
 
         SessionAiAnalysisResponse result = service.analyzeSession(request());
 
-        assertEquals("**손절가** 없음", result.summary());
+        assertEquals("손절가 없음", result.summary());
         assertEquals("사전에 정한 기준을 따름", result.warnings().get(0));
         assertEquals("사전 계획", result.decisionReview().assessment());
         assertEquals("거래 당시 기록한 이유 확인", result.decisionReview().betterAction());
@@ -116,7 +116,7 @@ class AiAnalysisServiceSessionTest {
     }
 
     @Test
-    void sanitizesChartReviewFieldsAndKeepsBoldMarkers() {
+    void sanitizesChartReviewFieldsAndRemovesUnsupportedMarkdown() {
         stubResponse("""
                 {"score":70,"summary":"**stopLossPrice가 없음**","warnings":["exitRiskPlan FOLLOWED"],
                  "strengths":["currentAutoExitEnabled 확인"]}
@@ -124,7 +124,7 @@ class AiAnalysisServiceSessionTest {
 
         AiAnalysisResponse result = service.analyze(mock(AiAnalysisRequest.class));
 
-        assertEquals("**손절가가 없음**", result.summary());
+        assertEquals("손절가가 없음", result.summary());
         assertEquals("청산 시점 리스크 계획 사전에 정한 기준을 따름", result.warnings().get(0));
         assertEquals("현재 자동 청산 설정 확인", result.strengths().get(0));
     }
@@ -140,6 +140,18 @@ class AiAnalysisServiceSessionTest {
         assertEquals("손절가 없음", result.summary());
         assertEquals(List.of(), result.warnings());
         assertEquals(List.of(), result.strengths());
+    }
+
+    @Test
+    void keepsOnlyOneSessionTrainingFocus() {
+        stubResponse("""
+                {"score":70,"summary":"요약","warnings":[],"strengths":[],
+                 "behaviorPatterns":[],"nextTrainingFocus":["첫 번째 연습","두 번째 연습"]}
+                """);
+
+        SessionAiAnalysisResponse result = service.analyzeSession(request());
+
+        assertEquals(List.of("첫 번째 연습"), result.nextTrainingFocus());
     }
 
     private void stubResponse(String content) {

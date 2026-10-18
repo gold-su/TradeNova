@@ -2,6 +2,7 @@ package com.tradenova.report.service;
 
 import com.tradenova.report.dto.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -33,21 +34,24 @@ final class AiReviewScoreCalculator {
         int entry = best(entryTexts(request));
         int exitPlan = best(exitPlanTexts(request));
         int risk = best(riskTexts(request));
+        int planRisk = best(precommitmentRiskTexts(request));
         boolean sell = request.lifecycleEvidence() != null
                 && "SELL".equals(request.lifecycleEvidence().latestTradeSide());
         int exit = sell ? actionSpecificity(request.latestActionEvidence()) : exitPlan;
 
         int decision = decisionScore(entry, exit);
+        RiskPrecommitmentV21Analyzer.Precommitment precommitment = precommitment(request);
+        boolean historicalAction = historicalBuy(request);
         int plan = planScore(
-                request.stopLossPrice() != null,
-                request.takeProfitPrice() != null,
-                Boolean.TRUE.equals(request.autoExitEnabled()),
-                risk,
+                !historicalAction && request.stopLossPrice() != null,
+                !historicalAction && request.takeProfitPrice() != null,
+                precommitment,
+                planRisk,
                 exitPlan
         );
         boolean buy = request.lifecycleEvidence() != null && request.lifecycleEvidence().historicalBuyExecuted();
         int actionReason = averageActionSpecificity(request.entryActionEvidence(), request.latestActionEvidence());
-        int execution = executionScore(buy, sell, actionReason, false);
+        int execution = executionScore(actionReason, false);
         int reviewability = reviewabilityScore(entry, exit, risk);
         return finish(decision, plan, execution, reviewability, entry, exit, risk, buy || sell, actionReason);
     }
@@ -57,12 +61,16 @@ final class AiReviewScoreCalculator {
         List<String> exitPlanTexts = new ArrayList<>();
         List<String> sellReasonTexts = new ArrayList<>();
         List<String> riskTexts = new ArrayList<>();
-        if (request.snapshots() != null) {
+        List<String> precommitmentExitTexts = new ArrayList<>();
+        List<String> precommitmentRiskTexts = new ArrayList<>();
+        if (request.qualitativeEvidenceContext() == null && request.snapshots() != null) {
             request.snapshots().forEach(snapshot -> {
                 entryTexts.add(snapshot.thesis());
                 entryTexts.add(snapshot.entryReason());
                 exitPlanTexts.add(snapshot.exitPlan());
                 riskTexts.add(snapshot.riskNote());
+                precommitmentExitTexts.add(snapshot.exitPlan());
+                precommitmentRiskTexts.add(snapshot.riskNote());
             });
         }
 
@@ -71,8 +79,9 @@ final class AiReviewScoreCalculator {
         List<Integer> actionSpecificities = new ArrayList<>();
         boolean stop = false;
         boolean target = false;
-        boolean autoExit = false;
         boolean followed = false;
+        RiskPrecommitmentV21Analyzer.Precommitment precommitment = RiskPrecommitmentV21Analyzer.classify(
+                null, null, null, null, false);
         if (request.qualitativeEvidenceContext() != null) {
             for (ChartQualitativeEvidenceContext chart : request.qualitativeEvidenceContext().charts()) {
                 for (TradeActionAiEvidence action : chart.tradeActions()) {
@@ -80,6 +89,10 @@ final class AiReviewScoreCalculator {
                     sell |= "SELL".equals(action.side());
                     actionSpecificities.add(actionSpecificity(action));
                     addScenarioTexts(action.scenarioPlan(), entryTexts, exitPlanTexts, riskTexts);
+                    addScenarioTexts(action.scenarioPlan(), new ArrayList<>(),
+                            precommitmentExitTexts, precommitmentRiskTexts);
+                    precommitment = RiskPrecommitmentV21Analyzer.stronger(precommitment,
+                            RiskPrecommitmentV21Analyzer.classify(action.scenarioPlan()));
                     if ("BUY".equals(action.side())) addReasonTexts(action, entryTexts, riskTexts);
                     if ("SELL".equals(action.side())) addReasonTexts(action, sellReasonTexts, riskTexts);
                 }
@@ -87,8 +100,18 @@ final class AiReviewScoreCalculator {
             for (RiskComplianceAiEvidence evidence : request.qualitativeEvidenceContext().riskCompliance()) {
                 stop |= Boolean.TRUE.equals(evidence.stopLossConfigured());
                 target |= Boolean.TRUE.equals(evidence.takeProfitConfigured());
-                autoExit |= Boolean.TRUE.equals(evidence.autoExitEnabledAtTrade());
+                precommitment = RiskPrecommitmentV21Analyzer.stronger(precommitment, RiskPrecommitmentV21Analyzer.classify(
+                        null, null,
+                        Boolean.TRUE.equals(evidence.stopLossConfigured()) ? BigDecimal.ONE : null,
+                        Boolean.TRUE.equals(evidence.takeProfitConfigured()) ? BigDecimal.ONE : null,
+                        evidence.autoExitEnabledAtTrade()));
                 followed |= "FOLLOWED".equals(evidence.compliance());
+            }
+        }
+        if (request.qualitativeEvidenceContext() == null && request.snapshots() != null) {
+            for (SessionSnapshotSummary snapshot : request.snapshots()) {
+                precommitment = RiskPrecommitmentV21Analyzer.stronger(precommitment, RiskPrecommitmentV21Analyzer.classify(
+                        snapshot.exitPlan(), snapshot.riskNote(), null, null, false));
             }
         }
 
@@ -96,11 +119,13 @@ final class AiReviewScoreCalculator {
         int exitPlan = best(exitPlanTexts);
         int exit = sell ? best(sellReasonTexts) : exitPlan;
         int risk = best(riskTexts);
+        int planExit = best(precommitmentExitTexts);
+        int planRisk = best(precommitmentRiskTexts);
         int actionReason = average(actionSpecificities);
         return finish(
                 decisionScore(entry, exit),
-                planScore(stop, target, autoExit, risk, exitPlan),
-                executionScore(buy, sell, actionReason, followed),
+                planScore(stop, target, precommitment, planRisk, planExit),
+                executionScore(actionReason, followed),
                 reviewabilityScore(entry, exit, risk),
                 entry, exit, risk, buy || sell, actionReason
         );
@@ -123,16 +148,24 @@ final class AiReviewScoreCalculator {
         return points(entry, 0, 13, 18, 25) + points(exit, 0, 7, 10, 15);
     }
 
-    private static int planScore(boolean stop, boolean target, boolean autoExit, int risk, int exit) {
-        int score = (stop ? 5 : 0) + (target ? 5 : 0) + (autoExit ? 3 : 0);
-        score += points(risk, 0, 3, 6, 9);
-        score += points(exit, 0, 2, 4, 5);
+    private static int planScore(boolean stop, boolean target,
+                                 RiskPrecommitmentV21Analyzer.Precommitment precommitment,
+                                 int risk, int exit) {
+        int structuredBasis = (stop ? 5 : 0) + (target ? 5 : 0);
+        int semanticBasis = switch (precommitment.type()) {
+            case NO_PLAN -> 0;
+            case VAGUE -> 3;
+            case CONDITIONAL, PRICE_BASED, AUTOMATED -> 10;
+        };
+        int score = Math.max(structuredBasis, semanticBasis);
+        score += points(risk, 0, 1, 4, 8);
+        score += points(exit, 0, 1, 4, 7);
         return Math.min(25, score);
     }
 
-    private static int executionScore(boolean buy, boolean sell, int actionReason, boolean followed) {
-        int score = (buy ? 5 : 0) + (sell ? 5 : 0) + points(actionReason, 0, 3, 6, 9);
-        if (followed) score += 4;
+    private static int executionScore(int actionReason, boolean followed) {
+        int score = points(actionReason, 0, 4, 8, 12);
+        if (followed) score += 8;
         return Math.min(20, score);
     }
 
@@ -164,6 +197,7 @@ final class AiReviewScoreCalculator {
         long conditionTerms = CONDITION_TERMS.stream().filter(text::contains).count();
         boolean actionLinked = ACTION_TERMS.stream().anyMatch(text::contains);
         if (vague) return 1;
+        if (NUMBER.matcher(text).matches() && evidenceTerms >= 2 && actionLinked) return 3;
         if (NUMBER.matcher(text).matches() && conditionTerms > 0 && actionLinked) return 3;
         if (evidenceTerms >= 2 && conditionTerms >= 2 && actionLinked) return 3;
         if ((conditionTerms > 0 && actionLinked) || (evidenceTerms > 0 && conditionTerms > 0)) return 2;
@@ -171,7 +205,18 @@ final class AiReviewScoreCalculator {
     }
 
     private static List<String> entryTexts(AiAnalysisRequest request) {
-        List<String> texts = new ArrayList<>(List.of(nullToEmpty(request.thesis()), nullToEmpty(request.entryReason())));
+        List<String> texts = new ArrayList<>();
+        if (!historicalBuy(request)) {
+            ScenarioPlanAiEvidence waitPlan = exactWaitPlan(request);
+            if (waitPlan == null) {
+                texts.add(nullToEmpty(request.thesis()));
+                texts.add(nullToEmpty(request.entryReason()));
+            } else {
+                texts.add(nullToEmpty(waitPlan.thesis()));
+                texts.add(nullToEmpty(waitPlan.entryReason()));
+                addReasonTexts(request.latestActionEvidence(), texts, new ArrayList<>());
+            }
+        }
         addReasonTexts(request.entryActionEvidence(), texts, new ArrayList<>());
         addScenarioTexts(request.entryActionEvidence() == null ? null : request.entryActionEvidence().scenarioPlan(),
                 texts, new ArrayList<>(), new ArrayList<>());
@@ -179,7 +224,11 @@ final class AiReviewScoreCalculator {
     }
 
     private static List<String> exitPlanTexts(AiAnalysisRequest request) {
-        List<String> texts = new ArrayList<>(List.of(nullToEmpty(request.exitPlan())));
+        List<String> texts = new ArrayList<>();
+        if (!historicalBuy(request)) {
+            ScenarioPlanAiEvidence waitPlan = exactWaitPlan(request);
+            texts.add(nullToEmpty(waitPlan == null ? request.exitPlan() : waitPlan.exitPlan()));
+        }
         ScenarioPlanAiEvidence scenario = request.entryActionEvidence() == null
                 ? null : request.entryActionEvidence().scenarioPlan();
         addScenarioTexts(scenario, new ArrayList<>(), texts, new ArrayList<>());
@@ -187,12 +236,52 @@ final class AiReviewScoreCalculator {
     }
 
     private static List<String> riskTexts(AiAnalysisRequest request) {
-        List<String> texts = new ArrayList<>(List.of(nullToEmpty(request.riskNote())));
+        List<String> texts = new ArrayList<>();
+        if (!historicalBuy(request)) texts.add(nullToEmpty(request.riskNote()));
         addReasonTexts(request.entryActionEvidence(), new ArrayList<>(), texts);
         ScenarioPlanAiEvidence scenario = request.entryActionEvidence() == null
                 ? null : request.entryActionEvidence().scenarioPlan();
         addScenarioTexts(scenario, new ArrayList<>(), new ArrayList<>(), texts);
         return texts;
+    }
+
+    private static List<String> precommitmentRiskTexts(AiAnalysisRequest request) {
+        if (!historicalBuy(request)) {
+            ScenarioPlanAiEvidence waitPlan = exactWaitPlan(request);
+            return List.of(nullToEmpty(waitPlan == null ? request.riskNote() : waitPlan.riskNote()));
+        }
+        ScenarioPlanAiEvidence scenario = request.entryActionEvidence() == null
+                ? null : request.entryActionEvidence().scenarioPlan();
+        return scenario == null ? List.of() : List.of(nullToEmpty(scenario.riskNote()));
+    }
+
+    private static RiskPrecommitmentV21Analyzer.Precommitment precommitment(AiAnalysisRequest request) {
+        if (!historicalBuy(request)) {
+            ScenarioPlanAiEvidence waitPlan = exactWaitPlan(request);
+            RiskPrecommitmentV21Analyzer.Precommitment narrative = waitPlan == null
+                    ? RiskPrecommitmentV21Analyzer.classify(request.exitPlan(), request.riskNote(), null, null, false)
+                    : RiskPrecommitmentV21Analyzer.classify(waitPlan);
+            return RiskPrecommitmentV21Analyzer.stronger(narrative, RiskPrecommitmentV21Analyzer.classify(
+                    null, null, request.stopLossPrice(), request.takeProfitPrice(), request.autoExitEnabled()));
+        }
+        ScenarioPlanAiEvidence exactPlan = request.entryActionEvidence() == null
+                ? null : request.entryActionEvidence().scenarioPlan();
+        RiskPrecommitmentV21Analyzer.Precommitment narrative =
+                RiskPrecommitmentV21Analyzer.classify(exactPlan);
+        if (request.lifecycleEvidence() == null
+                || request.lifecycleEvidence().entryRiskRuleHistoryId() == null) return narrative;
+        return RiskPrecommitmentV21Analyzer.stronger(narrative, RiskPrecommitmentV21Analyzer.classify(
+                null, null, BigDecimal.ONE, null,
+                request.lifecycleEvidence().historicalAutoExitEnabled()));
+    }
+
+    private static boolean historicalBuy(AiAnalysisRequest request) {
+        return request.lifecycleEvidence() != null && request.lifecycleEvidence().historicalBuyExecuted();
+    }
+
+    private static ScenarioPlanAiEvidence exactWaitPlan(AiAnalysisRequest request) {
+        TradeActionAiEvidence latest = request.latestActionEvidence();
+        return latest != null && "WAIT".equalsIgnoreCase(latest.side()) ? latest.scenarioPlan() : null;
     }
 
     private static List<String> actionReasonTexts(TradeActionAiEvidence... actions) {

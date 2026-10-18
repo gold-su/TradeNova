@@ -46,10 +46,14 @@ public class TradeActionAiEvidenceResolver {
         if (payload == null || !payload.isObject()) return null;
         Long tradeId = integral(payload.get("tradeId"));
         String side = text(payload.get("side"));
+        String reasonMode = text(payload.get("reasonMode"));
+        Long scenarioSnapshotId = integral(payload.get("scenarioSnapshotId"));
         JsonNode reasonNodes = payload.get("reasons");
-        if (tradeId == null || tradeId <= 0 || side == null
-                || !(side.equals("BUY") || side.equals("SELL"))
-                || reasonNodes == null || !reasonNodes.isArray()) return null;
+        boolean tradeAction = (side != null && (side.equals("BUY") || side.equals("SELL")))
+                && tradeId != null && tradeId > 0;
+        boolean waitAction = "WAIT".equals(side) && "SCENARIO".equals(reasonMode)
+                && scenarioSnapshotId != null && scenarioSnapshotId > 0;
+        if ((!tradeAction && !waitAction) || reasonNodes == null || !reasonNodes.isArray()) return null;
 
         List<TradeReasonAiEvidence> reasons = new ArrayList<>();
         for (JsonNode reason : reasonNodes) {
@@ -62,16 +66,17 @@ public class TradeActionAiEvidenceResolver {
         }
         if (reasons.isEmpty()) return null;
 
-        TradeEpisodeReference episode = episodeByTradeId.get(tradeId);
+        TradeEpisodeReference episode = tradeId == null ? null : episodeByTradeId.get(tradeId);
         if (episode != null && !event.getChartId().equals(episode.chartId())) return null;
         EvidenceTimelineAnchor timeline = new EvidenceTimelineAnchor(
                 null, integral(payload.get("candleTime")), tradeId, episode, null,
-                episode == null ? "EXPLICIT_TRADE_ID_UNRESOLVED" : "EXPLICIT_TRADE_ID"
+                waitAction ? "EXPLICIT_SCENARIO_WAIT"
+                        : episode == null ? "EXPLICIT_TRADE_ID_UNRESOLVED" : "EXPLICIT_TRADE_ID"
         );
         return new TradeActionAiEvidence(
                 event.getId(), event.getChartId(), tradeId, side, integral(payload.get("candleTime")),
                 decimal(payload.get("qty")), decimal(payload.get("price")), event.getCreatedAt(), reasons, timeline,
-                text(payload.get("reasonMode")), integral(payload.get("scenarioSnapshotId")), null
+                reasonMode, scenarioSnapshotId, null
         );
     }
 

@@ -208,6 +208,12 @@ public class ReportAnalysisService {
         // 7) AI 분석 요청 DTO 생성
         var entryActionEvidence = tradeActionEvidenceResolver.resolve(latestBuy, chartEvents);
         var latestActionEvidence = tradeActionEvidenceResolver.resolve(latestTrade, chartEvents);
+        if (latestTrade == null && latestActionEvidence == null) {
+            latestActionEvidence = chartEvents.stream()
+                    .map(event -> tradeActionEvidenceResolver.parse(event, Map.of()))
+                    .filter(action -> action != null && "WAIT".equals(action.side()))
+                    .findFirst().orElse(null);
+        }
         List<Long> scenarioIds = java.util.stream.Stream.of(entryActionEvidence, latestActionEvidence)
                 .filter(action -> action != null && "SCENARIO".equals(action.reasonMode()))
                 .map(com.tradenova.report.dto.TradeActionAiEvidence::scenarioSnapshotId)

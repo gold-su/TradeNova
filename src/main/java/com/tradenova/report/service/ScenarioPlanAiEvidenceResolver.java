@@ -17,7 +17,9 @@ public class ScenarioPlanAiEvidenceResolver {
         }
         ReportDocument d = snapshots.get(action.scenarioSnapshotId());
         if (d == null || !Objects.equals(d.getUserId(), userId) || !Objects.equals(d.getChartId(), action.chartId())
-                || d.getKind() != ReportKind.SNAPSHOT || !hasScenarioTag(d.getContentJson())) {
+                || d.getKind() != ReportKind.SNAPSHOT || !hasScenarioTag(d.getContentJson())
+                || d.getCreatedAt() == null || action.createdAt() == null
+                || d.getCreatedAt().isAfter(action.createdAt())) {
             return action;
         }
         ScenarioPlanAiEvidence plan = new ScenarioPlanAiEvidence(

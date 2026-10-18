@@ -234,7 +234,8 @@ public class AiAnalysisService {
             int backendScore = AiReviewScoreCalculator.score(req).finalScore();
             return new SessionAiAnalysisResponse(
                     backendScore, parsed.summary(), parsed.warnings(), parsed.strengths(),
-                    parsed.decisionReview(), parsed.riskReview(), parsed.behaviorPatterns(), parsed.nextTrainingFocus()
+                    parsed.decisionReview(), parsed.riskReview(), parsed.behaviorPatterns(),
+                    firstFocusOnly(parsed.nextTrainingFocus())
             );
 
         } catch (HttpStatusCodeException e) {
@@ -266,6 +267,10 @@ public class AiAnalysisService {
 
     private List<String> sanitizeTextList(List<String> values) {
         return values == null ? List.of() : values.stream().map(AiReviewOutputSanitizer::sanitize).toList();
+    }
+
+    private List<String> firstFocusOnly(List<String> values) {
+        return values == null || values.isEmpty() ? List.of() : List.of(values.get(0));
     }
 
     /**

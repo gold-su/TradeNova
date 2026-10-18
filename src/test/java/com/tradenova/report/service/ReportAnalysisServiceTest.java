@@ -186,6 +186,36 @@ class ReportAnalysisServiceTest {
     }
 
     @Test
+    void exposesExactScenarioLinkedWaitWhenNoTradeWasExecuted() {
+        visibleCandles();
+        ReportDocument waitPlan = scenario(55L, 1, "조건 충족 시에만 진입");
+        ObjectNode payload = objectMapper.createObjectNode()
+                .put("side", "WAIT")
+                .put("reasonMode", "SCENARIO")
+                .put("scenarioSnapshotId", 55L)
+                .put("candleTime", 59L);
+        payload.putArray("reasons").addObject()
+                .put("title", "관망")
+                .put("entryReason", "거래량 증가 조건이 충족되지 않아 관망")
+                .put("createdAt", "2026-01-01T00:00:00Z");
+        TrainingEvent waitEvent = TrainingEvent.builder().id(1500L).userId(USER_ID).chartId(CHART_ID)
+                .type(Type.TRADE).origin(EventOrigin.USER).summary("wait").payloadJson(payload)
+                .createdAt(Instant.EPOCH).build();
+        when(reportDocumentRepository.findTopByUserIdAndChartIdAndKindOrderByVersionDesc(
+                USER_ID, CHART_ID, ReportKind.SNAPSHOT)).thenReturn(Optional.of(waitPlan));
+        when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(
+                USER_ID, CHART_ID, Type.TRADE)).thenReturn(List.of(waitEvent));
+        when(reportDocumentRepository.findAllById(List.of(55L))).thenReturn(List.of(waitPlan));
+
+        service.analyzeLatestSnapshot(USER_ID, CHART_ID);
+
+        AiAnalysisRequest request = capturedAiRequest();
+        assertNull(request.entryActionEvidence());
+        assertEquals("WAIT", request.latestActionEvidence().side());
+        assertEquals(55L, request.latestActionEvidence().scenarioPlan().snapshotId());
+    }
+
+    @Test
     void attachesEntryBuyAndLatestSellReasonsByExactTradeId() {
         visibleCandles();
         TrainingTrade buy = trade(101L, TradeSide.BUY, 22L);
