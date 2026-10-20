@@ -1,6 +1,7 @@
 package com.tradenova.user.controller;
 
 
+import com.tradenova.beta.BetaAccessGuard;
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.user.dto.*;
@@ -22,12 +23,14 @@ public class UserController {
 
     private final UserService userService;
     private final UserRepository userRepository;
+    private final BetaAccessGuard betaAccessGuard;
     /*
      * 회원가입
      * POST /api/auth/signup
      */
     @PostMapping("/signup")                                         //front 에서 받는 json body를 request dto로 받음
     public ResponseEntity<UserResponse> signup(@Valid @RequestBody UserSignupRequest request) { //@Valid는 userSignupRequest DTO에 있는 검증 어노테이션을 체크 (@Email, @notBlank @Size 등등)
+        betaAccessGuard.requireSignupAccess();
         UserResponse response = userService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/signup",
                                 "/api/waitlist",
+                                "/api/beta/access",
                                 "/health",
                                 "/error"
                         ).permitAll() // 회원가입/로그인은 허용
