@@ -32,6 +32,9 @@ spring:
 app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  beta:
+    public-enabled: ${APP_PUBLIC_BETA_ENABLED:true}
+    allowed-emails: ${APP_BETA_ALLOWED_EMAILS:}
 
 tradenova:
   jwt:
