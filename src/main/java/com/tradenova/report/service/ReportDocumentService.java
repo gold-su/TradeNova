@@ -57,6 +57,7 @@ public class ReportDocumentService {
     public ReportDocumentResponse upsertDraft(Long userId, Long chartId, ReportDraftUpsertRequest req) {
 
         validateOwnedChart(userId, chartId);
+        DecisionCaptureValidator.validatePlan(req.contentJson());
 
         // userId, chartId, kind = DRAFT 들로 기존 Draft 조회
         ReportDocument doc = repo.findTopByUserIdAndChartIdAndKind(userId, chartId, ReportKind.DRAFT)
@@ -91,6 +92,7 @@ public class ReportDocumentService {
     public ReportDocumentResponse createSnapshot(Long userId, Long chartId,Long linkedEventId, JsonNode payloadJson) {
 
         validateOwnedChart(userId, chartId);
+        DecisionCaptureValidator.validatePlan(payloadJson);
 
         if (linkedEventId != null) {
 

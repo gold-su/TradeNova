@@ -47,12 +47,15 @@ public class TradeActionAiEvidenceResolver {
         Long tradeId = integral(payload.get("tradeId"));
         String side = text(payload.get("side"));
         String reasonMode = text(payload.get("reasonMode"));
+        String planRelation = text(payload.get("planRelation"));
+        String changeReason = text(payload.get("changeReason"));
         Long scenarioSnapshotId = integral(payload.get("scenarioSnapshotId"));
         JsonNode reasonNodes = payload.get("reasons");
         boolean tradeAction = (side != null && (side.equals("BUY") || side.equals("SELL")))
                 && tradeId != null && tradeId > 0;
-        boolean waitAction = "WAIT".equals(side) && "SCENARIO".equals(reasonMode)
-                && scenarioSnapshotId != null && scenarioSnapshotId > 0;
+        boolean waitAction = "WAIT".equals(side) && (
+                ("SCENARIO".equals(reasonMode) && scenarioSnapshotId != null && scenarioSnapshotId > 0)
+                        || "UNPLANNED".equals(planRelation));
         if ((!tradeAction && !waitAction) || reasonNodes == null || !reasonNodes.isArray()) return null;
 
         List<TradeReasonAiEvidence> reasons = new ArrayList<>();
@@ -64,7 +67,7 @@ public class TradeActionAiEvidenceResolver {
             if (title == null && entryReason == null && riskNote == null) continue;
             reasons.add(new TradeReasonAiEvidence(title, entryReason, riskNote, instant(reason.get("createdAt"))));
         }
-        if (reasons.isEmpty()) return null;
+        if (reasons.isEmpty() && planRelation == null) return null;
 
         TradeEpisodeReference episode = tradeId == null ? null : episodeByTradeId.get(tradeId);
         if (episode != null && !event.getChartId().equals(episode.chartId())) return null;
@@ -76,7 +79,7 @@ public class TradeActionAiEvidenceResolver {
         return new TradeActionAiEvidence(
                 event.getId(), event.getChartId(), tradeId, side, integral(payload.get("candleTime")),
                 decimal(payload.get("qty")), decimal(payload.get("price")), event.getCreatedAt(), reasons, timeline,
-                reasonMode, scenarioSnapshotId, null
+                reasonMode, scenarioSnapshotId, null, planRelation, changeReason
         );
     }
 
