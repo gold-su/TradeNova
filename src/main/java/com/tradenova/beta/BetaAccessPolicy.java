@@ -1,5 +1,6 @@
 package com.tradenova.beta;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -9,6 +10,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
+@Slf4j
 public class BetaAccessPolicy {
 
     private final boolean publicBetaEnabled;
@@ -20,6 +22,7 @@ public class BetaAccessPolicy {
     ) {
         this.publicBetaEnabled = publicBetaEnabled;
         this.allowedEmails = parseAllowedEmails(allowedEmails);
+        log.info("Public beta enabled: {}", publicBetaEnabled);
     }
 
     public boolean isPublicBetaEnabled() {
