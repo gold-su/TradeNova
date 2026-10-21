@@ -8,6 +8,7 @@ import com.tradenova.report.entity.TrainingEvent;
 import com.tradenova.report.entity.Type;
 import com.tradenova.report.repository.ReportDocumentRepository;
 import com.tradenova.report.repository.TrainingEventRepository;
+import com.tradenova.report.service.TrainingEventFacts;
 import com.tradenova.training.analytics.GrowthAnalyticsCalculator;
 import com.tradenova.training.dto.GrowthOverviewResponse;
 import com.tradenova.training.entity.TrainingSession;
@@ -71,7 +72,7 @@ public class GrowthAnalyticsService {
                 Long sessionId = chartToSession.get(event.getChartId());
                 if (sessionId == null) continue;
                 JsonNode payload = event.getPayloadJson();
-                if (event.getType() == Type.TRADE && event.getOrigin() == EventOrigin.USER) {
+                if (TrainingEventFacts.isExecutedUserTrade(event)) {
                     userTrades.merge(sessionId, 1L, Long::sum);
                     if (hasReasons(payload)) reasonedTrades.merge(sessionId, 1L, Long::sum);
                 } else if (event.getType() == Type.AI && event.getOrigin() == EventOrigin.SYSTEM

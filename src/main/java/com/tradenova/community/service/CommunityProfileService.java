@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.tradenova.community.dto.CommunityDtos.Author;
 import com.tradenova.report.entity.*;
 import com.tradenova.report.repository.*;
+import com.tradenova.report.service.TrainingEventFacts;
 import com.tradenova.training.analytics.GrowthAnalyticsCalculator;
 import com.tradenova.training.entity.*;
 import com.tradenova.training.repository.*;
@@ -47,7 +48,7 @@ public class CommunityProfileService {
             Long sessionId = chartSession.get(e.getChartId());
             Long userId = chartUser.get(e.getChartId());
             JsonNode payload = e.getPayloadJson();
-            if (e.getType() == Type.TRADE && e.getOrigin() == EventOrigin.USER && payload != null && payload.path("reasons").isArray() && !payload.path("reasons").isEmpty()) reasoned.merge(userId, 1L, Long::sum);
+            if (TrainingEventFacts.isExecutedUserTrade(e) && payload.path("reasons").isArray() && !payload.path("reasons").isEmpty()) reasoned.merge(userId, 1L, Long::sum);
             if (e.getType() == Type.AI && e.getOrigin() == EventOrigin.SYSTEM && "SESSION".equals(payload == null ? null : payload.path("analysisScope").asText(null))) aiSessions.add(sessionId);
         }
         Map<Long, Long> plansByUser = planSessions.stream().map(id -> completed.stream().filter(s -> s.getId().equals(id)).findFirst().orElseThrow().getUser().getId()).collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
