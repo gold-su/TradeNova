@@ -2,5 +2,6 @@
 <project version="4">
   <component name="SqlDialectMappings">
     <file url="file://$PROJECT_DIR$/src/main/resources/db/manual/V3__add_analysis_and_training_bars.sql" dialect="MySQL" />
+    <file url="file://$PROJECT_DIR$/src/main/resources/db/manual/V4__add_partial_auto_exit.sql" dialect="MySQL" />
   </component>
 </project>
