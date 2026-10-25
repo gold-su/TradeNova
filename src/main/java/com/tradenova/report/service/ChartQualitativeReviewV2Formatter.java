@@ -85,6 +85,10 @@ public class ChartQualitativeReviewV2Formatter {
         }
         String reason = primaryReason(action);
         out.append("- ").append(label).append(" side: ").append(value(action.side())).append('\n')
+                .append("- ").append(label).append(" user-selected plan relation: ")
+                .append(value(action.planRelation())).append('\n')
+                .append("- ").append(label).append(" plan change reason: ")
+                .append(value(action.changeReason())).append('\n')
                 .append("- ").append(label).append(" user reason: ").append(value(reason)).append('\n')
                 .append("  action-time explanation specificity: ").append(QualitativeEvidenceClassifier.meaning(reason)).append('\n')
                 .append("  boundary: specificity at action time does not make this a pre-action commitment\n");

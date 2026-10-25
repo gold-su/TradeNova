@@ -149,6 +149,41 @@ class SessionQualitativeEvidenceResolverTest {
     }
 
     @Test
+    void exposesUserSelectedRelationAndChangeReasonForReview() {
+        ObjectNode payload = tradePayload(101L, "BUY")
+                .put("reasonMode", "SCENARIO")
+                .put("scenarioSnapshotId", 55L)
+                .put("planRelation", "CHANGED_PLAN")
+                .put("changeReason", "거래량 돌파가 새로 확인됨");
+
+        TradeActionAiEvidence action = resolver.resolve(context(), List.of(scenario(55L, "plan")),
+                List.of(event(91L, Type.TRADE, EventOrigin.USER, "buy", payload, 4)))
+                .charts().get(0).tradeActions().get(0);
+
+        assertEquals("CHANGED_PLAN", action.planRelation());
+        assertEquals("거래량 돌파가 새로 확인됨", action.changeReason());
+        assertNotNull(action.scenarioPlan());
+    }
+
+    @Test
+    void resolvesExplicitUnplannedWaitWithoutInventingPlanLink() {
+        ObjectNode payload = mapper.createObjectNode()
+                .put("side", "WAIT")
+                .put("planRelation", "UNPLANNED")
+                .put("reasonMode", "MANUAL")
+                .put("candleTime", 1_500L);
+        payload.putArray("reasons");
+
+        TradeActionAiEvidence wait = resolver.resolve(context(), List.of(),
+                List.of(event(92L, Type.TRADE, EventOrigin.USER, "wait", payload, 4)))
+                .charts().get(0).tradeActions().get(0);
+
+        assertEquals("WAIT", wait.side());
+        assertEquals("UNPLANNED", wait.planRelation());
+        assertNull(wait.scenarioPlan());
+    }
+
+    @Test
     void ignoresUnlinkedWaitSoNoTradeRemainsNeutral() {
         ObjectNode waitPayload = mapper.createObjectNode()
                 .put("side", "WAIT")

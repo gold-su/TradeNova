@@ -30,7 +30,8 @@ public class ScenarioPlanAiEvidenceResolver {
         return new TradeActionAiEvidence(
                 action.eventId(), action.chartId(), action.tradeId(), action.side(), action.candleTime(),
                 action.qty(), action.price(), action.createdAt(), action.reasons(), action.timeline(),
-                action.reasonMode(), action.scenarioSnapshotId(), plan);
+                action.reasonMode(), action.scenarioSnapshotId(), plan,
+                action.planRelation(), action.changeReason());
     }
 
     private boolean hasScenarioTag(JsonNode content) {

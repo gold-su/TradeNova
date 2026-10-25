@@ -90,6 +90,8 @@ public class SessionQualitativeEvidenceFormatter {
             QualitativeEvidenceClassifier.Specificity specificity = QualitativeEvidenceClassifier.classify(reason);
             out.append("ACTION ").append(actionIndex).append("\n")
                     .append("- behavior: ").append(value(action.side())).append('\n')
+                    .append("- user-selected plan relation: ").append(value(action.planRelation())).append('\n')
+                    .append("- plan change reason: ").append(value(action.changeReason())).append('\n')
                     .append("- user-authored action reason: ").append(value(reason)).append('\n')
                     .append("- action-time explanation specificity: ").append(QualitativeEvidenceClassifier.meaning(reason)).append('\n')
                     .append("- boundary: action-time specificity is not precommitment\n");

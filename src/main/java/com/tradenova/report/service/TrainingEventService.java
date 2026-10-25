@@ -60,6 +60,9 @@ public class TrainingEventService {
         }
 
         validateOwnedChart(userId, chartId);
+        if (origin == EventOrigin.USER) {
+            DecisionCaptureValidator.validateUserEvent(type, payloadJson);
+        }
         JsonNode payloadForStorage = type == Type.AI
                 ? AiReviewOutputSanitizer.sanitizedCopy(payloadJson)
                 : payloadJson;
