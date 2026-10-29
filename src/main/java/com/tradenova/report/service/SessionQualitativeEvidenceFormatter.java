@@ -49,7 +49,7 @@ public class SessionQualitativeEvidenceFormatter {
                 .append("Use 'repeated pattern' only when the same characteristic appears in at least two independent actions or units. ")
                 .append("For one unit, describe one prominent behavior characteristic instead.\n")
                 .append("Do not recap every action. Convert the strongest cross-action signal into one implication and one concrete next drill.\n")
-                .append("NEXT FOCUS CANDIDATE (internal; return at most one natural Korean coaching sentence):\n- ")
+                .append("NEXT FOCUS CANDIDATE (internal; return at most one natural coaching sentence in the requested output language):\n- ")
                 .append(nextFocus(signals)).append('\n');
         return out.toString();
     }

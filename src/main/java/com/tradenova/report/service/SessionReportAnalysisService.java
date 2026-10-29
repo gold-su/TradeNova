@@ -63,6 +63,24 @@ public class SessionReportAnalysisService {
 
     @Transactional
     public TrainingEventResponse analyzeSession(Long userId, Long sessionId) {
+        return analyzeSessionInternal(userId, sessionId, null);
+    }
+
+    @Transactional
+    public TrainingEventResponse analyzeSession(
+            Long userId,
+            Long sessionId,
+            AiReviewLanguage language
+    ) {
+        return analyzeSessionInternal(userId, sessionId, language);
+    }
+
+    private TrainingEventResponse analyzeSessionInternal(
+            Long userId,
+            Long sessionId,
+            AiReviewLanguage requestedLanguage
+    ) {
+        AiReviewLanguage language = requestedLanguage == null ? AiReviewLanguage.KO : requestedLanguage;
 
         // 1) 세션 조회 + 소유권 체크
         TrainingSession session = sessionRepository.findByIdAndUserId(sessionId, userId)
@@ -181,7 +199,9 @@ public class SessionReportAnalysisService {
         );
 
         // 7) AI 분석 실행
-        SessionAiAnalysisResponse ai = aiAnalysisService.analyzeSession(request);
+        SessionAiAnalysisResponse ai = requestedLanguage == null
+                ? aiAnalysisService.analyzeSession(request)
+                : aiAnalysisService.analyzeSession(request, language);
 
         // 거래가 발생한 차트 수
         int tradedChartCount = (int) chartSummaries.stream()
@@ -193,6 +213,7 @@ public class SessionReportAnalysisService {
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("analysisScope", "SESSION"); // .put으로 JSON에 key-value 넣기
         payload.put("sessionId", session.getId());
+        payload.put("reviewLanguage", language.code());
         payload.put("score", ai.score());
         payload.put("summary", ai.summary());
 
@@ -232,7 +253,7 @@ public class SessionReportAnalysisService {
                 userId,
                 representativeChartId,
                 Type.AI,
-                "세션 AI 리뷰",
+                language == AiReviewLanguage.EN ? "Session AI Review" : "세션 AI 리뷰",
                 payload
         );
     }

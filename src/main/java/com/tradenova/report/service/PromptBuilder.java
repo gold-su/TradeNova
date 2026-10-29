@@ -1,6 +1,7 @@
 package com.tradenova.report.service;
 
 import com.tradenova.report.dto.AiAnalysisRequest;
+import com.tradenova.report.dto.AiReviewLanguage;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionSnapshotSummary;
 import org.springframework.stereotype.Component;
@@ -49,6 +50,10 @@ public class PromptBuilder {
      * - 사용자의 매매 판단 과정과 리스크 관리 수준을 평가하는 코치
      */
     public String buildSystemPrompt() {
+        return buildSystemPrompt(AiReviewLanguage.KO);
+    }
+
+    public String buildSystemPrompt(AiReviewLanguage language) {
         return """
                 너는 트레이딩 훈련 플랫폼의 AI 코치다.
                 너의 역할은 사용자의 매매 판단 과정을 평가하는 것이다.
@@ -71,7 +76,6 @@ public class PromptBuilder {
                 - 확인 가능한 강점이 없으면 strengths를 빈 배열로 두어라. 시스템이 지표를 계산했다는 사실을 사용자 강점으로 만들지 마라
                 - 긴 문단, raw HTML, CSS, 색상 코드를 출력하지 마라
                 - 사용자 화면은 plain text contract다. **, __, heading, list marker, code block, link 등 Markdown 문법을 출력하지 마라
-                - 모든 사용자-facing 문장은 자연스러운 한국어 존댓말로 작성해라. "기록하라/높여라/들여라/수행하라" 대신 "기록해 보세요/높여 보세요/습관을 들여 보세요/수행해 보세요"처럼 써라
                 - snapshot이 없으면 가격/거래/포지션 기반으로 분석해라
                 - snapshot이 있으면 reasoning 일관성을 함께 평가해라
                 - 투자 추천/매수 추천 금지
@@ -173,7 +177,7 @@ public class PromptBuilder {
                 - score는 수익성이 아니라 reasoning 구체성, 기술 evidence와의 일관성, risk plan 구체성,
                   확인 가능한 plan/action 일관성, 기록된 evidence 품질을 중심으로 정해라
                 - 명확하게 작성됐더라도 기술 evidence가 지지하지 않는 주장은 높은 점수를 주지 마라
-                """;
+                """ + "\n" + languageInstruction(language);
     }
 
     /**
@@ -219,6 +223,10 @@ public class PromptBuilder {
      * 세션 단위 AI 평가용 시스템 프롬포트 생성
      */
     public String buildSessionSystemPrompt() {
+        return buildSessionSystemPrompt(AiReviewLanguage.KO);
+    }
+
+    public String buildSessionSystemPrompt(AiReviewLanguage language) {
         return """
         너는 트레이딩 훈련 플랫폼의 AI 코치다.
         너의 역할은 "한 개 차트"가 아니라 "한 세션 전체"를 평가하는 것이다.
@@ -268,7 +276,6 @@ public class PromptBuilder {
         - 각 문자열은 한 가지 관찰과 해석만 담은 짧은 문장으로 작성하고 긴 텍스트 block을 만들지 마라
         - raw HTML, CSS, 색상 코드를 출력하지 마라
         - 사용자 화면은 plain text contract다. **, __, heading, list marker, code block, link 등 Markdown 문법을 출력하지 마라
-        - 모든 사용자-facing 문장은 자연스러운 한국어 존댓말로 작성해라. "기록하라/높여라/들여라/수행하라" 대신 "기록해 보세요/높여 보세요/습관을 들여 보세요/수행해 보세요"처럼 써라
         - structured review의 evidence는 backend fact나 시간적으로 연결된 사용자 작성 evidence만 인용해라
         - evidence가 부족하면 assessment에 "근거가 충분하지 않음"이라고 명시하고 조언을 억지로 채우지 마라
         - 투자 추천/매수 추천 금지
@@ -345,7 +352,7 @@ public class PromptBuilder {
         - use only supplied evidence. 제공되지 않은 technical indicator, volume, support/resistance, 사용자 의도를 만들어내지 마라
         - observation과 interpretation을 구분하고, unavailable evidence는 있는 것처럼 표현하지 마라
         - stopLossPrice, takeProfitPrice, entryRiskPlan, exitRiskPlan, riskNote, TradeReasonAiEvidence, compliance, autoExitEnabled, currentAutoExitEnabled, historicalAutoExitEnabled, Backend Risk Plan Compliance, FOLLOWED, UNKNOWN, NOT_APPLICABLE, COMPLETED, SNAPSHOT#1, ACTION-TIME TRADE REASON, exact link, canonical exact link, exact stored relation, enum 이름, backend, DTO/entity/field name을 사용자-facing 문장에 그대로 출력하지 마라
-        - 사용자-facing 문자열에는 "backend", "백엔드", "evidence"라는 단어도 쓰지 마라. JSON의 evidence key는 contract상 유지하되 그 배열의 문장은 자연스러운 한국어 사실로 작성해라
+        - 사용자-facing 문자열에는 "backend", "백엔드", "evidence"라는 단어도 쓰지 마라. JSON의 evidence key는 contract상 유지하되 그 배열의 문장은 요청된 출력 언어의 자연스러운 사실 문장으로 작성해라
         - exact link, canonical exact link, exact stored relation, enum 이름, "계획 선택 관계가 저장됨" 같은 내부 구현 표현을 사용자-facing 문장에 출력하지 마라
         - 내부 상태와 field는 evidence 해석에만 사용하고 자연스러운 사용자 언어로 바꿔라
         - backend가 제공한 통계와 episode 계산값을 다시 계산하거나 수정하지 마라
@@ -433,7 +440,13 @@ public class PromptBuilder {
         - 조건형 계획이 이미 존재하면 "구체적인 손절 가격을 쓰라"거나 "자동 청산을 설정하라"를 기본 개선점으로 제시하지 마라
         - 실제 gap이 trigger/action/size deviation이면 계획한 조건과 비중을 실행에 맞추고, 변경 시 실행 전에 이유를 기록하는 drill을 우선해라
         - nextTrainingFocus는 가장 중요한 한 가지 문장만 반환해라. 지원되는 gap이 없으면 빈 배열로 두고 여러 개선 과제를 나열하지 마라
-        """;
+        """ + "\n" + languageInstruction(language);
+    }
+
+    private String languageInstruction(AiReviewLanguage language) {
+        return language == AiReviewLanguage.EN
+                ? "OUTPUT LANGUAGE: Write all user-facing review text in English. Keep JSON keys and enum values unchanged."
+                : "출력 언어: 모든 사용자 표시용 리뷰 텍스트를 자연스러운 한국어 존댓말로 작성하세요. JSON key와 enum 값은 변경하지 마세요.";
     }
 
     /**

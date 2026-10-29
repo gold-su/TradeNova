@@ -1,5 +1,6 @@
 package com.tradenova.report.service;
 
+import com.tradenova.report.dto.AiReviewLanguage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,6 +10,22 @@ class PromptBuilderReviewQualityTest {
     private final PromptBuilder promptBuilder = new PromptBuilder(
             new SessionAiDeterministicContextFormatter()
     );
+
+    @Test
+    void chartAndSessionPromptsUseTheRequestedLanguageWithoutChangingJsonKeys() {
+        String chartEnglish = promptBuilder.buildSystemPrompt(AiReviewLanguage.EN);
+        String chartKorean = promptBuilder.buildSystemPrompt(AiReviewLanguage.KO);
+        String sessionEnglish = promptBuilder.buildSessionSystemPrompt(AiReviewLanguage.EN);
+        String sessionKorean = promptBuilder.buildSessionSystemPrompt(AiReviewLanguage.KO);
+
+        assertTrue(chartEnglish.contains("Write all user-facing review text in English"));
+        assertTrue(sessionEnglish.contains("Write all user-facing review text in English"));
+        assertTrue(chartKorean.contains("모든 사용자 표시용 리뷰 텍스트를 자연스러운 한국어"));
+        assertTrue(sessionKorean.contains("모든 사용자 표시용 리뷰 텍스트를 자연스러운 한국어"));
+        assertTrue(chartEnglish.contains("\"summary\""));
+        assertTrue(sessionEnglish.contains("\"decisionReview\""));
+        assertTrue(chartEnglish.contains("Keep JSON keys and enum values unchanged"));
+    }
 
     @Test
     void chartReviewPrioritizesDecisionEvidenceWithoutChangingResponseSchema() {

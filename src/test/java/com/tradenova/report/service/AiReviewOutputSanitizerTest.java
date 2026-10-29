@@ -2,6 +2,7 @@ package com.tradenova.report.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tradenova.report.dto.AiReviewLanguage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -9,6 +10,29 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AiReviewOutputSanitizerTest {
+
+    @Test
+    void englishReviewSanitizingDoesNotTranslateNaturalEnglishBackToKorean() {
+        String sanitized = AiReviewOutputSanitizer.sanitize(
+                "**Keep the take profit rule aligned with the plan.**",
+                AiReviewLanguage.EN
+        );
+
+        assertEquals("Keep the take profit rule aligned with the plan.", sanitized);
+        assertFalse(sanitized.contains("익절"));
+    }
+
+    @Test
+    void persistedEnglishReviewKeepsItsLanguageWhenLoadedLater() throws Exception {
+        JsonNode payload = new ObjectMapper().readTree("""
+                {"reviewLanguage":"en","summary":"Keep the take profit rule aligned with the plan."}
+                """);
+
+        JsonNode sanitized = AiReviewOutputSanitizer.sanitizedCopy(payload);
+
+        assertEquals("Keep the take profit rule aligned with the plan.", sanitized.path("summary").asText());
+        assertFalse(sanitized.path("summary").asText().contains("익절"));
+    }
 
     @Test
     void convertsDeveloperRiskTermsToNaturalKorean() {
