@@ -11,6 +11,7 @@ import com.tradenova.paper.entity.PaperPosition;
 import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
+import com.tradenova.report.dto.AiReviewLanguage;
 import com.tradenova.report.dto.ChartLifecycleAiEvidence;
 import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.entity.ReportDocument;
@@ -109,6 +110,24 @@ public class ReportAnalysisService {
      */
     @Transactional
     public TrainingEventResponse analyzeLatestSnapshot(Long userId, Long chartId) {
+        return analyzeLatestSnapshotInternal(userId, chartId, null);
+    }
+
+    @Transactional
+    public TrainingEventResponse analyzeLatestSnapshot(
+            Long userId,
+            Long chartId,
+            AiReviewLanguage language
+    ) {
+        return analyzeLatestSnapshotInternal(userId, chartId, language);
+    }
+
+    private TrainingEventResponse analyzeLatestSnapshotInternal(
+            Long userId,
+            Long chartId,
+            AiReviewLanguage requestedLanguage
+    ) {
+        AiReviewLanguage language = requestedLanguage == null ? AiReviewLanguage.KO : requestedLanguage;
 
         // 1) 차트 소유권 검증
         TrainingSessionChart chart = chartRepository.findByIdAndSession_User_Id(chartId, userId)
@@ -254,7 +273,9 @@ public class ReportAnalysisService {
         );
 
         // 8) AI 분석 실행
-        AiAnalysisResponse ai = aiAnalysisService.analyze(request);
+        AiAnalysisResponse ai = requestedLanguage == null
+                ? aiAnalysisService.analyze(request)
+                : aiAnalysisService.analyze(request, language);
 
         // 9) AI 결과를 training_event payload JSON 구성
         ObjectNode payload = objectMapper.createObjectNode();
@@ -262,6 +283,7 @@ public class ReportAnalysisService {
         payload.put("analysisScope", "CHART");
         payload.put("analysisType", analysisType);
         payload.put("hasSnapshot", hasSnapshot);
+        payload.put("reviewLanguage", language.code());
 
         payload.put("score", ai.score());
         payload.put("summary", ai.summary());
@@ -292,7 +314,7 @@ public class ReportAnalysisService {
                 userId,
                 chartId,
                 Type.AI,
-                "차트 AI 리뷰",
+                language == AiReviewLanguage.EN ? "Chart AI Review" : "차트 AI 리뷰",
                 payload
         );
     }

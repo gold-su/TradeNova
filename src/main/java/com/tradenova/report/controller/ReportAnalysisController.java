@@ -1,5 +1,6 @@
 package com.tradenova.report.controller;
 
+import com.tradenova.report.dto.AiReviewGenerateRequest;
 import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.service.ReportAnalysisService;
 import lombok.RequiredArgsConstructor;
@@ -37,14 +38,19 @@ public class ReportAnalysisController {
     @PostMapping("/{chartId}/analyze")
     public ResponseEntity<TrainingEventResponse> analyze(
             Authentication authentication,
-            @PathVariable Long chartId
+            @PathVariable Long chartId,
+            @RequestBody(required = false) AiReviewGenerateRequest request
     ) {
         // 로그인 사용자 ID 추출
         Long userId = extractUserId(authentication);
 
         // AI 분석 실행 후 결과 반환
         return ResponseEntity.ok(
-                reportAnalysisService.analyzeLatestSnapshot(userId, chartId)
+                reportAnalysisService.analyzeLatestSnapshot(
+                        userId,
+                        chartId,
+                        request == null ? null : request.resolvedLanguage()
+                )
         );
     }
 

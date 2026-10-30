@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.tradenova.report.dto.AiReviewLanguage;
 
 import java.util.Iterator;
 import java.util.List;
@@ -104,7 +105,16 @@ public final class AiReviewOutputSanitizer {
     }
 
     public static String sanitize(String text) {
+        return sanitize(text, AiReviewLanguage.KO);
+    }
+
+    public static String sanitize(String text, AiReviewLanguage language) {
         if (text == null || text.isEmpty()) return text;
+        if (language == AiReviewLanguage.EN) {
+            return text.replace("**", "").replace("__", "")
+                    .replaceAll("[ \\t]{2,}", " ")
+                    .strip();
+        }
         String sanitized = replaceWrappedPriceAssignment(text, "손절", "stopLossPrice", "손절가");
         sanitized = replaceWrappedPriceAssignment(sanitized, "익절", "takeProfitPrice", "익절가");
         sanitized = replacePriceAssignment(sanitized, "stopLossPrice", "손절가");
@@ -150,12 +160,16 @@ public final class AiReviewOutputSanitizer {
     }
 
     public static JsonNode sanitizeTextValues(JsonNode node) {
+        return sanitizeTextValues(node, AiReviewLanguage.KO);
+    }
+
+    public static JsonNode sanitizeTextValues(JsonNode node, AiReviewLanguage language) {
         if (node == null || node.isNull()) return node;
-        if (node.isTextual()) return TextNode.valueOf(sanitize(node.textValue()));
+        if (node.isTextual()) return TextNode.valueOf(sanitize(node.textValue(), language));
         if (node.isArray()) {
             ArrayNode array = (ArrayNode) node;
             for (int index = 0; index < array.size(); index++) {
-                array.set(index, sanitizeTextValues(array.get(index)));
+                array.set(index, sanitizeTextValues(array.get(index), language));
             }
             return array;
         }
@@ -164,14 +178,18 @@ public final class AiReviewOutputSanitizer {
             Iterator<Map.Entry<String, JsonNode>> fields = object.fields();
             while (fields.hasNext()) {
                 Map.Entry<String, JsonNode> field = fields.next();
-                object.set(field.getKey(), sanitizeTextValues(field.getValue()));
+                object.set(field.getKey(), sanitizeTextValues(field.getValue(), language));
             }
         }
         return node;
     }
 
     public static JsonNode sanitizedCopy(JsonNode node) {
-        return node == null ? null : sanitizeTextValues(node.deepCopy());
+        if (node == null) return null;
+        AiReviewLanguage language = AiReviewLanguage.resolve(
+                node.path("reviewLanguage").asText(null)
+        );
+        return sanitizeTextValues(node.deepCopy(), language);
     }
 
     private static String replacePriceAssignment(String text, String field, String label) {

@@ -1,5 +1,6 @@
 package com.tradenova.report.controller;
 
+import com.tradenova.report.dto.AiReviewGenerateRequest;
 import com.tradenova.report.dto.TrainingEventResponse;
 import com.tradenova.report.service.SessionReportAnalysisService;
 import lombok.RequiredArgsConstructor;
@@ -18,11 +19,16 @@ public class SessionReportAnalysisController {
     @PostMapping("/{sessionId}/analyze")
     public ResponseEntity<TrainingEventResponse> analyzeSession(
             Authentication authentication,
-            @PathVariable Long sessionId
+            @PathVariable Long sessionId,
+            @RequestBody(required = false) AiReviewGenerateRequest request
     ) {
         Long userId = extractUserId(authentication);
         return ResponseEntity.ok(
-                sessionReportAnalysisService.analyzeSession(userId, sessionId)
+                sessionReportAnalysisService.analyzeSession(
+                        userId,
+                        sessionId,
+                        request == null ? null : request.resolvedLanguage()
+                )
         );
     }
 

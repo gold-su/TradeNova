@@ -6,6 +6,7 @@ import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
+import com.tradenova.report.dto.AiReviewLanguage;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiAnalysisResponse;
 import lombok.RequiredArgsConstructor;
@@ -86,10 +87,16 @@ public class AiAnalysisService {
      * - 점수, 요약, 경고, 강점
      */
     public AiAnalysisResponse analyze(AiAnalysisRequest req) {
+        return analyze(req, null);
+    }
+
+    public AiAnalysisResponse analyze(AiAnalysisRequest req, AiReviewLanguage language) {
         try {
 
             // AI 역할 설명서
-            String systemPrompt = promptBuilder.buildSystemPrompt();
+            String systemPrompt = language == null
+                    ? promptBuilder.buildSystemPrompt()
+                    : promptBuilder.buildSystemPrompt(language);
 
             // 사용자 리포트/체결 데이터를 문자열로 정리
             String userPrompt = promptBuilder.buildUserPrompt(req);
@@ -125,7 +132,10 @@ public class AiAnalysisService {
             }
 
             // 응답 JSON -> AiAnalysisResponse 변환
-            AiAnalysisResponse parsed = parseResponse(response.getBody());
+            AiAnalysisResponse parsed = parseResponse(
+                    response.getBody(),
+                    language == null ? AiReviewLanguage.KO : language
+            );
             int backendScore = AiReviewScoreCalculator.score(req).finalScore();
             return new AiAnalysisResponse(backendScore, parsed.summary(), parsed.warnings(), parsed.strengths());
 
@@ -145,7 +155,7 @@ public class AiAnalysisService {
      * OpenAI 응답 구조:
      * choices[0].message.content 안에 JSON 문자열이 들어있다.
      */
-    private AiAnalysisResponse parseResponse(String rawBody) throws Exception {
+    private AiAnalysisResponse parseResponse(String rawBody, AiReviewLanguage language) throws Exception {
         JsonNode root = objectMapper.readTree(rawBody);
 
         JsonNode contentNode = root.path("choices").get(0).path("message").path("content");
@@ -159,7 +169,7 @@ public class AiAnalysisService {
         JsonNode aiJson = objectMapper.readTree(contentNode.asText());
 
         Integer score = aiJson.path("score").asInt(0);
-        String summary = AiReviewOutputSanitizer.sanitize(aiJson.path("summary").asText(""));
+        String summary = AiReviewOutputSanitizer.sanitize(aiJson.path("summary").asText(""), language);
 
         List<String> warnings = objectMapper.convertValue(
                 aiJson.path("warnings"),
@@ -174,8 +184,8 @@ public class AiAnalysisService {
         return new AiAnalysisResponse(
                 score,
                 summary,
-                sanitizeTextList(warnings),
-                sanitizeTextList(strengths)
+                sanitizeTextList(warnings, language),
+                sanitizeTextList(strengths, language)
         );
     }
 
@@ -185,9 +195,15 @@ public class AiAnalysisService {
      * 세션 단위 AI 분석 결과를 생성
      */
     public SessionAiAnalysisResponse analyzeSession(SessionAiAnalysisRequest req) {
+        return analyzeSession(req, null);
+    }
+
+    public SessionAiAnalysisResponse analyzeSession(SessionAiAnalysisRequest req, AiReviewLanguage language) {
         try {
             // 1. AI 역할, 출력 형식, 평가 규칙을 담은 system prompt 생성
-            String systemPrompt = promptBuilder.buildSessionSystemPrompt();
+            String systemPrompt = language == null
+                    ? promptBuilder.buildSessionSystemPrompt()
+                    : promptBuilder.buildSessionSystemPrompt(language);
             // 2. 실세 세션 데이터(차트 요약, snapshot 등)를 담은 user prompt 생성
             String userPrompt = promptBuilder.buildSessionUserPrompt(req);
 
@@ -230,7 +246,10 @@ public class AiAnalysisService {
                 throw new CustomException(ErrorCode.AI_ANALYSIS_FAILED);
             }
             // 8. OpenAI 응답 JSON에서 실제 분석 결과(score, summary 등)를 파싱하여 반환
-            SessionAiAnalysisResponse parsed = parseSessionResponse(response.getBody());
+            SessionAiAnalysisResponse parsed = parseSessionResponse(
+                    response.getBody(),
+                    language == null ? AiReviewLanguage.KO : language
+            );
             int backendScore = AiReviewScoreCalculator.score(req).finalScore();
             return new SessionAiAnalysisResponse(
                     backendScore, parsed.summary(), parsed.warnings(), parsed.strengths(),
@@ -252,7 +271,10 @@ public class AiAnalysisService {
         }
     }
 
-    private SessionAiAnalysisResponse parseSessionResponse(String rawBody) throws Exception {
+    private SessionAiAnalysisResponse parseSessionResponse(
+            String rawBody,
+            AiReviewLanguage language
+    ) throws Exception {
         JsonNode root = objectMapper.readTree(rawBody);
         JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
         if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
@@ -260,13 +282,15 @@ public class AiAnalysisService {
         }
         JsonNode aiJson = objectMapper.readTree(contentNode.asText());
         return objectMapper.treeToValue(
-                AiReviewOutputSanitizer.sanitizeTextValues(aiJson),
+                AiReviewOutputSanitizer.sanitizeTextValues(aiJson, language),
                 SessionAiAnalysisResponse.class
         );
     }
 
-    private List<String> sanitizeTextList(List<String> values) {
-        return values == null ? List.of() : values.stream().map(AiReviewOutputSanitizer::sanitize).toList();
+    private List<String> sanitizeTextList(List<String> values, AiReviewLanguage language) {
+        return values == null
+                ? List.of()
+                : values.stream().map(value -> AiReviewOutputSanitizer.sanitize(value, language)).toList();
     }
 
     private List<String> firstFocusOnly(List<String> values) {
