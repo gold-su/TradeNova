@@ -10,6 +10,7 @@ import com.tradenova.report.dto.AiReviewLanguage;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiAnalysisResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ import java.util.Map;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AiAnalysisService {
     /**
      * HTTP 호출용 클라이언트
@@ -140,11 +142,13 @@ public class AiAnalysisService {
             return new AiAnalysisResponse(backendScore, parsed.summary(), parsed.warnings(), parsed.strengths());
 
         }catch (HttpStatusCodeException e){
+            logUpstreamFailure("CHART", language, e);
             throw new CustomException(ErrorCode.AI_API_CALL_FAILED);
         }
         catch (CustomException e) {
             throw e;
         } catch (Exception e) {
+            logResponseFailure("CHART", language, e);
             throw new CustomException(ErrorCode.AI_RESPONSE_INVALID);
         }
     }
@@ -260,13 +264,14 @@ public class AiAnalysisService {
         } catch (HttpStatusCodeException e) {
             // OpenAI 서버가 4xx / 5xx 응답을 준 경우
             // 예: 인증 실패, 요청 형식 오류, quota 초과 등
-
+            logUpstreamFailure("SESSION", language, e);
             throw new CustomException(ErrorCode.AI_API_CALL_FAILED);
         } catch (CustomException e) {
             // 내부에서 이미 의도적으로 만든 비즈니스 예외는 그대로 전달
             throw e;
         } catch (Exception e) {
             // 그 외 예외는 응답 파싱 실패 / 예상치 못한 런타임 오류로 간주
+            logResponseFailure("SESSION", language, e);
             throw new CustomException(ErrorCode.AI_RESPONSE_INVALID);
         }
     }
@@ -295,6 +300,52 @@ public class AiAnalysisService {
 
     private List<String> firstFocusOnly(List<String> values) {
         return values == null || values.isEmpty() ? List.of() : List.of(values.get(0));
+    }
+
+    private void logUpstreamFailure(
+            String scope,
+            AiReviewLanguage language,
+            HttpStatusCodeException exception
+    ) {
+        String errorType = "unknown";
+        String errorCode = "unknown";
+        String errorMessage = "unavailable";
+        try {
+            JsonNode error = objectMapper.readTree(exception.getResponseBodyAsString()).path("error");
+            errorType = safeLogValue(error.path("type").asText("unknown"));
+            errorCode = safeLogValue(error.path("code").asText("unknown"));
+            errorMessage = safeLogValue(error.path("message").asText("unavailable"));
+        } catch (Exception ignored) {
+            // Do not log the raw upstream body when it is not valid JSON.
+        }
+
+        log.warn(
+                "OpenAI request failed: scope={}, language={}, status={}, errorType={}, errorCode={}, message={}",
+                scope,
+                resolvedLanguage(language).code(),
+                exception.getStatusCode().value(),
+                errorType,
+                errorCode,
+                errorMessage
+        );
+    }
+
+    private void logResponseFailure(String scope, AiReviewLanguage language, Exception exception) {
+        log.warn(
+                "OpenAI response processing failed: scope={}, language={}, exceptionType={}",
+                scope,
+                resolvedLanguage(language).code(),
+                exception.getClass().getSimpleName()
+        );
+    }
+
+    private AiReviewLanguage resolvedLanguage(AiReviewLanguage language) {
+        return language == null ? AiReviewLanguage.KO : language;
+    }
+
+    private String safeLogValue(String value) {
+        String singleLine = value == null ? "unknown" : value.replaceAll("[\\r\\n\\t]", " ").trim();
+        return singleLine.length() <= 200 ? singleLine : singleLine.substring(0, 200);
     }
 
     /**
