@@ -5,12 +5,15 @@ import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.report.dto.AiAnalysisRequest;
 import com.tradenova.report.dto.AiAnalysisResponse;
+import com.tradenova.report.dto.AiReviewLanguage;
 import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiAnalysisResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -21,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AiAnalysisServiceSessionTest {
@@ -33,8 +37,10 @@ class AiAnalysisServiceSessionTest {
         restTemplate = mock(RestTemplate.class);
         promptBuilder = mock(PromptBuilder.class);
         when(promptBuilder.buildSystemPrompt()).thenReturn("system");
+        when(promptBuilder.buildSystemPrompt(any())).thenReturn("localized chart system");
         when(promptBuilder.buildUserPrompt(any())).thenReturn("user");
         when(promptBuilder.buildSessionSystemPrompt()).thenReturn("system");
+        when(promptBuilder.buildSessionSystemPrompt(any())).thenReturn("localized session system");
         when(promptBuilder.buildSessionUserPrompt(any())).thenReturn("user");
         service = new AiAnalysisService(restTemplate, promptBuilder, new ObjectMapper());
         ReflectionTestUtils.setField(service, "apiKey", "test-key");
@@ -152,6 +158,68 @@ class AiAnalysisServiceSessionTest {
         SessionAiAnalysisResponse result = service.analyzeSession(request());
 
         assertEquals(List.of("첫 번째 연습"), result.nextTrainingFocus());
+    }
+
+    @Test
+    void parsesEnglishChartReviewAndUsesEnglishPrompt() {
+        stubResponse("""
+                {"score":70,"summary":"A grounded review","warnings":["Keep the risk limit explicit"],
+                 "strengths":["The entry reason was recorded"]}
+                """);
+
+        AiAnalysisResponse result = service.analyze(mock(AiAnalysisRequest.class), AiReviewLanguage.EN);
+
+        assertEquals("A grounded review", result.summary());
+        assertEquals(List.of("Keep the risk limit explicit"), result.warnings());
+        assertEquals(List.of("The entry reason was recorded"), result.strengths());
+        verify(promptBuilder).buildSystemPrompt(AiReviewLanguage.EN);
+    }
+
+    @Test
+    void parsesKoreanChartReviewAndUsesKoreanPrompt() {
+        stubResponse("""
+                {"score":70,"summary":"근거가 기록되었습니다.","warnings":[],"strengths":["진입 근거가 있습니다."]}
+                """);
+
+        AiAnalysisResponse result = service.analyze(mock(AiAnalysisRequest.class), AiReviewLanguage.KO);
+
+        assertEquals("근거가 기록되었습니다.", result.summary());
+        assertEquals(List.of("진입 근거가 있습니다."), result.strengths());
+        verify(promptBuilder).buildSystemPrompt(AiReviewLanguage.KO);
+    }
+
+    @Test
+    void parsesEnglishSessionReviewAndUsesEnglishPrompt() {
+        stubResponse("""
+                {"score":70,"summary":"Session summary","warnings":[],"strengths":[],
+                 "behaviorPatterns":[],"nextTrainingFocus":["Record the invalidation condition first."]}
+                """);
+
+        SessionAiAnalysisResponse result = service.analyzeSession(request(), AiReviewLanguage.EN);
+
+        assertEquals("Session summary", result.summary());
+        assertEquals(List.of("Record the invalidation condition first."), result.nextTrainingFocus());
+        verify(promptBuilder).buildSessionSystemPrompt(AiReviewLanguage.EN);
+    }
+
+    @Test
+    void mapsUpstreamQuotaFailureToExistingApiFailureContract() {
+        HttpClientErrorException upstream = HttpClientErrorException.create(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "Too Many Requests",
+                null,
+                "{\"error\":{\"type\":\"insufficient_quota\",\"code\":\"credit_balance_exhausted\",\"message\":\"No credits remain.\"}}".getBytes(),
+                null
+        );
+        when(restTemplate.exchange(eq("https://api.openai.com/v1/chat/completions"), any(), any(), eq(String.class)))
+                .thenThrow(upstream);
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyze(mock(AiAnalysisRequest.class), AiReviewLanguage.EN)
+        );
+
+        assertEquals(ErrorCode.AI_API_CALL_FAILED, exception.getErrorCode());
     }
 
     private void stubResponse(String content) {
