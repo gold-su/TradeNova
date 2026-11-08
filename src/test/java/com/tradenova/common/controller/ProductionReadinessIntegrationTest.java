@@ -11,8 +11,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN;
+import static org.springframework.http.HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD;
 import static org.springframework.http.HttpHeaders.ORIGIN;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -32,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "openai.api-key=test",
         "kis.appkey=test",
         "kis.appsecret=test",
-        "app.cors.allowed-origins=https://app.example.com"
+        "app.cors.allowed-origins=https://decireps.com"
 })
 class ProductionReadinessIntegrationTest {
 
@@ -51,9 +53,27 @@ class ProductionReadinessIntegrationTest {
 
     @Test
     void configuredProductionOriginIsAllowed() throws Exception {
-        mvc.perform(get("/health").header(ORIGIN, "https://app.example.com"))
+        mvc.perform(get("/health").header(ORIGIN, "https://decireps.com"))
                 .andExpect(status().isOk())
-                .andExpect(header().string(ACCESS_CONTROL_ALLOW_ORIGIN, "https://app.example.com"));
+                .andExpect(header().string(ACCESS_CONTROL_ALLOW_ORIGIN, "https://decireps.com"));
+    }
+
+    @Test
+    void configuredProductionOriginPreflightIsAllowed() throws Exception {
+        mvc.perform(options("/api/auth/login")
+                        .header(ORIGIN, "https://decireps.com")
+                        .header(ACCESS_CONTROL_REQUEST_METHOD, "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(ACCESS_CONTROL_ALLOW_ORIGIN, "https://decireps.com"));
+    }
+
+    @Test
+    void unconfiguredProductionOriginIsRejected() throws Exception {
+        mvc.perform(options("/api/auth/login")
+                        .header(ORIGIN, "https://malicious.example")
+                        .header(ACCESS_CONTROL_REQUEST_METHOD, "POST"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist(ACCESS_CONTROL_ALLOW_ORIGIN));
     }
 
     @Test
