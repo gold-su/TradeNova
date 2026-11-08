@@ -9,10 +9,15 @@ import com.tradenova.report.dto.SessionAiAnalysisRequest;
 import com.tradenova.report.dto.SessionAiAnalysisResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AiAnalysisServiceSessionTest {
@@ -152,6 +159,71 @@ class AiAnalysisServiceSessionTest {
         SessionAiAnalysisResponse result = service.analyzeSession(request());
 
         assertEquals(List.of("첫 번째 연습"), result.nextTrainingFocus());
+    }
+
+    @Test
+    void timeoutIsReportedSeparatelyAndIsNotRetried() {
+        when(restTemplate.exchange(eq("https://api.openai.com/v1/chat/completions"), any(), any(), eq(String.class)))
+                .thenThrow(new ResourceAccessException("timed out", new SocketTimeoutException()));
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyzeSession(request())
+        );
+
+        assertEquals(ErrorCode.AI_API_TIMEOUT, exception.getErrorCode());
+        verify(restTemplate, times(1))
+                .exchange(eq("https://api.openai.com/v1/chat/completions"), any(), any(), eq(String.class));
+    }
+
+    @Test
+    void connectionFailureIsNotMisclassifiedAsInvalidResponse() {
+        when(restTemplate.exchange(eq("https://api.openai.com/v1/chat/completions"), any(), any(), eq(String.class)))
+                .thenThrow(new ResourceAccessException("connection failed", new ConnectException()));
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyzeSession(request())
+        );
+
+        assertEquals(ErrorCode.AI_API_CONNECTION_FAILED, exception.getErrorCode());
+    }
+
+    @Test
+    void llmHttpErrorUsesExistingApiFailureContract() {
+        when(restTemplate.exchange(eq("https://api.openai.com/v1/chat/completions"), any(), any(), eq(String.class)))
+                .thenThrow(new HttpServerErrorException(HttpStatus.BAD_GATEWAY));
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyzeSession(request())
+        );
+
+        assertEquals(ErrorCode.AI_API_CALL_FAILED, exception.getErrorCode());
+    }
+
+    @Test
+    void chartProgrammingErrorIsNotMisclassifiedAsInvalidAiResponse() {
+        when(promptBuilder.buildSystemPrompt()).thenThrow(new NullPointerException("internal bug"));
+
+        NullPointerException exception = assertThrows(
+                NullPointerException.class,
+                () -> service.analyze(mock(AiAnalysisRequest.class))
+        );
+
+        assertEquals("internal bug", exception.getMessage());
+    }
+
+    @Test
+    void sessionProgrammingErrorIsNotMisclassifiedAsInvalidAiResponse() {
+        when(promptBuilder.buildSessionSystemPrompt()).thenThrow(new IllegalStateException("internal bug"));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> service.analyzeSession(request())
+        );
+
+        assertEquals("internal bug", exception.getMessage());
     }
 
     private void stubResponse(String content) {

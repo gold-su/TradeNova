@@ -2,6 +2,8 @@ package com.tradenova.report.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
 import com.tradenova.paper.entity.PaperAccount;
 import com.tradenova.paper.repository.PaperPositionRepository;
 import com.tradenova.report.dto.AiAnalysisRequest;
@@ -35,6 +37,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.TransactionSystemException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -45,8 +49,12 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -69,6 +77,7 @@ class ReportAnalysisServiceTest {
     @Mock private DecisionTechnicalContextService technicalContextService;
     @Spy private TradeActionAiEvidenceResolver tradeActionEvidenceResolver = new TradeActionAiEvidenceResolver();
     @Spy private ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver = new ScenarioPlanAiEvidenceResolver();
+    @Mock private AiAnalysisTransactionExecutor transactionExecutor;
     @Spy private ObjectMapper objectMapper = new ObjectMapper();
     @InjectMocks private ReportAnalysisService service;
 
@@ -94,9 +103,16 @@ class ReportAnalysisServiceTest {
                 .thenReturn(Optional.of(chart));
         when(trainingEventRepository.findAllByUserIdAndChartIdAndTypeOrderByIdDesc(any(), any(), any()))
                 .thenReturn(List.of());
-        when(aiAnalysisService.analyze(any()))
-                .thenReturn(new AiAnalysisResponse(80, "summary", List.of(), List.of()));
+        when(aiAnalysisService.analyze(any())).thenAnswer(invocation -> {
+            assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager
+                    .isActualTransactionActive());
+            return new AiAnalysisResponse(80, "summary", List.of(), List.of());
+        });
         when(technicalContextService.boundedOhlcv(any(), any())).thenReturn(List.of());
+        doAnswer(invocation -> ((java.util.function.Supplier<?>) invocation.getArgument(0)).get())
+                .when(transactionExecutor).readOnly(any());
+        doAnswer(invocation -> ((java.util.function.Supplier<?>) invocation.getArgument(0)).get())
+                .when(transactionExecutor).write(any());
     }
 
     @Test
@@ -142,6 +158,37 @@ class ReportAnalysisServiceTest {
         assertEquals(30, request.closes().size());
         assertEquals(99.0, request.closes().get(0));
         assertEquals(70.0, request.closes().get(29));
+    }
+
+    @Test
+    void persistenceFailureUsesDedicatedSafeError() {
+        visibleCandles();
+        when(trainingEventService.append(any(), any(), any(), any(), any()))
+                .thenThrow(new DataIntegrityViolationException("save failed"));
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyzeLatestSnapshot(USER_ID, CHART_ID)
+        );
+
+        assertEquals(ErrorCode.AI_RESULT_SAVE_FAILED, exception.getErrorCode());
+    }
+
+    @Test
+    void transactionCommitFailureUsesDedicatedSafeError() {
+        visibleCandles();
+        reset(transactionExecutor);
+        doAnswer(invocation -> ((java.util.function.Supplier<?>) invocation.getArgument(0)).get())
+                .when(transactionExecutor).readOnly(any());
+        doThrow(new TransactionSystemException("commit failed"))
+                .when(transactionExecutor).write(any());
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyzeLatestSnapshot(USER_ID, CHART_ID)
+        );
+
+        assertEquals(ErrorCode.AI_RESULT_SAVE_FAILED, exception.getErrorCode());
     }
 
     @Test

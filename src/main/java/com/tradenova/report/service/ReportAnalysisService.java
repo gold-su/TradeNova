@@ -35,7 +35,10 @@ import com.tradenova.training.repository.TrainingSessionChartRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -57,6 +60,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReportAnalysisService {
 
     // 리포트 문서(snapshot/draft) 조회용
@@ -94,6 +98,7 @@ public class ReportAnalysisService {
     private final DecisionTechnicalContextService technicalContextService;
     private final TradeActionAiEvidenceResolver tradeActionEvidenceResolver;
     private final ScenarioPlanAiEvidenceResolver scenarioPlanEvidenceResolver;
+    private final AiAnalysisTransactionExecutor transactionExecutor;
 
     /**
      * 특정 차트의 최신 snapshot을 분석해서
@@ -108,12 +113,10 @@ public class ReportAnalysisService {
      * 6. AI 분석 호출
      * 7. 결과를 training_event로 저장
      */
-    @Transactional
     public TrainingEventResponse analyzeLatestSnapshot(Long userId, Long chartId) {
         return analyzeLatestSnapshotInternal(userId, chartId, null);
     }
 
-    @Transactional
     public TrainingEventResponse analyzeLatestSnapshot(
             Long userId,
             Long chartId,
@@ -123,6 +126,25 @@ public class ReportAnalysisService {
     }
 
     private TrainingEventResponse analyzeLatestSnapshotInternal(
+            Long userId,
+            Long chartId,
+            AiReviewLanguage requestedLanguage
+    ) {
+        PreparedChartAnalysis prepared = transactionExecutor.readOnly(
+                () -> prepareLatestSnapshot(userId, chartId, requestedLanguage)
+        );
+        AiAnalysisResponse ai = prepared.explicitLanguage()
+                ? aiAnalysisService.analyze(prepared.request(), prepared.language())
+                : aiAnalysisService.analyze(prepared.request());
+        try {
+            return transactionExecutor.write(() -> saveChartAnalysis(userId, chartId, prepared, ai));
+        } catch (DataAccessException | TransactionException exception) {
+            log.error("Failed to persist chart AI analysis", exception);
+            throw new CustomException(ErrorCode.AI_RESULT_SAVE_FAILED);
+        }
+    }
+
+    private PreparedChartAnalysis prepareLatestSnapshot(
             Long userId,
             Long chartId,
             AiReviewLanguage requestedLanguage
@@ -272,18 +294,37 @@ public class ReportAnalysisService {
                 lifecycleEvidence
         );
 
-        // 8) AI 분석 실행
-        AiAnalysisResponse ai = requestedLanguage == null
-                ? aiAnalysisService.analyze(request)
-                : aiAnalysisService.analyze(request, language);
+        return new PreparedChartAnalysis(
+                request,
+                language,
+                requestedLanguage != null,
+                analysisType,
+                hasSnapshot,
+                snapshot == null ? null : snapshot.getId(),
+                stopLossPrice,
+                takeProfitPrice,
+                autoExitEnabled
+        );
+    }
+
+    private TrainingEventResponse saveChartAnalysis(
+            Long userId,
+            Long chartId,
+            PreparedChartAnalysis prepared,
+            AiAnalysisResponse ai
+    ) {
+        // Re-check after the external call so a result created meanwhile is never overwritten.
+        if (findLatestChartAiEventOrNull(userId, chartId) != null) {
+            throw new CustomException(ErrorCode.CHART_AI_ALREADY_EXISTS);
+        }
 
         // 9) AI 결과를 training_event payload JSON 구성
         ObjectNode payload = objectMapper.createObjectNode();
 
         payload.put("analysisScope", "CHART");
-        payload.put("analysisType", analysisType);
-        payload.put("hasSnapshot", hasSnapshot);
-        payload.put("reviewLanguage", language.code());
+        payload.put("analysisType", prepared.analysisType());
+        payload.put("hasSnapshot", prepared.hasSnapshot());
+        payload.put("reviewLanguage", prepared.language().code());
 
         payload.put("score", ai.score());
         payload.put("summary", ai.summary());
@@ -303,20 +344,35 @@ public class ReportAnalysisService {
 
         // 어떤 snapshot / chart에 대한 결과인지 함께 저장
         // 분석에 사용된 문맥도 일부 같이 저장
-        payload.put("snapshotId", snapshot != null ? snapshot.getId() : null);
+        payload.put("snapshotId", prepared.snapshotId());
         payload.put("chartId", chartId);
-        payload.put("stopLossPrice", stopLossPrice != null ? stopLossPrice.toPlainString() : null);
-        payload.put("takeProfitPrice", takeProfitPrice != null ? takeProfitPrice.toPlainString() : null);
-        payload.put("autoExitEnabled", autoExitEnabled);
+        payload.put("stopLossPrice", prepared.stopLossPrice() != null
+                ? prepared.stopLossPrice().toPlainString() : null);
+        payload.put("takeProfitPrice", prepared.takeProfitPrice() != null
+                ? prepared.takeProfitPrice().toPlainString() : null);
+        payload.put("autoExitEnabled", prepared.autoExitEnabled());
 
         // 10) AI 리뷰 결과를 training_event로 저장 후 반환
         return trainingEventService.append(
                 userId,
                 chartId,
                 Type.AI,
-                language == AiReviewLanguage.EN ? "Chart AI Review" : "차트 AI 리뷰",
+                prepared.language() == AiReviewLanguage.EN ? "Chart AI Review" : "차트 AI 리뷰",
                 payload
         );
+    }
+
+    private record PreparedChartAnalysis(
+            AiAnalysisRequest request,
+            AiReviewLanguage language,
+            boolean explicitLanguage,
+            String analysisType,
+            boolean hasSnapshot,
+            Long snapshotId,
+            BigDecimal stopLossPrice,
+            BigDecimal takeProfitPrice,
+            Boolean autoExitEnabled
+    ) {
     }
 
     private ChartLifecycleAiEvidence lifecycleEvidence(
