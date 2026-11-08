@@ -2,6 +2,8 @@ package com.tradenova.market.repository;
 
 import com.tradenova.market.entity.MarketCandle;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -14,6 +16,18 @@ import java.util.List;
  * - 중복 여부 확인
  */
 public interface MarketCandleRepository extends JpaRepository<MarketCandle, Long> {
+
+    @Query("""
+            select candle.symbol.id
+            from MarketCandle candle
+            where candle.symbol.active = true
+            group by candle.symbol.id
+            having count(candle.id) >= :requiredBars
+            order by candle.symbol.id
+            """)
+    List<Long> findEligibleActiveSymbolIds(@Param("requiredBars") long requiredBars);
+
+    List<MarketCandle> findAllBySymbol_IdOrderByCandleDateAsc(Long symbolId);
 
     /**
      * 특정 종목의 특정 기간 일봉 조회

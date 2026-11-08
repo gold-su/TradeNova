@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -45,13 +46,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { //OncePerReq
                  * new UsernamePasswordAuthenticationToken(principal, credentials, authorities)
                  * principal → user → “이 요청의 주인(로그인한 사용자)은 이 User 객체다”
                  * credentials → null → 자격 증명(비밀번호). 여기서는 더 이상 필요 없어서 null
-                 * authorities → null → 사용자의 권한 목록(ROLE_USER, ROLE_ADMIN 등). 지금은 아직 권한을 안 넣어줘서 null로 둔 상태.
+                 * authorities → DB에 저장된 UserRole을 ROLE_USER/ROLE_ADMIN 권한으로 변환.
                  */
                 // “이 User를 주체(principal)로 하는 인증 객체(auth)를 하나 만들자.
                 var auth = new UsernamePasswordAuthenticationToken(
                         user.getId(),           // principal = userId (Long)
                         null,
-                        java.util.List.of()     // 권한 안 쓸 거면 빈 리스트
+                        java.util.List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
                 );
                 // 이미 인증된 요청이면 스킵
                 if (SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -59,7 +60,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { //OncePerReq
                 }
                 
                 //이제부터 이 요청은 이 사용자(auth) 로 인증된 상태라고 스프링 시큐리티에게 알려줘라
-                SecurityContextHolder.getContext().setAuthentication(auth);
             }
         }
 
