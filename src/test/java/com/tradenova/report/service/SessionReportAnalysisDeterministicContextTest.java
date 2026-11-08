@@ -30,6 +30,7 @@ import com.tradenova.training.repository.TrainingSessionRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.TransactionSystemException;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -42,6 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
@@ -72,7 +75,8 @@ class SessionReportAnalysisDeterministicContextTest {
                 eventService,
                 objectMapper,
                 contextService,
-                evidenceResolver
+                evidenceResolver,
+                new AiAnalysisTransactionExecutor()
         );
         TrainingSession session = session();
         TrainingSessionChart chart = chart(session);
@@ -127,7 +131,13 @@ class SessionReportAnalysisDeterministicContextTest {
                         "consistency needs review", "define a repeat-entry rule")),
                 List.of("link reasons to episodes")
         );
-        when(aiAnalysisService.analyzeSession(any(SessionAiAnalysisRequest.class))).thenReturn(response);
+        when(aiAnalysisService.analyzeSession(any(SessionAiAnalysisRequest.class))).thenAnswer(invocation -> {
+            org.junit.jupiter.api.Assertions.assertFalse(
+                    org.springframework.transaction.support.TransactionSynchronizationManager
+                            .isActualTransactionActive()
+            );
+            return response;
+        });
         when(eventService.append(eq(1L), eq(10L), eq(Type.AI), eq("세션 AI 리뷰"), any(ObjectNode.class)))
                 .thenReturn(expected);
 
@@ -191,6 +201,88 @@ class SessionReportAnalysisDeterministicContextTest {
         verify(aiAnalysisService, never()).analyzeSession(any());
     }
 
+    @Test
+    void existingSessionResultSkipsExternalAiCall() {
+        TrainingSessionRepository sessions = mock(TrainingSessionRepository.class);
+        TrainingSessionChartRepository charts = mock(TrainingSessionChartRepository.class);
+        TrainingEventRepository events = mock(TrainingEventRepository.class);
+        AiAnalysisService ai = mock(AiAnalysisService.class);
+        TrainingSession session = session();
+        TrainingSessionChart chart = chart(session);
+        ObjectNode payload = new ObjectMapper().createObjectNode()
+                .put("analysisScope", "SESSION")
+                .put("sessionId", 5L);
+        TrainingEvent existing = TrainingEvent.builder()
+                .id(90L).userId(1L).chartId(10L).type(Type.AI).payloadJson(payload).build();
+        when(sessions.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(session));
+        when(charts.findAllBySession_IdOrderByChartIndexAsc(5L)).thenReturn(List.of(chart));
+        when(events.findAllByUserIdAndChartIdInAndTypeOrderByIdDesc(
+                1L, List.of(10L), Type.AI)).thenReturn(List.of(existing));
+        SessionReportAnalysisService service = new SessionReportAnalysisService(
+                sessions, charts, mock(TrainingTradeRepository.class), events,
+                mock(ReportDocumentRepository.class), mock(TrainingSessionCandleRepository.class), ai,
+                mock(TrainingEventService.class), new ObjectMapper(),
+                mock(SessionAiDeterministicContextService.class), mock(SessionQualitativeEvidenceResolver.class),
+                new AiAnalysisTransactionExecutor()
+        );
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyzeSession(1L, 5L)
+        );
+
+        assertEquals(ErrorCode.SESSION_AI_ALREADY_EXISTS, exception.getErrorCode());
+        verify(ai, never()).analyzeSession(any());
+    }
+
+    @Test
+    void transactionCommitFailureUsesDedicatedSafeError() {
+        TrainingSessionRepository sessions = mock(TrainingSessionRepository.class);
+        TrainingSessionChartRepository charts = mock(TrainingSessionChartRepository.class);
+        TrainingTradeRepository trades = mock(TrainingTradeRepository.class);
+        TrainingEventRepository events = mock(TrainingEventRepository.class);
+        ReportDocumentRepository documents = mock(ReportDocumentRepository.class);
+        AiAnalysisService ai = mock(AiAnalysisService.class);
+        SessionAiDeterministicContextService contextService = mock(SessionAiDeterministicContextService.class);
+        SessionQualitativeEvidenceResolver evidenceResolver = mock(SessionQualitativeEvidenceResolver.class);
+        AiAnalysisTransactionExecutor transactionExecutor = mock(AiAnalysisTransactionExecutor.class);
+        TrainingSession session = session();
+        TrainingSessionChart chart = chart(session);
+        SessionAiDeterministicContext context = deterministicContext();
+        SessionQualitativeEvidenceContext qualitative = new SessionQualitativeEvidenceContext(5L, List.of());
+
+        when(sessions.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(session));
+        when(charts.findAllBySession_IdOrderByChartIndexAsc(5L)).thenReturn(List.of(chart));
+        when(events.findAllByUserIdAndChartIdInAndTypeOrderByIdDesc(
+                1L, List.of(10L), Type.AI)).thenReturn(List.of());
+        when(trades.findAllByChartIdInOrderByCreatedAtAsc(List.of(10L))).thenReturn(List.of());
+        when(events.findAllByUserIdAndChartIdInOrderByIdAsc(1L, List.of(10L))).thenReturn(List.of());
+        when(documents.findAllByUserIdAndChartIdInAndKindOrderByCreatedAtDesc(
+                1L, List.of(10L), ReportKind.SNAPSHOT)).thenReturn(List.of());
+        when(contextService.build(1L, 5L)).thenReturn(context);
+        when(evidenceResolver.resolve(context, List.of(), List.of(), List.of())).thenReturn(qualitative);
+        when(ai.analyzeSession(any(SessionAiAnalysisRequest.class))).thenReturn(
+                new SessionAiAnalysisResponse(80, "summary", List.of(), List.of(),
+                        null, null, List.of(), List.of())
+        );
+        doAnswer(invocation -> ((java.util.function.Supplier<?>) invocation.getArgument(0)).get())
+                .when(transactionExecutor).readOnly(any());
+        doThrow(new TransactionSystemException("commit failed"))
+                .when(transactionExecutor).write(any());
+        SessionReportAnalysisService service = new SessionReportAnalysisService(
+                sessions, charts, trades, events, documents,
+                mock(TrainingSessionCandleRepository.class), ai, mock(TrainingEventService.class),
+                new ObjectMapper(), contextService, evidenceResolver, transactionExecutor
+        );
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service.analyzeSession(1L, 5L)
+        );
+
+        assertEquals(ErrorCode.AI_RESULT_SAVE_FAILED, exception.getErrorCode());
+    }
+
     private SessionReportAnalysisService service(TrainingSessionRepository sessions,
                                                   TrainingSessionChartRepository charts,
                                                   AiAnalysisService ai) {
@@ -198,7 +290,8 @@ class SessionReportAnalysisDeterministicContextTest {
                 sessions, charts, mock(TrainingTradeRepository.class), mock(TrainingEventRepository.class),
                 mock(ReportDocumentRepository.class), mock(TrainingSessionCandleRepository.class), ai,
                 mock(TrainingEventService.class), new ObjectMapper(),
-                mock(SessionAiDeterministicContextService.class), mock(SessionQualitativeEvidenceResolver.class)
+                mock(SessionAiDeterministicContextService.class), mock(SessionQualitativeEvidenceResolver.class),
+                new AiAnalysisTransactionExecutor()
         );
     }
 

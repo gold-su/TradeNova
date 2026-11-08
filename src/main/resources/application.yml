@@ -50,6 +50,9 @@ kis:
 openai:
   api-key: ${OPENAI_API_KEY}
   model: gpt-4.1-mini
+  http:
+    connect-timeout: ${OPENAI_CONNECT_TIMEOUT:5s}
+    read-timeout: ${OPENAI_READ_TIMEOUT:90s}
 
 server:
   port: 8080

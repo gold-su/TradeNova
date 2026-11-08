@@ -20,7 +20,10 @@ import com.tradenova.training.repository.TrainingSessionRepository;
 import com.tradenova.training.repository.TrainingTradeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -46,6 +49,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SessionReportAnalysisService {
 
     private final TrainingSessionRepository sessionRepository;
@@ -60,13 +64,12 @@ public class SessionReportAnalysisService {
     private final ObjectMapper objectMapper;
     private final SessionAiDeterministicContextService deterministicContextService;
     private final SessionQualitativeEvidenceResolver qualitativeEvidenceResolver;
+    private final AiAnalysisTransactionExecutor transactionExecutor;
 
-    @Transactional
     public TrainingEventResponse analyzeSession(Long userId, Long sessionId) {
         return analyzeSessionInternal(userId, sessionId, null);
     }
 
-    @Transactional
     public TrainingEventResponse analyzeSession(
             Long userId,
             Long sessionId,
@@ -76,6 +79,25 @@ public class SessionReportAnalysisService {
     }
 
     private TrainingEventResponse analyzeSessionInternal(
+            Long userId,
+            Long sessionId,
+            AiReviewLanguage requestedLanguage
+    ) {
+        PreparedSessionAnalysis prepared = transactionExecutor.readOnly(
+                () -> prepareSessionAnalysis(userId, sessionId, requestedLanguage)
+        );
+        SessionAiAnalysisResponse ai = prepared.explicitLanguage()
+                ? aiAnalysisService.analyzeSession(prepared.request(), prepared.language())
+                : aiAnalysisService.analyzeSession(prepared.request());
+        try {
+            return transactionExecutor.write(() -> saveSessionAnalysis(userId, sessionId, prepared, ai));
+        } catch (DataAccessException | TransactionException exception) {
+            log.error("Failed to persist session AI analysis", exception);
+            throw new CustomException(ErrorCode.AI_RESULT_SAVE_FAILED);
+        }
+    }
+
+    private PreparedSessionAnalysis prepareSessionAnalysis(
             Long userId,
             Long sessionId,
             AiReviewLanguage requestedLanguage
@@ -198,13 +220,28 @@ public class SessionReportAnalysisService {
                 qualitativeEvidence
         );
 
-        // 7) AI 분석 실행
-        SessionAiAnalysisResponse ai = requestedLanguage == null
-                ? aiAnalysisService.analyzeSession(request)
-                : aiAnalysisService.analyzeSession(request, language);
+        return new PreparedSessionAnalysis(
+                request,
+                language,
+                requestedLanguage != null,
+                charts.get(0).getId()
+        );
+    }
+
+    private TrainingEventResponse saveSessionAnalysis(
+            Long userId,
+            Long sessionId,
+            PreparedSessionAnalysis prepared,
+            SessionAiAnalysisResponse ai
+    ) {
+        // Re-check after the external call so a result created meanwhile is never overwritten.
+        if (findLatestSessionAiEventOrNull(userId, sessionId) != null) {
+            throw new CustomException(ErrorCode.SESSION_AI_ALREADY_EXISTS);
+        }
+        SessionAiAnalysisRequest request = prepared.request();
 
         // 거래가 발생한 차트 수
-        int tradedChartCount = (int) chartSummaries.stream()
+        int tradedChartCount = (int) request.charts().stream()
                 .filter(SessionChartSummary::traded)
                 .count();
 
@@ -212,21 +249,21 @@ public class SessionReportAnalysisService {
         // "AI 분석 결과 + 메타데이터를 JSON으로 저장하는 공간"
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("analysisScope", "SESSION"); // .put으로 JSON에 key-value 넣기
-        payload.put("sessionId", session.getId());
-        payload.put("reviewLanguage", language.code());
+        payload.put("sessionId", request.sessionId());
+        payload.put("reviewLanguage", prepared.language().code());
         payload.put("score", ai.score());
         payload.put("summary", ai.summary());
 
         payload.put("generatedAt", Instant.now().toString());
         payload.put("analysisVersion", 2);
-        payload.put("hasSnapshots", !snapshots.isEmpty());
+        payload.put("hasSnapshots", !request.snapshots().isEmpty());
         payload.put("tradedChartCount", tradedChartCount);
 
-        payload.put("totalChartCount", charts.size());
-        payload.put("completedChartCount", completedChartCount);
-        payload.put("totalTradeCount", trades.size());
-        payload.put("totalEventCount", events.size());
-        payload.put("snapshotCount", snapshots.size());
+        payload.put("totalChartCount", request.totalChartCount());
+        payload.put("completedChartCount", request.completedChartCount());
+        payload.put("totalTradeCount", request.totalTradeCount());
+        payload.put("totalEventCount", request.totalEventCount());
+        payload.put("snapshotCount", request.snapshots().size());
 
         // 경고 목록
         ArrayNode warningsNode = payload.putArray("warnings");
@@ -245,17 +282,22 @@ public class SessionReportAnalysisService {
         payload.set("behaviorPatterns", objectMapper.valueToTree(ai.behaviorPatterns()));
         payload.set("nextTrainingFocus", objectMapper.valueToTree(ai.nextTrainingFocus()));
 
-        // chartId null 불가라 첫 차트를 대표 chartId로 사용
-        Long representativeChartId = charts.get(0).getId();
-
         // 이벤트 로그로 저장
         return trainingEventService.append(
                 userId,
-                representativeChartId,
+                prepared.representativeChartId(),
                 Type.AI,
-                language == AiReviewLanguage.EN ? "Session AI Review" : "세션 AI 리뷰",
+                prepared.language() == AiReviewLanguage.EN ? "Session AI Review" : "세션 AI 리뷰",
                 payload
         );
+    }
+
+    private record PreparedSessionAnalysis(
+            SessionAiAnalysisRequest request,
+            AiReviewLanguage language,
+            boolean explicitLanguage,
+            Long representativeChartId
+    ) {
     }
 
     /**
