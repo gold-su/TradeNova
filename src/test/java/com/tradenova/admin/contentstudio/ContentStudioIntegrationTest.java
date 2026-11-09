@@ -24,8 +24,10 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,11 +48,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
         "spring.sql.init.mode=never",
         "tradenova.jwt.secret=0123456789012345678901234567890123456789012345678901234567890123",
+        "app.content-studio.case-key-secret=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
         "tradenova.jwt.access-token-validity-in-seconds=3600",
         "openai.api-key=test",
         "kis.appkey=test",
         "kis.appsecret=test",
-        "app.beta.public-enabled=true"
+        "app.beta.public-enabled=false"
 })
 class ContentStudioIntegrationTest {
 
@@ -150,7 +153,13 @@ class ContentStudioIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(objectMapper.readTree(sameSeedJson).path("caseKey").asText()).isEqualTo(caseKey);
+        JsonNode sameSeed = objectMapper.readTree(sameSeedJson);
+        assertThat(sameSeed.path("candles")).isEqualTo(random.path("candles"));
+
+        byte[] encryptedKey = Base64.getUrlDecoder().decode(caseKey);
+        assertThat(encryptedKey).hasSizeGreaterThan(25);
+        assertThat(ByteBuffer.wrap(encryptedKey, 1, Long.BYTES).getLong())
+                .isNotEqualTo(symbols.findAll().get(0).getId());
 
         String nextJson = mvc.perform(get("/api/admin/content-studio/cases/{caseKey}", caseKey)
                         .param("throughIndex", "84")
@@ -175,6 +184,23 @@ class ContentStudioIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertThat(objectMapper.readTree(repeatedNextJson)).isEqualTo(objectMapper.readTree(nextJson));
+
+        mvc.perform(get("/api/admin/content-studio/cases/{caseKey}", tamper(caseKey))
+                        .header("Authorization", bearer(admin)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("CONTENT_STUDIO_CASE_INVALID"));
+
+        String legacyCaseKey = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteBuffer.allocate(25)
+                .put((byte) 1)
+                .putLong(symbols.findAll().get(0).getId())
+                .putLong(marketCandles.findAll().get(0).getId())
+                .putInt(80)
+                .putInt(40)
+                .array());
+        mvc.perform(get("/api/admin/content-studio/cases/{caseKey}", legacyCaseKey)
+                        .header("Authorization", bearer(admin)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("CONTENT_STUDIO_CASE_INVALID"));
 
         mvc.perform(get("/api/admin/content-studio/cases/{caseKey}/reveal", caseKey)
                         .header("Authorization", bearer(admin)))
@@ -211,5 +237,12 @@ class ContentStudioIntegrationTest {
 
     private String bearer(User user) {
         return "Bearer " + jwtTokenProvider.generateAccessToken(user);
+    }
+
+    private String tamper(String caseKey) {
+        char[] characters = caseKey.toCharArray();
+        int index = characters.length / 2;
+        characters[index] = characters[index] == 'A' ? 'B' : 'A';
+        return new String(characters);
     }
 }

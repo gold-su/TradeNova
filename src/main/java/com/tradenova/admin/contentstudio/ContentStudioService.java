@@ -10,8 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.ByteBuffer;
-import java.util.Base64;
 import java.util.List;
 import java.util.SplittableRandom;
 import java.util.concurrent.ThreadLocalRandom;
@@ -24,11 +22,9 @@ public class ContentStudioService {
 
     static final int DEFAULT_ANALYSIS_BARS = 80;
     static final int DEFAULT_FUTURE_BARS = 40;
-    private static final byte CASE_KEY_VERSION = 1;
-    private static final int CASE_KEY_BYTES = 25;
-
     private final MarketCandleRepository marketCandles;
     private final SymbolRepository symbols;
+    private final ContentStudioCaseKeyCodec caseKeyCodec;
 
     public BlindContentCaseResponse randomCase(ContentStudioRandomRequest request) {
         int analysisBars = request != null && request.analysisBars() != null
@@ -54,7 +50,8 @@ public class ContentStudioService {
 
         int startIndex = random.nextInt(maxStartIndex + 1);
         long startCandleId = storedCandles.get(startIndex).getId();
-        String caseKey = encodeCaseKey(new CaseDescriptor(symbolId, startCandleId, analysisBars, futureBars));
+        String caseKey = caseKeyCodec.encode(new ContentStudioCaseKeyCodec.CaseDescriptor(
+                symbolId, startCandleId, analysisBars, futureBars));
         return loadBlindCase(caseKey, null);
     }
 
@@ -109,7 +106,7 @@ public class ContentStudioService {
     }
 
     private LoadedCase loadCase(String caseKey) {
-        CaseDescriptor descriptor = decodeCaseKey(caseKey);
+        ContentStudioCaseKeyCodec.CaseDescriptor descriptor = caseKeyCodec.decode(caseKey);
         Symbol symbol = symbols.findById(descriptor.symbolId())
                 .orElseThrow(() -> new CustomException(ErrorCode.CONTENT_STUDIO_CASE_INVALID));
         List<MarketCandle> allCandles = marketCandles.findAllBySymbol_IdOrderByCandleDateAsc(symbol.getId());
@@ -137,42 +134,8 @@ public class ContentStudioService {
                 candle.getLowPrice(), candle.getClosePrice(), candle.getVolume());
     }
 
-    private String encodeCaseKey(CaseDescriptor descriptor) {
-        ByteBuffer buffer = ByteBuffer.allocate(CASE_KEY_BYTES);
-        buffer.put(CASE_KEY_VERSION);
-        buffer.putLong(descriptor.symbolId());
-        buffer.putLong(descriptor.startCandleId());
-        buffer.putInt(descriptor.analysisBars());
-        buffer.putInt(descriptor.futureBars());
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(buffer.array());
-    }
-
-    private CaseDescriptor decodeCaseKey(String caseKey) {
-        try {
-            byte[] bytes = Base64.getUrlDecoder().decode(caseKey);
-            if (bytes.length != CASE_KEY_BYTES) {
-                throw new IllegalArgumentException("Unexpected case key length");
-            }
-            ByteBuffer buffer = ByteBuffer.wrap(bytes);
-            if (buffer.get() != CASE_KEY_VERSION) {
-                throw new IllegalArgumentException("Unsupported case key version");
-            }
-            long symbolId = buffer.getLong();
-            long startCandleId = buffer.getLong();
-            int analysisBars = buffer.getInt();
-            int futureBars = buffer.getInt();
-            if (symbolId <= 0 || startCandleId <= 0 || analysisBars < 20 || analysisBars > 240 || futureBars < 1 || futureBars > 120) {
-                throw new IllegalArgumentException("Invalid case key values");
-            }
-            return new CaseDescriptor(symbolId, startCandleId, analysisBars, futureBars);
-        } catch (IllegalArgumentException exception) {
-            throw new CustomException(ErrorCode.CONTENT_STUDIO_CASE_INVALID);
-        }
-    }
-
-    private record CaseDescriptor(long symbolId, long startCandleId, int analysisBars, int futureBars) {
-    }
-
-    private record LoadedCase(CaseDescriptor descriptor, Symbol symbol, List<MarketCandle> window) {
+    private record LoadedCase(ContentStudioCaseKeyCodec.CaseDescriptor descriptor,
+                              Symbol symbol,
+                              List<MarketCandle> window) {
     }
 }

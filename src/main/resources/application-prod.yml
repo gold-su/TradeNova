@@ -29,6 +29,8 @@ app:
     public-enabled: ${APP_BETA_PUBLIC_ENABLED:false}
   dev:
     allow-any-verify-code: ${APP_DEV_ALLOW_ANY_VERIFY_CODE:false}
+  content-studio:
+    case-key-secret: ${APP_CONTENT_STUDIO_CASE_KEY_SECRET}
 
 tradenova:
   jwt:
