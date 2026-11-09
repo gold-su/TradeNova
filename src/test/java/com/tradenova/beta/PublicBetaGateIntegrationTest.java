@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
         "spring.sql.init.mode=never",
         "tradenova.jwt.secret=0123456789012345678901234567890123456789012345678901234567890123",
+        "app.content-studio.case-key-secret=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
         "openai.api-key=test",
         "kis.appkey=test",
         "kis.appsecret=test",
