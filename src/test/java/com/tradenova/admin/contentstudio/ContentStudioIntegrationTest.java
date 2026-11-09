@@ -117,6 +117,36 @@ class ContentStudioIntegrationTest {
                         .header("Authorization", bearer(admin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.allowed").value(true));
+
+        String adminCase = mvc.perform(post("/api/admin/content-studio/cases/random")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String caseKey = objectMapper.readTree(adminCase).path("caseKey").asText();
+
+        mvc.perform(post("/api/admin/content-studio/cases/random")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/admin/content-studio/cases/random")
+                        .header("Authorization", bearer(regularUser))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/admin/content-studio/cases/{caseKey}", caseKey))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/admin/content-studio/cases/{caseKey}", caseKey)
+                        .header("Authorization", bearer(regularUser)))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/admin/content-studio/cases/{caseKey}/reveal", caseKey))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/admin/content-studio/cases/{caseKey}/reveal", caseKey)
+                        .header("Authorization", bearer(regularUser)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
