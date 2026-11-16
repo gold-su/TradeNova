@@ -32,6 +32,13 @@ public class ContentStudioController {
         return ResponseEntity.ok(contentStudioService.randomCase(request));
     }
 
+    @PostMapping("/cases/recommended")
+    public ResponseEntity<BlindContentCaseResponse> recommendedCase(
+            @Valid @RequestBody(required = false) ContentStudioRandomRequest request
+    ) {
+        return ResponseEntity.ok(contentStudioService.recommendedCase(request));
+    }
+
     @GetMapping("/cases/{caseKey}")
     public ResponseEntity<BlindContentCaseResponse> loadCase(
             @PathVariable String caseKey,

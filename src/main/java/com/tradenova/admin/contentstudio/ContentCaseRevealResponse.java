@@ -15,6 +15,7 @@ public record ContentCaseRevealResponse(
         LocalDate endDate,
         int analysisBars,
         int futureBars,
-        List<RevealedCandleResponse> candles
+        List<RevealedCandleResponse> candles,
+        ContentCaseAnalysisResponse analysis
 ) {
 }

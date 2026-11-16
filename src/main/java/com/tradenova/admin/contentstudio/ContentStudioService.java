@@ -10,7 +10,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.SplittableRandom;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
@@ -25,8 +29,20 @@ public class ContentStudioService {
     private final MarketCandleRepository marketCandles;
     private final SymbolRepository symbols;
     private final ContentStudioCaseKeyCodec caseKeyCodec;
+    private final ContentCaseClassifier caseClassifier;
 
     public BlindContentCaseResponse randomCase(ContentStudioRandomRequest request) {
+        try {
+            return recommendedCase(request);
+        } catch (CustomException exception) {
+            if (exception.getErrorCode() != ErrorCode.CONTENT_STUDIO_NO_MEANINGFUL_CASE) {
+                throw exception;
+            }
+            return randomStoredCase(request);
+        }
+    }
+
+    private BlindContentCaseResponse randomStoredCase(ContentStudioRandomRequest request) {
         int analysisBars = request != null && request.analysisBars() != null
                 ? request.analysisBars() : DEFAULT_ANALYSIS_BARS;
         int futureBars = request != null && request.futureBars() != null
@@ -52,6 +68,72 @@ public class ContentStudioService {
         long startCandleId = storedCandles.get(startIndex).getId();
         String caseKey = caseKeyCodec.encode(new ContentStudioCaseKeyCodec.CaseDescriptor(
                 symbolId, startCandleId, analysisBars, futureBars));
+        return loadBlindCase(caseKey, null);
+    }
+
+    public BlindContentCaseResponse recommendedCase(ContentStudioRandomRequest request) {
+        int analysisBars = request != null && request.analysisBars() != null
+                ? request.analysisBars() : DEFAULT_ANALYSIS_BARS;
+        int futureBars = request != null && request.futureBars() != null
+                ? request.futureBars() : DEFAULT_FUTURE_BARS;
+        long seed = request != null && request.seed() != null
+                ? request.seed() : ThreadLocalRandom.current().nextLong();
+        if (analysisBars < 20 || futureBars < 20) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        int requiredBars = analysisBars + futureBars;
+        List<Long> eligibleSymbolIds = marketCandles.findEligibleActiveSymbolIds(requiredBars);
+        if (eligibleSymbolIds.isEmpty()) {
+            throw new CustomException(ErrorCode.CONTENT_STUDIO_DATA_INSUFFICIENT);
+        }
+
+        Map<Long, List<MarketCandle>> candlesBySymbol = new LinkedHashMap<>();
+        for (MarketCandle candle : marketCandles.findAllBySymbolIdsOrderBySymbolAndDate(eligibleSymbolIds)) {
+            candlesBySymbol.computeIfAbsent(candle.getSymbol().getId(), ignored -> new ArrayList<>()).add(candle);
+        }
+
+        Map<ContentCaseType, Map<Long, List<RecommendedCandidate>>> candidates =
+                new EnumMap<>(ContentCaseType.class);
+        int validWindows = 0;
+        for (Long symbolId : eligibleSymbolIds) {
+            List<MarketCandle> stored = candlesBySymbol.getOrDefault(symbolId, List.of());
+            int maxStartIndex = stored.size() - requiredBars;
+            for (int startIndex = 0; startIndex <= maxStartIndex; startIndex++) {
+                List<MarketCandle> window = stored.subList(startIndex, startIndex + requiredBars);
+                var evaluation = caseClassifier.evaluate(window, analysisBars);
+                if (evaluation.isEmpty()) {
+                    continue;
+                }
+                validWindows++;
+                if (!evaluation.get().isMeaningful()) {
+                    continue;
+                }
+                ContentCaseType type = evaluation.get().primaryType();
+                candidates.computeIfAbsent(type, ignored -> new LinkedHashMap<>())
+                        .computeIfAbsent(symbolId, ignored -> new ArrayList<>())
+                        .add(new RecommendedCandidate(symbolId, stored.get(startIndex).getId()));
+            }
+        }
+
+        if (validWindows == 0) {
+            throw new CustomException(ErrorCode.CONTENT_STUDIO_NO_VALID_CASE);
+        }
+        if (candidates.isEmpty()) {
+            throw new CustomException(ErrorCode.CONTENT_STUDIO_NO_MEANINGFUL_CASE);
+        }
+
+        SplittableRandom random = new SplittableRandom(seed);
+        List<ContentCaseType> availableTypes = candidates.keySet().stream().sorted().toList();
+        ContentCaseType selectedType = availableTypes.get(random.nextInt(availableTypes.size()));
+        Map<Long, List<RecommendedCandidate>> bySymbol = candidates.get(selectedType);
+        List<Long> symbolIds = bySymbol.keySet().stream().sorted().toList();
+        Long selectedSymbolId = symbolIds.get(random.nextInt(symbolIds.size()));
+        List<RecommendedCandidate> symbolCandidates = bySymbol.get(selectedSymbolId);
+        RecommendedCandidate selected = symbolCandidates.get(random.nextInt(symbolCandidates.size()));
+
+        String caseKey = caseKeyCodec.encode(new ContentStudioCaseKeyCodec.CaseDescriptor(
+                selected.symbolId(), selected.startCandleId(), analysisBars, futureBars));
         return loadBlindCase(caseKey, null);
     }
 
@@ -89,6 +171,10 @@ public class ContentStudioService {
                 .mapToObj(index -> toRevealedCandle(index, window.get(index)))
                 .toList();
 
+        ContentCaseAnalysisResponse analysis = caseClassifier.evaluate(window, loaded.descriptor().analysisBars())
+                .map(ContentCaseClassifier.Evaluation::toResponse)
+                .orElse(null);
+
         return new ContentCaseRevealResponse(
                 caseKey,
                 symbol.getId(),
@@ -101,7 +187,8 @@ public class ContentStudioService {
                 window.get(window.size() - 1).getCandleDate(),
                 loaded.descriptor().analysisBars(),
                 loaded.descriptor().futureBars(),
-                candles
+                candles,
+                analysis
         );
     }
 
@@ -137,5 +224,8 @@ public class ContentStudioService {
     private record LoadedCase(ContentStudioCaseKeyCodec.CaseDescriptor descriptor,
                               Symbol symbol,
                               List<MarketCandle> window) {
+    }
+
+    private record RecommendedCandidate(Long symbolId, Long startCandleId) {
     }
 }

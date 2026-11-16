@@ -135,6 +135,11 @@ class ContentStudioIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/content-studio/cases/recommended")
+                        .header("Authorization", bearer(regularUser))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
 
         mvc.perform(get("/api/admin/content-studio/cases/{caseKey}", caseKey))
                 .andExpect(status().isUnauthorized());
@@ -263,6 +268,71 @@ class ContentStudioIntegrationTest {
                 .andExpect(jsonPath("$.error").value("CONTENT_STUDIO_DATA_INSUFFICIENT"));
 
         assertThat(marketCandles.count()).isEqualTo(marketCount);
+    }
+
+    @Test
+    void recommendsMeaningfulCaseWithoutLeakingFutureClassificationBeforeReveal() throws Exception {
+        Symbol eventSymbol = symbols.save(Symbol.builder()
+                .market("KOSDAQ")
+                .ticker("000002")
+                .name("Meaningful event symbol")
+                .currency("KRW")
+                .active(true)
+                .build());
+        List<MarketCandle> eventCandles = new ArrayList<>();
+        LocalDate start = LocalDate.of(2021, 1, 4);
+        for (int index = 0; index < 130; index++) {
+            double close = index < 90 ? 10_000 : 11_500;
+            eventCandles.add(MarketCandle.builder()
+                    .symbol(eventSymbol)
+                    .candleDate(start.plusDays(index))
+                    .openPrice(close)
+                    .highPrice(close + 50)
+                    .lowPrice(close - 50)
+                    .closePrice(close)
+                    .volume(200_000L)
+                    .build());
+        }
+        marketCandles.saveAll(eventCandles);
+
+        String blindJson = mvc.perform(post("/api/admin/content-studio/cases/random")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"seed":31,"analysisBars":80,"futureBars":40}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.candles.length()").value(80))
+                .andExpect(jsonPath("$.ticker").doesNotExist())
+                .andExpect(jsonPath("$.startDate").doesNotExist())
+                .andExpect(jsonPath("$.analysis").doesNotExist())
+                .andExpect(jsonPath("$.primaryType").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+
+        String caseKey = objectMapper.readTree(blindJson).path("caseKey").asText();
+        mvc.perform(get("/api/admin/content-studio/cases/{caseKey}/reveal", caseKey)
+                        .header("Authorization", bearer(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ticker").value("000002"))
+                .andExpect(jsonPath("$.analysis.primaryType").isNotEmpty())
+                .andExpect(jsonPath("$.analysis.matchedTypes").isArray())
+                .andExpect(jsonPath("$.analysis.decisionClose").isNumber())
+                .andExpect(jsonPath("$.analysis.closeReturn5dPct").isNumber())
+                .andExpect(jsonPath("$.analysis.closeReturn10dPct").isNumber())
+                .andExpect(jsonPath("$.analysis.closeReturn20dPct").isNumber())
+                .andExpect(jsonPath("$.analysis.futureMaxHighReturnPct").isNumber())
+                .andExpect(jsonPath("$.analysis.futureMinLowReturnPct").isNumber())
+                .andExpect(jsonPath("$.analysis.futureFinalCloseReturnPct").isNumber());
+    }
+
+    @Test
+    void explainsWhenStoredWindowsHaveNoMeaningfulMovement() throws Exception {
+        mvc.perform(post("/api/admin/content-studio/cases/recommended")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error").value("CONTENT_STUDIO_NO_MEANINGFUL_CASE"));
     }
 
     private String bearer(User user) {

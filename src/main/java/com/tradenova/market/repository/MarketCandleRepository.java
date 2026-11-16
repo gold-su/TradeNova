@@ -29,6 +29,14 @@ public interface MarketCandleRepository extends JpaRepository<MarketCandle, Long
 
     List<MarketCandle> findAllBySymbol_IdOrderByCandleDateAsc(Long symbolId);
 
+    @Query("""
+            select candle
+            from MarketCandle candle
+            where candle.symbol.id in :symbolIds
+            order by candle.symbol.id, candle.candleDate
+            """)
+    List<MarketCandle> findAllBySymbolIdsOrderBySymbolAndDate(@Param("symbolIds") List<Long> symbolIds);
+
     /**
      * 특정 종목의 특정 기간 일봉 조회
      *
