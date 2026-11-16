@@ -4,6 +4,10 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
+app:
+  content-studio:
+    case-key-secret: ${APP_CONTENT_STUDIO_CASE_KEY_SECRET:${JWT_SECRET}}
+
 tradenova:
   jwt:
     secret: ${JWT_SECRET}
