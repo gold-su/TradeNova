@@ -58,4 +58,34 @@ public interface MarketCandleRepository extends JpaRepository<MarketCandle, Long
             Long symbolId,
             LocalDate candleDate
     );
+
+    @Query("""
+            select new com.tradenova.market.repository.MarketCandleCoverage(
+                candle.symbol.id,
+                count(candle.id),
+                min(candle.candleDate),
+                max(candle.candleDate)
+            )
+            from MarketCandle candle
+            where candle.symbol.id in :symbolIds
+              and candle.candleDate between :fromDate and :toDate
+            group by candle.symbol.id
+            """)
+    List<MarketCandleCoverage> findCoverageBySymbolIdsAndDateRange(
+            @Param("symbolIds") List<Long> symbolIds,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate
+    );
+
+    @Query("""
+            select candle.candleDate
+            from MarketCandle candle
+            where candle.symbol.id = :symbolId
+              and candle.candleDate between :fromDate and :toDate
+            """)
+    List<LocalDate> findCandleDates(
+            @Param("symbolId") Long symbolId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate
+    );
 }
