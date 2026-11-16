@@ -87,7 +87,7 @@ public class ContentStudioMarketDataCollector {
         }
 
         long weekdayUpperBound = countWeekdays(range.fromDate(), range.toDate());
-        long requestsPerSymbol = divideRoundUp(weekdayUpperBound, KIS_PAGE_SIZE);
+        long requestsPerSymbol = weekdayUpperBound / KIS_PAGE_SIZE + 1;
         long totalNewUpperBound = 0;
         int existingSymbolCount = 0;
         List<ContentStudioCollectionPlanResponse.SymbolPlan> plans = new ArrayList<>();
@@ -321,10 +321,6 @@ public class ContentStudioMarketDataCollector {
             }
         }
         return count;
-    }
-
-    private long divideRoundUp(long value, long divisor) {
-        return value == 0 ? 0 : (value + divisor - 1) / divisor;
     }
 
     private String key(String market, String ticker) {
