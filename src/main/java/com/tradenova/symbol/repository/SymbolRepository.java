@@ -16,6 +16,8 @@ public interface SymbolRepository extends JpaRepository<Symbol, Long> {
      */
     Optional<Symbol> findByMarketAndTicker(String market, String ticker);
 
+    List<Symbol> findAllByTickerIn(List<String> tickers);
+
     /**
      * (market, ticker) 존재 여부만 빠르게 확인
      * - Seed/초기 적재 시 중복 insert 방지용

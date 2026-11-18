@@ -2,6 +2,10 @@ package com.tradenova.admin.contentstudio;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tradenova.common.exception.CustomException;
+import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.kis.dto.CandleDto;
+import com.tradenova.kis.service.KisMarketDataService;
 import com.tradenova.market.entity.MarketCandle;
 import com.tradenova.market.repository.MarketCandleRepository;
 import com.tradenova.paper.repository.PaperAccountRepository;
@@ -18,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
@@ -26,11 +31,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,6 +64,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "openai.api-key=test",
         "kis.appkey=test",
         "kis.appsecret=test",
+        "app.content-studio.bulk-collector.enabled=true",
+        "app.content-studio.bulk-collector.request-delay-ms=0",
+        "app.content-studio.bulk-collector.retry-base-delay-ms=0",
         "app.beta.public-enabled=false"
 })
 class ContentStudioIntegrationTest {
@@ -67,6 +81,7 @@ class ContentStudioIntegrationTest {
     @Autowired TrainingEventRepository trainingEvents;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired JwtTokenProvider jwtTokenProvider;
+    @MockBean KisMarketDataService kisMarketDataService;
 
     private User admin;
     private User regularUser;
@@ -333,6 +348,201 @@ class ContentStudioIntegrationTest {
                         .content("{}"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error").value("CONTENT_STUDIO_NO_MEANINGFUL_CASE"));
+    }
+
+    @Test
+    void dryRunIsAdminOnlyAndNeverCallsKis() throws Exception {
+        String request = """
+                {"fromDate":"2024-01-01","toDate":"2024-12-31"}
+                """;
+
+        mvc.perform(post("/api/admin/content-studio/market-data/dry-run")
+                        .header("Authorization", bearer(regularUser))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/admin/content-studio/market-data/dry-run")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.targetSymbolCount").value(40))
+                .andExpect(jsonPath("$.existingSymbolCount").value(10))
+                .andExpect(jsonPath("$.plannedSymbolInsertCount").value(30))
+                .andExpect(jsonPath("$.estimatedApiRequestUpperBound").value(120))
+                .andExpect(jsonPath("$.symbols.length()").value(40));
+
+        verifyNoInteractions(kisMarketDataService);
+    }
+
+    @Test
+    void collectionReturnsResumeTokenAndRerunDoesNotDuplicateCandles() throws Exception {
+        List<CandleDto> firstPage = List.of(
+                candle(LocalDate.of(2024, 1, 2), 10_000),
+                candle(LocalDate.of(2024, 1, 3), 10_100)
+        );
+        when(kisMarketDataService.getCandles(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(firstPage);
+
+        String request = """
+                {"fromDate":"2024-01-01","toDate":"2024-12-31","maxRequests":1}
+                """;
+        String firstJson = mvc.perform(post("/api/admin/content-studio/market-data/collect")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.completed").value(false))
+                .andExpect(jsonPath("$.savedCandles").value(2))
+                .andExpect(jsonPath("$.nextSymbolIndex").value(1))
+                .andExpect(jsonPath("$.nextTicker").value("000270"))
+                .andReturn().getResponse().getContentAsString();
+
+        String resumeToken = objectMapper.readTree(firstJson).path("nextResumeToken").asText();
+        assertThat(resumeToken).isNotBlank();
+        assertThat(symbols.findByMarketAndTicker("KOSPI", "000100")).isPresent();
+
+        mvc.perform(post("/api/admin/content-studio/market-data/collect")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.savedCandles").value(0))
+                .andExpect(jsonPath("$.existingCandlesSkipped").value(2));
+
+        when(kisMarketDataService.getCandles(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(List.of(candle(LocalDate.of(2024, 2, 1), 20_000)));
+        mvc.perform(post("/api/admin/content-studio/market-data/collect")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromDate":"2024-01-01","toDate":"2024-12-31", "maxRequests":1,
+                                 "resumeToken":"%s"}
+                                """.formatted(resumeToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.savedCandles").value(1))
+                .andExpect(jsonPath("$.pages[0].ticker").value("000270"));
+    }
+
+    @Test
+    void collectionBackfillsMissingMiddleCandleWithoutDuplicatingNeighbors() throws Exception {
+        Symbol target = symbols.save(Symbol.builder()
+                .market("KOSPI")
+                .ticker("000100")
+                .name("Yuhan")
+                .currency("KRW")
+                .active(true)
+                .build());
+        marketCandles.saveAll(List.of(
+                MarketCandle.builder()
+                        .symbol(target)
+                        .candleDate(LocalDate.of(2024, 1, 2))
+                        .openPrice(9_990.0)
+                        .highPrice(10_020.0)
+                        .lowPrice(9_980.0)
+                        .closePrice(10_000.0)
+                        .volume(100_000L)
+                        .build(),
+                MarketCandle.builder()
+                        .symbol(target)
+                        .candleDate(LocalDate.of(2024, 1, 4))
+                        .openPrice(10_190.0)
+                        .highPrice(10_220.0)
+                        .lowPrice(10_180.0)
+                        .closePrice(10_200.0)
+                        .volume(100_000L)
+                        .build()
+        ));
+        when(kisMarketDataService.getCandles(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(List.of(
+                        candle(LocalDate.of(2024, 1, 2), 10_000),
+                        candle(LocalDate.of(2024, 1, 3), 10_100),
+                        candle(LocalDate.of(2024, 1, 4), 10_200)
+                ));
+
+        mvc.perform(post("/api/admin/content-studio/market-data/collect")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromDate":"2024-01-02","toDate":"2024-01-04","maxRequests":1}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.savedCandles").value(1))
+                .andExpect(jsonPath("$.existingCandlesSkipped").value(2))
+                .andExpect(jsonPath("$.invalidCandlesSkipped").value(0));
+
+        assertThat(marketCandles.findAllBySymbol_IdAndCandleDateBetweenOrderByCandleDateAsc(
+                target.getId(), LocalDate.of(2024, 1, 2), LocalDate.of(2024, 1, 4)))
+                .extracting(MarketCandle::getCandleDate)
+                .containsExactly(
+                        LocalDate.of(2024, 1, 2),
+                        LocalDate.of(2024, 1, 3),
+                        LocalDate.of(2024, 1, 4)
+                );
+    }
+
+    @Test
+    void collectionRetriesTransientKisFailure() throws Exception {
+        when(kisMarketDataService.getCandles(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenThrow(new CustomException(ErrorCode.KIS_API_CALL_FAILED))
+                .thenReturn(List.of(candle(LocalDate.of(2024, 3, 4), 30_000)));
+
+        mvc.perform(post("/api/admin/content-studio/market-data/collect")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromDate":"2024-01-01","toDate":"2024-12-31","maxRequests":1}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requestsMade").value(1))
+                .andExpect(jsonPath("$.pages[0].attempts").value(2));
+
+        verify(kisMarketDataService, times(2))
+                .getCandles("J", "000100", "20240101", "20241231", "D", "0");
+    }
+
+    @Test
+    void collectionPaginatesBackwardInOneHundredCandlePages() throws Exception {
+        List<CandleDto> page = new ArrayList<>();
+        LocalDate oldest = LocalDate.of(2024, 9, 1);
+        for (int index = 0; index < 100; index++) {
+            page.add(candle(oldest.plusDays(index), 40_000 + index));
+        }
+        when(kisMarketDataService.getCandles(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(page)
+                .thenReturn(List.of());
+
+        String firstJson = mvc.perform(post("/api/admin/content-studio/market-data/collect")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromDate":"2024-01-01","toDate":"2024-12-31","maxRequests":1}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.savedCandles").value(100))
+                .andExpect(jsonPath("$.nextSymbolIndex").value(0))
+                .andExpect(jsonPath("$.nextTicker").value("000100"))
+                .andReturn().getResponse().getContentAsString();
+
+        String token = objectMapper.readTree(firstJson).path("nextResumeToken").asText();
+        mvc.perform(post("/api/admin/content-studio/market-data/collect")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromDate":"2024-01-01","toDate":"2024-12-31","maxRequests":1,
+                                 "resumeToken":"%s"}
+                                """.formatted(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nextSymbolIndex").value(1));
+
+        verify(kisMarketDataService)
+                .getCandles("J", "000100", "20240101", "20240831", "D", "0");
+    }
+
+    private CandleDto candle(LocalDate date, double close) {
+        long timestamp = date.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant().toEpochMilli();
+        return new CandleDto(timestamp, close - 10, close + 20, close - 20, close, 100_000);
     }
 
     private String bearer(User user) {
