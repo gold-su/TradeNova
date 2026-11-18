@@ -426,6 +426,63 @@ class ContentStudioIntegrationTest {
     }
 
     @Test
+    void collectionBackfillsMissingMiddleCandleWithoutDuplicatingNeighbors() throws Exception {
+        Symbol target = symbols.save(Symbol.builder()
+                .market("KOSPI")
+                .ticker("000100")
+                .name("Yuhan")
+                .currency("KRW")
+                .active(true)
+                .build());
+        marketCandles.saveAll(List.of(
+                MarketCandle.builder()
+                        .symbol(target)
+                        .candleDate(LocalDate.of(2024, 1, 2))
+                        .openPrice(9_990.0)
+                        .highPrice(10_020.0)
+                        .lowPrice(9_980.0)
+                        .closePrice(10_000.0)
+                        .volume(100_000L)
+                        .build(),
+                MarketCandle.builder()
+                        .symbol(target)
+                        .candleDate(LocalDate.of(2024, 1, 4))
+                        .openPrice(10_190.0)
+                        .highPrice(10_220.0)
+                        .lowPrice(10_180.0)
+                        .closePrice(10_200.0)
+                        .volume(100_000L)
+                        .build()
+        ));
+        when(kisMarketDataService.getCandles(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(List.of(
+                        candle(LocalDate.of(2024, 1, 2), 10_000),
+                        candle(LocalDate.of(2024, 1, 3), 10_100),
+                        candle(LocalDate.of(2024, 1, 4), 10_200)
+                ));
+
+        mvc.perform(post("/api/admin/content-studio/market-data/collect")
+                        .header("Authorization", bearer(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fromDate":"2024-01-02","toDate":"2024-01-04","maxRequests":1}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.savedCandles").value(1))
+                .andExpect(jsonPath("$.existingCandlesSkipped").value(2))
+                .andExpect(jsonPath("$.invalidCandlesSkipped").value(0));
+
+        assertThat(marketCandles.findAllBySymbol_IdAndCandleDateBetweenOrderByCandleDateAsc(
+                target.getId(), LocalDate.of(2024, 1, 2), LocalDate.of(2024, 1, 4)))
+                .extracting(MarketCandle::getCandleDate)
+                .containsExactly(
+                        LocalDate.of(2024, 1, 2),
+                        LocalDate.of(2024, 1, 3),
+                        LocalDate.of(2024, 1, 4)
+                );
+    }
+
+    @Test
     void collectionRetriesTransientKisFailure() throws Exception {
         when(kisMarketDataService.getCandles(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenThrow(new CustomException(ErrorCode.KIS_API_CALL_FAILED))
