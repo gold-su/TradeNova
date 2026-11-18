@@ -33,7 +33,7 @@ public class ContentStudioMarketDataCollector {
 
     private static final int KIS_PAGE_SIZE = 100;
     private static final int DEFAULT_MAX_REQUESTS = 10;
-    private static final int MAX_RETRIES = 3;
+    private static final int DEFAULT_MAX_RETRIES = 3;
     private static final long MAX_RANGE_DAYS = 3_653;
     private static final DateTimeFormatter KIS_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
@@ -46,6 +46,7 @@ public class ContentStudioMarketDataCollector {
     private final boolean executionEnabled;
     private final long requestDelayMillis;
     private final long retryBaseDelayMillis;
+    private final int maxRetries;
 
     public ContentStudioMarketDataCollector(
             SymbolRepository symbols,
@@ -55,7 +56,8 @@ public class ContentStudioMarketDataCollector {
             ContentStudioCollectionCursorCodec cursorCodec,
             @Value("${app.content-studio.bulk-collector.enabled:false}") boolean executionEnabled,
             @Value("${app.content-studio.bulk-collector.request-delay-ms:100}") long requestDelayMillis,
-            @Value("${app.content-studio.bulk-collector.retry-base-delay-ms:250}") long retryBaseDelayMillis
+            @Value("${app.content-studio.bulk-collector.retry-base-delay-ms:250}") long retryBaseDelayMillis,
+            @Value("${app.content-studio.bulk-collector.max-retries:3}") int maxRetries
     ) {
         this.symbols = symbols;
         this.candles = candles;
@@ -65,6 +67,7 @@ public class ContentStudioMarketDataCollector {
         this.executionEnabled = executionEnabled;
         this.requestDelayMillis = Math.max(0, requestDelayMillis);
         this.retryBaseDelayMillis = Math.max(0, retryBaseDelayMillis);
+        this.maxRetries = Math.max(1, Math.min(DEFAULT_MAX_RETRIES, maxRetries));
     }
 
     @Transactional(readOnly = true)
@@ -207,13 +210,13 @@ public class ContentStudioMarketDataCollector {
     private FetchResult fetchWithRetry(ContentStudioMarketDataCatalog.TargetSymbol target,
                                        LocalDate fromDate, LocalDate toDate) {
         CustomException lastFailure = null;
-        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 List<CandleDto> result = kisMarketDataService.getCandles(
                         "J", target.ticker(), fromDate.format(KIS_DATE), toDate.format(KIS_DATE), "D", "0");
                 return new FetchResult(result == null ? List.of() : result, attempt);
             } catch (CustomException exception) {
-                if (!isRetryable(exception) || attempt == MAX_RETRIES) {
+                if (!isRetryable(exception) || attempt == maxRetries) {
                     throw exception;
                 }
                 lastFailure = exception;
