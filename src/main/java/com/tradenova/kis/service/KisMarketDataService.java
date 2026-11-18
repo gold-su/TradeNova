@@ -2,6 +2,7 @@ package com.tradenova.kis.service;
 
 import com.tradenova.common.exception.CustomException;
 import com.tradenova.common.exception.ErrorCode;
+import com.tradenova.kis.KisApiDiagnostics;
 import com.tradenova.kis.config.kisProperties;
 import com.tradenova.kis.dto.CandleDto;
 import com.tradenova.kis.dto.KisItemChartPriceResponse;
@@ -11,6 +12,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -23,6 +26,7 @@ public class KisMarketDataService  {
     private final RestClient kisRestClient; // (KisRestClientConfig에서 만든 baseUrl 박힌 Bean)
     private final kisProperties props; // (appkey/appsecret/custtype/baseUrl 설정 묶음)
     private final kisTokenProvider tokenProvider; // (토큰 캐시/재발급 담당)
+    private final KisApiDiagnostics diagnostics;
 
     /**
      * 국내주식 기간별 시세 (일/주/월/년) 조회
@@ -70,17 +74,38 @@ public class KisMarketDataService  {
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
                     .body(KisItemChartPriceResponse.class);
-        } catch (Exception e) {
-            //네트워크, 타임아웃, 4xx/5xx 등 통합 처리
+        } catch (RestClientResponseException exception) {
+            diagnostics.logHttpFailure(KisApiDiagnostics.Stage.MARKET_DATA, exception);
+            throw new CustomException(ErrorCode.KIS_API_CALL_FAILED);
+        } catch (RestClientException exception) {
+            diagnostics.logTransportFailure(KisApiDiagnostics.Stage.MARKET_DATA);
             throw new CustomException(ErrorCode.KIS_API_CALL_FAILED);
         }
 
-        if(res == null || res.output2() == null){
+        if (res == null) {
+            diagnostics.logResponseFailure(
+                    KisApiDiagnostics.Stage.MARKET_DATA,
+                    "EMPTY_RESPONSE",
+                    "KIS market-data response was empty"
+            );
             throw new CustomException(ErrorCode.KIS_RESPONSE_EMPTY);
         }
         //rtCd가 "0"이 아니면(= 성공이 아니면) 참 (true)
         if (!"0".equals(res.rtCd())){ // KIS 응답은 "HTTP 200이어도" 내부적으로 실패를 rt_cd로 줄 때가 많아서 이 체크가 매우 종요함.
+            diagnostics.logResponseFailure(
+                    KisApiDiagnostics.Stage.MARKET_DATA,
+                    res.msgCd() == null ? res.rtCd() : res.msgCd(),
+                    res.msg1()
+            );
             throw new CustomException(ErrorCode.KIS_API_ERROR);
+        }
+        if (res.output2() == null) {
+            diagnostics.logResponseFailure(
+                    KisApiDiagnostics.Stage.MARKET_DATA,
+                    "MISSING_CANDLE_DATA",
+                    "KIS market-data response did not contain candle data"
+            );
+            throw new CustomException(ErrorCode.KIS_RESPONSE_EMPTY);
         }
 
         //output2 -> CandleDto 변환

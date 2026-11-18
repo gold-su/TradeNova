@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Instant;
 import java.util.Map;
@@ -20,6 +22,7 @@ public class kisTokenProvider {
     //KIS baseUrl 박힌 RestClient 객체
     private final RestClient kisRestClient;
     private final kisProperties props;
+    private final KisApiDiagnostics diagnostics;
 
     private volatile String cachedToken ;
     private volatile Instant expiresAt; //만료 시각
@@ -46,19 +49,33 @@ public class kisTokenProvider {
             //Client Credentials Grant 형태로 발급 받는 경우가 일반적
             // grant_type=client_credentials
             // KIS 가 내려주는 토큰 응답을 JSON을 자바 객체로 받기 위함.
-            KisTokenResponse res = kisRestClient.post()
-                    .uri(tokenPath)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of(
-                            "grant_type", "client_credentials",
-                            "appkey", props.appkey(),
-                            "appsecret", props.appsecret()
-                    ))
-                    .retrieve()
-                    .body(KisTokenResponse.class);
+            KisTokenResponse res;
+            try {
+                res = kisRestClient.post()
+                        .uri(tokenPath)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(Map.of(
+                                "grant_type", "client_credentials",
+                                "appkey", props.appkey(),
+                                "appsecret", props.appsecret()
+                        ))
+                        .retrieve()
+                        .body(KisTokenResponse.class);
+            } catch (RestClientResponseException exception) {
+                diagnostics.logHttpFailure(KisApiDiagnostics.Stage.OAUTH_TOKEN, exception);
+                throw new CustomException(ErrorCode.KIS_API_CALL_FAILED);
+            } catch (RestClientException exception) {
+                diagnostics.logTransportFailure(KisApiDiagnostics.Stage.OAUTH_TOKEN);
+                throw new CustomException(ErrorCode.KIS_API_CALL_FAILED);
+            }
 
             //응답이 null 이라면 예외 던지기
             if (res == null || res.accessToken() == null){
+                diagnostics.logResponseFailure(
+                        KisApiDiagnostics.Stage.OAUTH_TOKEN,
+                        "INVALID_TOKEN_RESPONSE",
+                        "KIS token response did not contain an access token"
+                );
                 throw new CustomException(ErrorCode.KIS_TOKEN_RESPONSE_INVALID);
             }
 
